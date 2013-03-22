@@ -33,7 +33,7 @@ struct
   }
 
   let get_key node = node.key
-  let get_value node = 
+  let get_value node =
     match node.value with
     | None       -> raise Not_found
     | Some value -> value
@@ -45,11 +45,14 @@ struct
   let set_children node children =
     { node with children = children }
 
-  let add_child node child = 
+  let add_child node child =
     { node with children = child :: node.children }
 end
 
-type ('a,'b) t = ('a,'b) Node.t list
+type ('a,'b) t = {
+  children: ('a,'b) Node.t list;
+  value: 'b option;
+}
 
 let mem_node nodes key =
   List.exists (fun n -> n.Node.key = key) nodes
@@ -73,109 +76,159 @@ let remove_node nodes key =
   in
   aux nodes
 
-let create () = []
+let create () = { children = []; value = None; }
 
-let rec iter f tree = 
+let rec iter f tree =
   let rec aux node =
-    f node.Node.key node.Node.value; 
-    iter f node.Node.children
+    f node.Node.key node.Node.value;
+    List.iter aux node.Node.children
   in
-  List.iter aux tree
+  List.iter aux tree.children
 
-let rec map f tree =
-  let rec aux node =
-    let value = 
-      match node.Node.value with
+let rec list_map_filter f = function
+  | [] -> []
+  | h :: tl -> match f h with
+      | Some h -> h :: list_map_filter f tl
+      | None -> list_map_filter f tl
+
+let map f tree =
+  let rec aux value children = {
+    value = (
+      match value with
       | None       -> None
       | Some value -> f value
-    in
-    { node with Node.value = value; Node.children = map f node.Node.children }
+    );
+    children = (
+      list_map_filter
+        (fun n -> match aux n.Node.value n.Node.children with
+          | { value = None; children = [] } -> None
+          | { value; children } ->
+              Some {Node. key = n.Node.key; value; children})
+        children
+    )
+  }
   in
-  List.filter (fun n -> n.Node.value <> None || n.Node.children <> []) (List.map aux tree)
+  aux tree.value tree.children
 
 let rec fold f tree acc =
   let rec aux accu node =
-    fold f node.Node.children (f node.Node.key node.Node.value accu)
+    List.fold_left aux (f node.Node.key node.Node.value accu) node.Node.children
   in
-  List.fold_left aux acc tree 
+  List.fold_left aux acc tree.children
+
+let rec fold_paths f tree acc =
+  let rec aux acc children value path =
+    let acc =
+      List.fold_left
+        (fun acc n -> aux acc n.Node.children n.Node.value (n.Node.key::path))
+        acc
+        children
+    in
+    match value with Some v -> f acc path v | None -> acc
+  in
+  aux acc tree.children tree.value []
 
 (* return a sub-trie *)
-let rec sub_node tree = function
-  | []   -> raise Not_found
-  | h::t -> 
-      if mem_node tree h
-      then begin
-	let node = find_node tree h in
-	if t = []
-	then node
-	else sub_node node.Node.children t
-      end else
-	raise Not_found
+let rec sub_node tree path =
+  let rec aux children value = function
+    | []      -> { children; value }
+    | h :: tl ->
+        let n = find_node children h in
+        aux n.Node.children n.Node.value tl
+  in
+  aux tree.children tree.value path
 
-let sub tree path = 
-  try (sub_node tree path).Node.children
-  with Not_found -> []
+let sub tree path =
+  try sub_node tree path
+  with Not_found -> { children = []; value = None }
 
-let find tree path = 
-  Node.get_value (sub_node tree path)
+let find tree path =
+  match (sub_node tree path).value with
+  | Some v -> v
+  | None -> raise Not_found
 
 (* return false if the node doesn't exists or if it is not associated to any value *)
-let rec mem tree = function
-  | []   -> false
-  | h::t -> 
-      mem_node tree h
-      && (let node = find_node tree h in 
-	if t = []
-	then node.Node.value <> None
-	else mem node.Node.children t)
+let mem tree path =
+  let rec aux children = function
+    | []   -> false
+    | h::t ->
+        mem_node children h
+        && (let node = find_node children h in
+          if t = []
+          then node.Node.value <> None
+          else aux node.Node.children t)
+  in
+  aux tree.children path
 
 (* Iterate over the longest valid prefix *)
-let rec iter_path f tree = function
-  | []   -> ()
-  | h::l -> 
-      if mem_node tree h
-      then begin
-	let node = find_node tree h in
-	f node.Node.key node.Node.value;
-	iter_path f node.Node.children l
-      end
+let iter_path f tree path =
+  let rec aux children = function
+    | []   -> ()
+    | h::l ->
+        if mem_node children h
+        then begin
+          let node = find_node children h in
+          f node.Node.key node.Node.value;
+          aux node.Node.children l
+        end
+  in
+  aux tree.children path
 
-let rec set_node node path value =
-  if path = [] 
-  then Node.set_value node value
-  else begin
-    let children = set node.Node.children path value in
-    Node.set_children node children
-  end
+let set tree path value =
+  let rec aux children node_value = function
+    | []   -> { children; value = Some value }
+    | h::t ->
+        let children, found =
+          List.fold_right
+            (fun n (acc,found) ->
+              if n.Node.key = h then
+                let { children; value } =
+                  aux n.Node.children n.Node.value t
+                in
+                { n with Node. children; value } :: acc, true
+              else n :: acc, found)
+            children
+            ([], false)
+        in
+        if found then { children; value = node_value }
+        else
+          let sub = aux [] None t in
+          { children =
+              { Node. key = h; value = sub.value; children = sub.children }
+              :: children;
+            value = node_value }
+  in
+  aux tree.children tree.value path
 
-and set tree path value =
-  match path with
-  | []   -> raise Not_found
-  | h::t -> 
-      if mem_node tree h
-      then begin
-	let node = find_node tree h in
-	replace_node tree h (set_node node t value)
-      end else begin
-	let node = Node.empty h in
-	set_node node t value :: tree
-      end
+let unset tree =
+  let rec aux children value = function
+    | []   -> { children; value = None }
+    | h::t ->
+        { children = (
+            list_map_filter
+              (fun n ->
+                if n.Node.key = h then
+                  match aux n.Node.children n.Node.value t with
+                  | { value = None; children = [] } -> None
+                  | { value; children } ->
+                      Some { n with Node. value; children }
+                else Some n)
+              children
+          );
+          value }
+  in
+  aux tree.children tree.value
 
-let rec unset tree = function
-  | []   -> tree
-  | h::t -> 
-      if mem_node tree h
-      then begin
-	let node = find_node tree h in
-	let children = unset node.Node.children t in
-	let new_node =
-	  if t = []
-	  then Node.set_children (Node.empty h) children
-	  else Node.set_children node children
-	in
-	if children = [] && new_node.Node.value = None
-	then remove_node tree h
-	else replace_node tree h new_node
-      end else
-	raise Not_found
-
+let filter f tree =
+  let rec aux children value =
+    { children =
+        list_map_filter
+          (fun n ->
+            if f n.Node.key then
+              let { children; value } = aux n.Node.children n.Node.value in
+              Some { n with Node. children; value }
+            else None)
+          children;
+      value }
+  in
+  aux tree.children tree.value

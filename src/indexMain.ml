@@ -36,7 +36,5 @@ let _ =
   while true do
     let query = read_line () in
     let all = Info.complete info query in
-    List.iter
-      (fun id -> Printf.printf "%-20s: %s\n%!" (Info.name id) (Info.ty id))
-      all
+    List.iter (fun id -> print_string (Info.pretty id)) all
   done

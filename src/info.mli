@@ -23,3 +23,5 @@ val name: id -> string
 val ty: id -> string
 val doc: id -> string
 val loc: id -> string
+
+val pretty: id -> string

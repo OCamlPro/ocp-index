@@ -48,8 +48,11 @@ val iter_path : ('a -> 'b option -> unit) -> ('a, 'b) t -> 'a list -> unit
     the trie [t].  If [p] is not a valid path of [t], it iterates on the longest
     valid prefix of [p]. *)
 
-val fold : ('a -> 'b option -> 'c -> 'c) -> ('a, 'b) t -> 'c -> 'c 
+val fold : ('a -> 'b option -> 'c -> 'c) -> ('a, 'b) t -> 'c -> 'c
 (** [fold f t x] fold [f] over every nodes of [t], with [x] as initial value. *)
+
+val fold_paths : ('acc -> 'a list -> 'b -> 'acc) -> ('a, 'b) t -> 'acc -> 'acc
+(** folds on full paths (reversed) and values *)
 
 val map : ('b -> 'c option) -> ('a,'b) t -> ('a,'c) t
 (** [map f t] maps [f] over every values stored in [t]. The return value of [f]
@@ -59,3 +62,6 @@ val map : ('b -> 'c option) -> ('a,'b) t -> ('a,'c) t
 val sub : ('a, 'b) t -> 'a list -> ('a,'b) t
 (** [sub t p] returns the sub-trie associated with the path [p] in the trie
     [t].  If [p] is not a valid path of [t], it returns an empty trie. *)
+
+val filter : ('a -> bool) -> ('a, 'b) t -> ('a, 'b) t
+(** [filter f t] returns t with all subtrees for which [f key = false] pruned *)
