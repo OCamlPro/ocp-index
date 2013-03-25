@@ -28,11 +28,10 @@ let info =
   Info.load (subdirs [ocamllib] ocamllib)
 
 let _ =
-  Printf.eprintf "%d definitions loaded.\n%!" (List.length (Info.all info));
+  prerr_endline "Ready.";
+  (* Printf.eprintf "%d definitions loaded.\n%!" (List.length (Info.all info)); *)
   (* let all = Info.all info in *)
-  (* List.iter *)
-  (*   (fun id -> Printf.printf "%-20s: %s\n%!" (Info.name id) (Info.ty id)) *)
-  (*   all *)
+  (* List.iter (fun id -> print_string (Info.pretty id)) all; *)
   while true do
     let query = read_line () in
     let all = Info.complete info query in

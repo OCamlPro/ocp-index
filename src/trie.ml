@@ -1,89 +1,14 @@
-(*
- * Copyright (C) Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
+let (!!) = Lazy.force
 
-module Node =
-struct
-  type ('a,'b) t =  {
-    key: 'a;
-    value: 'b option;
-    children: ('a,'b) t list;
-  }
-
-  let create key value = {
-    key = key;
-    value = Some value;
-    children = [];
-  }
-
-  let empty key = {
-    key = key;
-    value = None;
-    children = []
-  }
-
-  let get_key node = node.key
-  let get_value node =
-    match node.value with
-    | None       -> raise Not_found
-    | Some value -> value
-
-  let get_children node = node.children
-
-  let set_value node value =
-    { node with value = Some value }
-  let set_children node children =
-    { node with children = children }
-
-  let add_child node child =
-    { node with children = child :: node.children }
-end
-
-type ('a,'b) t = {
-  children: ('a,'b) Node.t list;
+type ('a,'b) t =  {
   value: 'b option;
+  children: ('a * ('a,'b) t) list Lazy.t;
 }
 
-let mem_node nodes key =
-  List.exists (fun n -> n.Node.key = key) nodes
+let create ?(children = lazy []) ?value () =
+  { children; value; }
 
-let find_node nodes key =
-  List.find (fun n -> n.Node.key = key) nodes
-
-let replace_node nodes key node =
-  let rec aux = function
-    | []                            -> []
-    | h :: tl when h.Node.key = key -> node :: tl
-    | h :: tl                       -> h :: aux tl
-  in
-  aux nodes
-
-let remove_node nodes key =
-  let rec aux = function
-    | []                            -> raise Not_found
-    | h :: tl when h.Node.key = key -> tl
-    | h :: tl                       -> h :: aux tl
-  in
-  aux nodes
-
-let create () = { children = []; value = None; }
-
-let rec iter f tree =
-  let rec aux node =
-    f node.Node.key node.Node.value;
-    List.iter aux node.Node.children
-  in
-  List.iter aux tree.children
+let empty = create ()
 
 let rec list_map_filter f = function
   | [] -> []
@@ -91,144 +16,104 @@ let rec list_map_filter f = function
       | Some h -> h :: list_map_filter f tl
       | None -> list_map_filter f tl
 
-let map f tree =
+(* actually a map_filter, which causes it to force all the lazies (it's
+   otherwise impossible to know which branches to prune) *)
+let map_filter_values f tree =
   let rec aux value children = {
     value = (
       match value with
-      | None       -> None
+      | None -> None
       | Some value -> f value
     );
-    children = (
+    children = lazy (
       list_map_filter
-        (fun n -> match aux n.Node.value n.Node.children with
-          | { value = None; children = [] } -> None
-          | { value; children } ->
-              Some {Node. key = n.Node.key; value; children})
-        children
+        (fun (key, {value; children}) -> match aux value children with
+          | { value = None; children = lazy [] } -> None
+          | r -> Some (key, r))
+        !!children
     )
   }
   in
   aux tree.value tree.children
 
-let rec fold f tree acc =
-  let rec aux accu node =
-    List.fold_left aux (f node.Node.key node.Node.value accu) node.Node.children
+let iter f tree =
+  let rec aux rev_path tree =
+    (match tree.value with Some v -> f (List.rev rev_path) v | None -> ());
+    List.iter (fun (k,v) -> aux (k::rev_path) v) !!(tree.children)
   in
-  List.fold_left aux acc tree.children
+  aux [] tree
 
-let rec fold_paths f tree acc =
-  let rec aux acc children value path =
+let fold f tree acc =
+  let rec aux acc t rev_path =
     let acc =
       List.fold_left
-        (fun acc n -> aux acc n.Node.children n.Node.value (n.Node.key::path))
+        (fun acc (key,n) -> aux acc n (key::rev_path))
         acc
-        children
+        !!(t.children)
     in
-    match value with Some v -> f acc path v | None -> acc
+    match t.value with Some v -> f acc (List.rev rev_path) v | None -> acc
   in
-  aux acc tree.children tree.value []
-
-(* return a sub-trie *)
-let rec sub_node tree path =
-  let rec aux children value = function
-    | []      -> { children; value }
-    | h :: tl ->
-        let n = find_node children h in
-        aux n.Node.children n.Node.value tl
-  in
-  aux tree.children tree.value path
+  aux acc tree []
 
 let sub tree path =
-  try sub_node tree path
-  with Not_found -> { children = []; value = None }
+  let rec aux tree = function
+  | [] -> tree
+  | h :: tl -> aux (List.assoc h !!(tree.children)) tl
+  in
+  try aux tree path with Not_found -> empty
 
-let find tree path =
-  match (sub_node tree path).value with
-  | Some v -> v
-  | None -> raise Not_found
+let rec find tree = function
+  | h :: tl -> find (List.assoc h !!(tree.children)) tl
+  | [] -> match tree.value with
+      | Some v -> v
+      | None -> raise Not_found
 
-(* return false if the node doesn't exists or if it is not associated to any value *)
 let mem tree path =
-  let rec aux children = function
-    | []   -> false
-    | h::t ->
-        mem_node children h
-        && (let node = find_node children h in
-          if t = []
-          then node.Node.value <> None
-          else aux node.Node.children t)
+  let rec aux tree = function
+    | h :: tl -> aux (List.assoc h !!(tree.children)) tl
+    | [] -> tree.value <> None
   in
-  aux tree.children path
+  try aux tree path with Not_found -> false
 
-(* Iterate over the longest valid prefix *)
-let iter_path f tree path =
-  let rec aux children = function
-    | []   -> ()
-    | h::l ->
-        if mem_node children h
-        then begin
-          let node = find_node children h in
-          f node.Node.key node.Node.value;
-          aux node.Node.children l
-        end
+(* maps f on the element of assoc list children with key [key], appending a
+   new empty child if necessary *)
+let list_map_assoc f children key empty =
+  let rec aux acc = function
+    | [] -> List.rev_append acc [key, f empty]
+    | (k,v) as child :: children ->
+        if k = key then
+          List.rev_append acc ((key, f v) :: children)
+        else
+          aux (child::acc) children
   in
-  aux tree.children path
+  aux [] children
+
+let rec map_subtree tree path f = match path with
+  | [] -> f tree
+  | h :: tl ->
+      let children = lazy (
+        list_map_assoc (fun n -> map_subtree n tl f) !!(tree.children) h empty
+      ) in
+      { tree with children }
 
 let set tree path value =
-  let rec aux children node_value = function
-    | []   -> { children; value = Some value }
-    | h::t ->
-        let children, found =
-          List.fold_right
-            (fun n (acc,found) ->
-              if n.Node.key = h then
-                let { children; value } =
-                  aux n.Node.children n.Node.value t
-                in
-                { n with Node. children; value } :: acc, true
-              else n :: acc, found)
-            children
-            ([], false)
-        in
-        if found then { children; value = node_value }
-        else
-          let sub = aux [] None t in
-          { children =
-              { Node. key = h; value = sub.value; children = sub.children }
-              :: children;
-            value = node_value }
-  in
-  aux tree.children tree.value path
+  map_subtree tree path (fun t -> { t with value = Some value })
 
-let unset tree =
-  let rec aux children value = function
-    | []   -> { children; value = None }
-    | h::t ->
-        { children = (
-            list_map_filter
-              (fun n ->
-                if n.Node.key = h then
-                  match aux n.Node.children n.Node.value t with
-                  | { value = None; children = [] } -> None
-                  | { value; children } ->
-                      Some { n with Node. value; children }
-                else Some n)
-              children
-          );
-          value }
-  in
-  aux tree.children tree.value
+let set_lazy tree path lazy_value =
+  map_subtree tree path (fun t -> { t with value = Some !!lazy_value })
 
-let filter f tree =
-  let rec aux children value =
-    { children =
-        list_map_filter
-          (fun n ->
-            if f n.Node.key then
-              let { children; value } = aux n.Node.children n.Node.value in
-              Some { n with Node. children; value }
-            else None)
-          children;
-      value }
-  in
-  aux tree.children tree.value
+let unset tree path =
+  map_subtree tree path (fun t -> { t with value = None })
+
+let rec filter_keys f tree =
+  { tree with
+    children = lazy (
+      list_map_filter
+        (fun (key,n) -> if f key then Some (key, filter_keys f n) else None)
+        !!(tree.children)
+    )}
+
+let graft tree path node = map_subtree tree path (fun _ -> node)
+
+let graft_lazy tree path lazy_node =
+  map_subtree tree path (fun _ -> !!lazy_node)
