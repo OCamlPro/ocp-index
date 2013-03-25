@@ -1,3 +1,21 @@
+let ocamllib =
+  let lib =
+    try
+      let ic = Unix.open_process_in "opam config var lib" in
+      let r = input_line ic in
+      match Unix.close_process_in ic with
+      | Unix.WEXITED 0 -> r
+      | _ -> raise Exit
+    with Unix.Unix_error _ | Exit -> try
+      Sys.getenv "OCAMLLIB"
+    with Not_found ->
+        prerr_endline
+          "Failed to get ocaml lib dir by opam or $OCAMLLIB. Aborting";
+        exit 1
+  in
+  Printf.eprintf "Loading libs from %S.\n%!" lib;
+  lib
+
 let info =
   let rec subdirs acc path =
     Array.fold_left
@@ -7,8 +25,7 @@ let info =
       acc
       (Sys.readdir path)
   in
-  Info.load
-    (subdirs ["/home/louis/opam/lib/ocaml"] "/home/louis/opam/lib/ocaml")
+  Info.load (subdirs [ocamllib] ocamllib)
 
 let _ =
   Printf.eprintf "%d definitions loaded.\n%!" (List.length (Info.all info));
