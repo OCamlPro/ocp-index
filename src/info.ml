@@ -206,29 +206,41 @@ let all t =
 
 (* Trie.fold (fun key opt acc -> if opt <> None then key::acc else acc) t [] *)
 
-let rec pp_list ?(sep="") pp_element fmt = function
-  | [h] -> Format.fprintf fmt "%a" pp_element h
-  | h::t ->
-      Format.fprintf fmt "%a%s@,%a"
-      pp_element h sep (pp_list ~sep pp_element) t
-  | [] -> ()
+let format_id ?(color=true) fmt id =
+  let colM, colV, colT, col0 = 31, 32, 36, 0 in
+  let color =
+    if color then fun fmt c ->
+      Format.fprintf fmt "@<0>%s" (Printf.sprintf "\027[%dm" c)
+    else fun _ _ -> ()
+  in
+  List.iter (fun m -> Format.fprintf fmt "%a%s%a." color colM m color col0) id.path;
+  match id.kind with
+  | Module ->
+      Format.fprintf fmt "%a%s%a" color colM id.name color col0
+  | Value ->
+      Format.fprintf fmt "%a%s%a: \
+                          @[<h>%a%a%a@]"
+        color colV id.name color col0
+        color colT format_ty id color col0
+  | Type ->
+      Format.fprintf fmt "%a%s%a" color colT id.name color col0
+  | _ -> ()
 
-let pretty ?(color=true) fmt id =
-  let [ modul; value; typ; normal ] =
-    if color then
-      List.map (Printf.sprintf "\027[%dm")
-        [ 31; 32; 36; 0 ]
-    else [ ""; ""; ""; "" ]
+let pretty ?(color=true) id =
+  let color =
+    if not color then fun _ () s -> s
+    else fun c () ->
+      Printf.sprintf "\027[%dm%s\027[m"
+        (match c with `red -> 31
+                    | `green -> 32
+                    | `blue -> 36)
   in
   match id.kind with
   | Module ->
-      Format.fprintf fmt 
       String.concat "." (List.map (color `red ()) (id.path @ [id.name]))
   | Value ->
-      Format.fprintf "%a: @[<hov>%a@]"
-        (fun () -> String.concat ".")
+      String.concat "."
         (List.map (color `red ()) id.path @ [color `green () id.name])
-        format_ty id
   | Type ->
       String.concat "."
         (List.map (color `red ()) id.path @ [color `blue () id.name])

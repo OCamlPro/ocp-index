@@ -27,3 +27,5 @@ val doc: id -> string
 val loc: id -> string
 
 val pretty: ?color:bool -> id -> string
+
+val format_id: ?color:bool -> Format.formatter -> id -> unit

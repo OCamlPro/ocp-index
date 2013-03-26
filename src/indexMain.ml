@@ -75,9 +75,13 @@ let complete_cmd =
     Arg.(required & pos 0 (some string) None & info [] ~doc ~docv:"STRING")
   in
   let print_compl opts query =
+    let fmt = Format.std_formatter in
     List.iter
-      (fun id -> print_endline (Info.pretty ~color:opts.color id))
-      (Info.complete opts.lib_info query)
+      (fun id ->
+        Info.format_id ~color:opts.color fmt id;
+        Format.pp_print_newline fmt ())
+      (Info.complete opts.lib_info query);
+    Format.pp_print_flush fmt ()
   in
   let doc = "Print completions to stdout." in
   Term.(pure print_compl $ common_opts $ t),
