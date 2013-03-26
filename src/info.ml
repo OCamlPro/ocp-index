@@ -15,17 +15,28 @@ let string_to_list s =
   let rec aux acc i = if i >= 0 then aux (s.[i]::acc) (i - 1) else acc in
   aux [] (String.length s - 1)
 
-let list_to_string l =
+let _list_to_string l =
   let rec aux n = function
     | [] -> String.create n
     | c::r -> let s = aux (n+1) r in s.[n] <- c; s
   in
   aux 0 l
 
-let open_module t path =
+let open_module ?(cleanup_path=false) t path =
+  let f =
+    if cleanup_path then
+      let n = List.length path in
+      let rec tln n = function
+        | [] -> [] | _::tl -> if n > 0 then tln (n-1) tl else tl
+      in
+      fun id -> {id with path = tln n id.path }
+    else
+      fun id -> id
+  in
   Trie.fold
-    (fun t path v -> Trie.set t path v)
-    (Trie.sub t (string_to_list (path ^ ".")))
+    (fun t path id -> Trie.set t path (f id))
+    (Trie.sub t
+       (List.fold_right (fun p acc -> string_to_list p @ '.' :: acc) path []))
     t
 
 let rec load_module path sign =
@@ -150,11 +161,12 @@ let load paths =
     (Trie.create ())
     paths
   in
-  prerr_endline "Opening Pervasives";
-  open_module t "Pervasives"
+  open_module ~cleanup_path:true t ["Pervasives"]
 
 let trie_to_list trie =
   Trie.fold (fun acc _path value -> value::acc) trie []
+
+let get t query = Trie.find t (string_to_list query)
 
 let complete t query =
   trie_to_list
@@ -179,6 +191,13 @@ let ty id =
       Format.flush_str_formatter ()
   | None -> ""
 
+let format_ty fmt id =
+  match id.ty with
+  | Some ty ->
+      Printtyp.reset_names ();
+      Printtyp.type_expr fmt ty
+  | None -> ()
+
 let doc _ = assert false
 let loc _ = assert false
 
@@ -187,18 +206,30 @@ let all t =
 
 (* Trie.fold (fun key opt acc -> if opt <> None then key::acc else acc) t [] *)
 
-let pretty id =
+let rec pp_list ?(sep="") pp_element fmt = function
+  | [h] -> Format.fprintf fmt "%a" pp_element h
+  | h::t ->
+      Format.fprintf fmt "%a%s@,%a"
+      pp_element h sep (pp_list ~sep pp_element) t
+  | [] -> ()
+
+let pretty ?(color=true) fmt id =
+  let [ modul; value; typ; normal ] =
+    if color then
+      List.map (Printf.sprintf "\027[%dm")
+        [ 31; 32; 36; 0 ]
+    else [ ""; ""; ""; "" ]
+  in
   match id.kind with
   | Module ->
-      Printf.sprintf "\027[31m%s\027[m\n"
-        (String.concat "." (id.path @ [id.name]))
+      Format.fprintf fmt 
+      String.concat "." (List.map (color `red ()) (id.path @ [id.name]))
   | Value ->
-      Printf.sprintf "\027[31m%s\027[m.\027[32m%s\027[m: \027[36m%s\027[m\n"
-        (String.concat "\027[m.\027[31m" id.path)
-        id.name
-        (ty id)
+      Format.fprintf "%a: @[<hov>%a@]"
+        (fun () -> String.concat ".")
+        (List.map (color `red ()) id.path @ [color `green () id.name])
+        format_ty id
   | Type ->
-      Printf.sprintf "\027[31m%s\027[m.\027[36m%s\027[m\n"
-        (String.concat "\027[m.\027[31m" id.path)
-        id.name
+      String.concat "."
+        (List.map (color `red ()) id.path @ [color `blue () id.name])
   | _ -> ""

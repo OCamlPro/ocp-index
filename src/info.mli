@@ -9,6 +9,8 @@ val load: string list -> t
 
 val all: t -> id list
 
+val get: t -> string -> id
+
 val complete: t -> string -> id list
 
 val complete_module: t -> string -> id list
@@ -24,4 +26,4 @@ val ty: id -> string
 val doc: id -> string
 val loc: id -> string
 
-val pretty: id -> string
+val pretty: ?color:bool -> id -> string
