@@ -1,21 +1,29 @@
 # ocp-index
 
 `ocp-index` is designed as a simple and light-weight documentation extractor for
-OCaml, for command-line use or integrated in other tools. It gathers
-informations from `.cmi` (à la ocamlbrowser) and `.cmt` files.
+OCaml, for command-line use or integrated in other tools (e.g. for
+completion). It gathers informations from `.cmi` (à la ocamlbrowser) and `.cmt`
+files.
 
-Usage:
+## Usage
 
-`ocp-index <query> <output>`
+`ocp-index COMMAND params OPTIONS`
 
-query: `Module` `Module.ident` `-complete <str>`
-output: ident, `-type`, `-doc`
+COMMAND is for now either `complete` or `type`
 
-* `ocp-index -type "Module.value"`
-* `ocp-index -doc "ident"`
-* `ocp-index -complete "ide"`
+Examples:
+* `ocp-index type Module.ident`
+* `ocp-index complete iden`
+* `ocp-index doc Module.ident` (TODO)
 
 Options:
+* `-I` include dirs / loaded libraries
+* output format: for now only color enable / disable
 
-* include dirs / loaded libraries
-* output format
+## Build
+
+```
+ocp-build ocp-index
+```
+
+There is also a Makefile in src/ if you don't have `ocp-build` at hand.
