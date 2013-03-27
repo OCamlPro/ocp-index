@@ -205,12 +205,9 @@ let ty id =
       Format.flush_str_formatter ()
   | None -> ""
 
-let format_ty fmt id =
-  match id.ty with
-  | Some ty ->
-      Printtyp.reset_names ();
-      Printtyp.type_expr fmt ty
-  | None -> ()
+let format_ty fmt ty =
+  Printtyp.reset_names ();
+  Printtyp.type_expr fmt ty
 
 let doc _ = assert false
 let loc _ = assert false
@@ -220,6 +217,10 @@ let all t =
 
 (* Trie.fold (fun key opt acc -> if opt <> None then key::acc else acc) t [] *)
 
+let option_iter opt f = match opt with
+  | Some x -> f x
+  | None -> ()
+
 let format_id ?(color=true) fmt id =
   let colM, colV, colT, col0 = 31, 32, 36, 0 in
   let color =
@@ -227,17 +228,25 @@ let format_id ?(color=true) fmt id =
       Format.fprintf fmt "@<0>%s" (Printf.sprintf "\027[%dm" c)
     else fun _ _ -> ()
   in
-  List.iter (fun m -> Format.fprintf fmt "%a%s%a." color colM m color col0) id.path;
+  let print_path () =
+    List.iter (fun m -> Format.fprintf fmt "%a%s%a." color colM m color col0) id.path
+  in
   match id.kind with
   | Module ->
+      print_path ();
       Format.fprintf fmt "%a%s%a" color colM id.name color col0
   | Value ->
-      Format.fprintf fmt "%a%s%a: \
-                          @[<h>%a%a%a@]"
-        color colV id.name color col0
-        color colT format_ty id color col0
+      print_path ();
+      Format.fprintf fmt "%a%s%a" color colV id.name color col0;
+      option_iter id.ty (fun ty ->
+        Format.fprintf fmt ": @[<h>%a%a%a@]" color colT format_ty ty color col0
+      )
   | Type ->
-      Format.fprintf fmt "%a%s%a" color colT id.name color col0
+      print_path ();
+      Format.fprintf fmt "%a%s%a" color colT id.name color col0;
+      option_iter id.ty (fun ty ->
+        Format.fprintf fmt " = @[<h>%a%a%a@]" color colT format_ty ty color col0
+      )
   | _ -> ()
 
 let pretty ?(color=true) id =
