@@ -11,25 +11,45 @@ let rec subdirs acc path =
     (path::acc)
     (Sys.readdir path)
 
+let remove_dups l =
+  let rec aux = function
+    | a::(b::_ as r) when a = b -> aux r
+    | a::r -> a :: aux r
+    | [] -> []
+  in
+  aux (List.sort compare l)
+
+let cmd_input_line cmd =
+  try
+    let ic = Unix.open_process_in cmd in
+    let r = input_line ic in
+    match Unix.close_process_in ic with
+    | Unix.WEXITED 0 -> r
+    | _ -> failwith "cmd_input_line"
+  with
+  | End_of_file | Unix.Unix_error _ -> failwith "cmd_input_line"
+
 let common_opts : common_opts Term.t =
   let ocamllib : string list Term.t =
     let arg =
-      let doc = "OCaml directories to (recursively) load the libraries from." in
+      let doc = "OCaml directories to (recursively) load the libraries from, \
+                 in addition to OCaml's stdlib directory. \
+                 By default, will look for opam's main dir."
+      in
       Arg.(value & opt_all (list string) [] & info ["I"] ~docv:"DIRS" ~doc)
     in
     let set_default = function
-      | _ :: _ as paths -> List.flatten paths
+      | _ :: _ as paths ->
+          (try [cmd_input_line "ocamlc -where"] with Failure _ -> []) @
+          List.flatten paths
       | [] ->
-          try
-            let ic = Unix.open_process_in "opam config var lib" in
-            let r = input_line ic in
-            match Unix.close_process_in ic with
-            | Unix.WEXITED 0 -> [r]
-            | _ -> raise Exit
-          with Unix.Unix_error _ | Exit -> try
-            [Sys.getenv "OCAMLLIB"]
-          with Not_found ->
-              failwith "Failed to get ocaml lib dir by opam or $OCAMLLIB. Aborting";
+          let paths =
+            (try [cmd_input_line "ocamlc -where"] with Failure _ -> []) @
+            (try [cmd_input_line "opam config var lib"] with Failure _ -> [])
+          in
+          if paths = [] then
+            failwith "Failed to guess OCaml / opam lib dirs. Please use `-I'"
+          else paths
     in
     Term.(pure set_default $ arg)
   in
@@ -54,7 +74,12 @@ let common_opts : common_opts Term.t =
     Term.(pure to_bool $ arg)
   in
   let lib_info : Info.t Term.t =
-    let dirs = Term.(pure (List.fold_left subdirs []) $ ocamllib) in
+    let dirs =
+      Term.(
+        pure (fun d -> remove_dups (List.fold_left subdirs [] d))
+        $ ocamllib
+      )
+    in
     Term.(pure Info.load $ dirs)
   in
   Term.(
