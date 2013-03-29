@@ -1,2 +1,7 @@
 _obuild
-ocp-build.*.old
+ocp-build.root*
+aclocal.m4
+*.cache
+config.*
+man
+ocp-index

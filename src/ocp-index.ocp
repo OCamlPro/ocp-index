@@ -4,4 +4,5 @@ begin program "ocp-index"
   sort = false
   files = [ "trie.ml" "info.ml" "indexMain.ml" ]
   requires = [ "compiler-libs" "compiler-libs.common" "unix" "cmdliner" ]
+  data_files = [ "../tools/ocp-index.el" ]
 end
