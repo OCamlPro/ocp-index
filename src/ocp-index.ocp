@@ -1,4 +1,4 @@
-comp += [ "-g" "-w" "+a@1..39-4-9-37" ]
+comp += [ "-g" "-w" "+1..39-4-9-37" ]
 
 begin program "ocp-index"
   sort = false

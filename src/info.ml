@@ -239,7 +239,7 @@ let format_id ?(color=true) fmt id =
       print_path ();
       Format.fprintf fmt "%a%s%a" color colV id.name color col0;
       option_iter id.ty (fun ty ->
-        Format.fprintf fmt ": @[<h>%a%a%a@]" color colT format_ty ty color col0
+        Format.fprintf fmt " : @[<h>%a%a%a@]" color colT format_ty ty color col0
       )
   | Type ->
       print_path ();
