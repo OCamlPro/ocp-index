@@ -50,10 +50,6 @@ let option_iter opt f = match opt with
   | Some x -> f x
   | None -> ()
 
-let option_default d = function
-  | Some x -> x
-  | None -> d
-
 
 (* - Trie loading and manipulation functions - *)
 
@@ -185,23 +181,7 @@ let trie_of_type_decl ?(comments=[]) info ty_decl =
         variants,
       comments
 
-(*
-  | Types.Tpoly (ty, tylist) ->
-      List.fold_left
-        (fun t ty -> match ty.Types.desc with
-          | Types.Tconstr (Path.Pident id, params, _) ->
-              Printf.eprintf "\027[32mBingo !\027[m\n%!";
-              Trie.graft t (string_to_list id.Ident.name)
-                (trie_of_type (path@[id.Ident.name]) (Types.Ttuple params))
-          | _ -> Printf.eprintf "\027[31mTPoly -> Tconstr : miss !\027[m\n%!"; t)
-        Trie.empty
-        (ty :: tylist)
-  | _ ->
-      Printf.eprintf "\027[31m%s -> unhandled\027[m\n%!" (String.concat "." path);
-      Trie.empty
-*)
-
-let trie_of_sig_item ?(comments=[]) path sig_item =
+let rec trie_of_sig_item ?(comments=[]) path sig_item =
   let id = id_of_sig_item sig_item in
   let loc = loc_of_sig_item sig_item in
   let doc, comments =
@@ -211,41 +191,62 @@ let trie_of_sig_item ?(comments=[]) path sig_item =
   let ty = ty_of_sig_item sig_item in
   let kind = kind_of_sig_item sig_item in
   let info = {path; kind; name = id.Ident.name; ty; loc; doc} in
-  let siblings, comments = (* read fields / labels ... *)
+  let siblings, comments = (* read fields / variants ... *)
     match sig_item with
     | Types.Sig_type (_id,descr,_is_rec) ->
         trie_of_type_decl ~comments info descr
     | _ -> [], comments
   in
-  let children, comments = (* read module / class contents (todo) *)
-    lazy [], comments
-(*
-      let t =
-        (match ty with
-         | None -> t
-         | Some ty ->
-             Trie.graft t ['.'] (trie_of_type (path @ [id.Ident.name]) ty.Types.desc))
-      in
-  | Types.Sig_module (id,(Types.Mty_signature sign as modtype),_)
-  | Types.Sig_modtype (id,Types.Modtype_manifest (Types.Mty_signature sign as modtype))
-    as s ->
-      let subtree, comments =
+  let children, comments = (* read module / class contents *)
+    match sig_item with
+    | Types.Sig_module (id,Types.Mty_signature sign,_)
+    | Types.Sig_modtype (id,Types.Modtype_manifest (Types.Mty_signature sign))
+      ->
         List.fold_left
           (fun (t,comments) sign ->
-            let k, v, comments =
-              trie_of_sig_item ~comments (path@[id.Ident.name]) sign in
-            Trie.graft t k v, comments)
+            let chlds,comments =
+              trie_of_sig_item ~comments (path@[id.Ident.name]) sign
+            in
+            List.fold_left (fun t (k,v) -> Trie.graft t k v) t chlds, comments)
           (Trie.empty,comments)
           sign
-      in
-      let t = Trie.graft t ['.'] subtree in
-  in
+(* WIP
+    | Types.Sig_class (id,{Types.cty_type=cty},_)
+    | Types.Sig_class_type (id,{Types.clty_type=cty},_)
+      ->
+        let rec get_clsig = function
+          | Types.Cty_constr (_,_,cty) | Types.Cty_fun (_,_,cty) ->
+              get_clsig cty
+          | Types.Cty_signature clsig -> clsig
+        in
+        let tylst = match (get_clsig cty).Types.cty_self.Types.desc with
+          | Types.Tobject (_, {contents = Some tylst}) -> tylst
+          | _ -> assert false
+        in
+        let path = path@[id.Ident.name]
+        List.fold_left
+          (fun (t,comments) sign ->
+            Trie.set t (string_to_list id.Ident.name) {
+              path;
+              kind = ;
+              name = modul;
+              ty = None;
+              loc = Location.in_file file;
+              doc = None }
+
+            let chlds,comments =
+              trie_of_type ~comments (path@[id.Ident.name]) sign
+            in
+            List.fold_left (fun t (k,v) -> Trie.graft t k v) t chlds, comments)
+          (Trie.empty,comments)
+          tylst
 *)
+    | _ -> Trie.empty, comments
   in
   (string_to_list id.Ident.name,
    Trie.create
      ~value:{path; kind; name = id.Ident.name; ty; loc; doc}
-     ~children:(lazy ['.', Trie.create ~children ()])
+     ~children:(lazy ['.', children])
      ())
   :: siblings,
   comments
@@ -420,6 +421,18 @@ let format_list fmt
       left fmt; aux lst; right fmt;
       if paren then Format.pp_print_char fmt ')'
 
+let format_lines fmt str =
+  let len = String.length str in
+  let rec aux i =
+    if i >= len then () else
+      let j = try String.index_from str i '\n' with Not_found -> len in
+      Format.pp_print_string fmt (String.trim (String.sub str i (j - i)));
+      if j < len - 1 then
+        (Format.pp_force_newline fmt ();
+         aux (j+1))
+  in
+  aux 0
+
 let format_ty fmt ty =
   match ty with
   | Outcometree.Osig_class (_,_,_,ctyp,_)
@@ -450,15 +463,15 @@ let format_info ?(color=true) fmt id =
   let colorise =
     if color then fun kind fstr fmt ->
       let colorcode = match kind with
-        | Type -> 36
-        | Value -> 32
-        | Exception -> 33
-        | Field _ | Variant _ -> 34
-        | Method _ -> 32
-        | Module | ModuleType -> 31
-        | Class | ClassType -> 35
+        | Type -> "\027[36m"
+        | Value -> "\027[1m"
+        | Exception -> "\027[33m"
+        | Field _ | Variant _ -> "\027[34m"
+        | Method _ -> "\027[1m"
+        | Module | ModuleType -> "\027[31m"
+        | Class | ClassType -> "\027[35m"
       in
-      Format.pp_print_as fmt 0 (Printf.sprintf "\027[%dm" colorcode);
+      Format.pp_print_as fmt 0 colorcode;
       Format.kfprintf (fun fmt -> Format.pp_print_as fmt 0 "\027[m") fmt fstr
     else fun _ fstr fmt ->
       Format.fprintf fmt fstr
@@ -467,37 +480,20 @@ let format_info ?(color=true) fmt id =
   colorise id.kind "%s" fmt id.name;
   option_iter id.ty
     (Format.fprintf fmt " @[<h>%a@]" (fun fmt -> colorise Type "%a" fmt format_ty));
-  let str_kind = match id.kind with
-    | Type -> "type"
-    | Value -> "val"
-    | Exception -> "exception"
-    | Field parentty -> Printf.sprintf "field(%s)" parentty.name
-    | Variant parentty -> Printf.sprintf "constr(%s)" parentty.name
-    | Method parentclass -> Printf.sprintf "method(%s)" parentclass.name
-    | Module -> "module"
-    | ModuleType -> "modtype"
-    | Class -> "class"
-    | ClassType -> "classtype"
+  let format_kind fmt = function
+    | Type -> Format.pp_print_string fmt "type"
+    | Value -> Format.pp_print_string fmt "val"
+    | Exception -> Format.pp_print_string fmt "exception"
+    | Field parentty ->
+        Format.fprintf fmt "field(%a)" (colorise Type "%s") parentty.name
+    | Variant parentty ->
+        Format.fprintf fmt "constr(%a)" (colorise Type "%s") parentty.name
+    | Method parentclass ->
+        Format.fprintf fmt "method(%a)" (colorise Class "%s") parentclass.name
+    | Module -> Format.pp_print_string fmt "module"
+    | ModuleType -> Format.pp_print_string fmt "modtype"
+    | Class -> Format.pp_print_string fmt "class"
+    | ClassType -> Format.pp_print_string fmt "classtype"
   in
-  Format.fprintf fmt " <%s>" str_kind;
-  option_iter id.doc (Format.fprintf fmt "@\n    @[<h4>%s@]")
-
-
-let pretty ?(color=true) id =
-  let color =
-    if not color then fun _ () s -> s
-    else fun c () ->
-      Printf.sprintf "\027[%dm%s\027[m" (match c with `red -> 31
-                                                    | `green -> 32
-                                                    | `blue -> 36)
-  in
-  match id.kind with
-  | Module ->
-      String.concat "." (List.map (color `red ()) (id.path @ [id.name]))
-  | Value ->
-      String.concat "."
-        (List.map (color `red ()) id.path @ [color `green () id.name])
-  | Type ->
-      String.concat "."
-        (List.map (color `red ()) id.path @ [color `blue () id.name])
-  | _ -> ""
+  Format.fprintf fmt " <%a>" format_kind id.kind;
+  option_iter id.doc (Format.fprintf fmt "@\n    @[<h>%a@]" format_lines)

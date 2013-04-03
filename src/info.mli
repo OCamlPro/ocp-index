@@ -40,6 +40,4 @@ val ty: info -> string
 val doc: info -> string
 val loc: info -> string
 
-val pretty: ?color:bool -> info -> string
-
 val format_info: ?color:bool -> Format.formatter -> info -> unit
