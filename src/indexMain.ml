@@ -87,6 +87,19 @@ let common_opts : common_opts Term.t =
     in
     Term.(pure to_bool $ arg)
   in
+  let open_modules : string list list Term.t =
+    let arg =
+      let doc =
+        "Consider the given (comma-separated list of) modules are opened \
+         for lookup."
+      in
+      Arg.(
+        value & opt_all (list ~sep:',' (list ~sep:'.' string)) [] &
+        info ["O";"open"] ~docv:"MODULES" ~doc
+      )
+    in
+    Term.(pure List.flatten $ arg)
+  in
   let lib_info : Info.t Term.t =
     let dirs =
       Term.(
@@ -94,7 +107,11 @@ let common_opts : common_opts Term.t =
         $ ocamllib
       )
     in
-    Term.(pure Info.load $ dirs)
+    let init dirs opens =
+      let info = Info.load dirs in
+      List.fold_left Info.open_module info opens
+    in
+    Term.(pure init $ dirs $ open_modules)
   in
   Term.(
     pure (fun lib_info color -> { lib_info; color; })

@@ -19,6 +19,8 @@ type info
 (** load from include dirs *)
 val load: string list -> t
 
+val open_module: ?cleanup_path:bool -> t -> string list -> t
+
 val all: t -> info list
 
 val get: t -> string -> info
