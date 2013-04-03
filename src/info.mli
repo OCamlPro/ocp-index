@@ -14,30 +14,30 @@
 
 type t
 
-type id
+type info
 
 (** load from include dirs *)
 val load: string list -> t
 
-val all: t -> id list
+val all: t -> info list
 
-val get: t -> string -> id
+val get: t -> string -> info
 
-val complete: t -> string -> id list
+val complete: t -> string -> info list
 
-val complete_module: t -> string -> id list
+val complete_module: t -> string -> info list
 
-val complete_value: t -> ?modul:string -> string -> id list
+val complete_value: t -> ?modul:string -> string -> info list
 
-val complete_type: t -> ?modul:string -> string -> id list
+val complete_type: t -> ?modul:string -> string -> info list
 
-val complete_class: t -> ?modul:string -> string -> id list
+val complete_class: t -> ?modul:string -> string -> info list
 
-val name: id -> string
-val ty: id -> string
-val doc: id -> string
-val loc: id -> string
+val name: info -> string
+val ty: info -> string
+val doc: info -> string
+val loc: info -> string
 
-val pretty: ?color:bool -> id -> string
+val pretty: ?color:bool -> info -> string
 
-val format_id: ?color:bool -> Format.formatter -> id -> unit
+val format_info: ?color:bool -> Format.formatter -> info -> unit

@@ -117,7 +117,7 @@ let complete_cmd =
     let fmt = Format.std_formatter in
     List.iter
       (fun id ->
-        Info.format_id ~color:opts.color fmt id;
+        Info.format_info ~color:opts.color fmt id;
         Format.pp_print_newline fmt ())
       (Info.complete opts.lib_info query);
     Format.pp_print_flush fmt ()
