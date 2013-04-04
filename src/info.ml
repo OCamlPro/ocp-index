@@ -96,10 +96,16 @@ let associate_comment ?(after_only=false) comments loc =
   in
   aux comments
 
-let ty_of_sig_item sig_item =
-  match Printtyp.tree_of_signature [sig_item] with
-  | [] -> None
-  | ty::_ -> Some ty
+let ty_of_sig_item =
+  let open Printtyp in
+  function
+  | Types.Sig_value(id, decl) -> tree_of_value_description id decl
+  | Types.Sig_type(id, decl, rs) -> tree_of_type_declaration id decl rs
+  | Types.Sig_exception(id, decl) -> tree_of_exception_declaration id decl
+  | Types.Sig_module(id, mty, rs) -> tree_of_module id mty rs
+  | Types.Sig_modtype(id, decl) -> tree_of_modtype_declaration id decl
+  | Types.Sig_class(id, decl, rs) -> tree_of_class_declaration id decl rs
+  | Types.Sig_class_type(id, decl, rs) -> tree_of_cltype_declaration id decl rs
 
 let loc_of_sig_item = function
   | Types.Sig_value (_,descr) -> descr.Types.val_loc
@@ -188,7 +194,7 @@ let rec trie_of_sig_item ?(comments=[]) path sig_item =
     if loc = Location.none then None, comments
     else associate_comment comments loc
   in
-  let ty = ty_of_sig_item sig_item in
+  let ty = Some (ty_of_sig_item sig_item) in
   let kind = kind_of_sig_item sig_item in
   let info = {path; kind; name = id.Ident.name; ty; loc; doc} in
   let siblings, comments = (* read fields / variants ... *)
