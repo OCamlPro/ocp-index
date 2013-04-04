@@ -131,3 +131,26 @@ let graft tree path node = map_subtree tree path (fun _ -> node)
 
 let graft_lazy tree path lazy_node =
   map_subtree tree path (fun _ -> !!lazy_node)
+
+let rec merge ?(values = fun _ v -> v) t1 t2 =
+  let rec aux l1 l2 = match l1,l2 with
+    | ((k1,v1) as h1 :: tl1), ((k2,v2) as h2 :: tl2) ->
+        if k1 < k2 then h1 :: aux tl1 l2 else
+        if k2 < k1 then h2 :: aux l1 tl2 else
+          (k1, merge ~values v1 v2) :: aux tl1 tl2
+    | [], l | l, [] -> l
+  in
+  let value = match t1.value, t2.value with
+    | Some v1, Some v2 -> Some (values v1 v2)
+    | None, v | v, None -> v
+  in
+  let compare_keys (k1,_) (k2,_) = compare k1 k2 in
+  let children = lazy (
+    let c1 = List.sort compare_keys (Lazy.force t1.children) in
+    let c2 = List.sort compare_keys (Lazy.force t2.children) in
+    aux c1 c2
+  ) in
+  {value; children}
+
+let append tree (path,node) =
+  map_subtree tree path (fun t -> merge t node)

@@ -207,7 +207,7 @@ let rec trie_of_sig_item ?(comments=[]) path sig_item =
             let chlds,comments =
               trie_of_sig_item ~comments (path@[id.Ident.name]) sign
             in
-            List.fold_left (fun t (k,v) -> Trie.graft t k v) t chlds, comments)
+            List.fold_left Trie.append t chlds, comments)
           (Trie.empty,comments)
           sign
 (* WIP
@@ -273,10 +273,7 @@ let load_cmi t modul file =
         List.fold_left
           (fun t sign ->
             let chld, _comments = trie_of_sig_item [modul] sign in
-            List.fold_left
-              (fun t (k,v) -> Trie.graft t k v)
-              t
-              chld)
+            List.fold_left Trie.append t chld)
           Trie.empty
           (info.Cmi_format.cmi_sign)
       ))

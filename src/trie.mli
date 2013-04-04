@@ -77,6 +77,17 @@ val filter_keys : ('a -> bool) -> ('a, 'b) t -> ('a, 'b) t
 (** [filter f t] returns t with all subtrees for which [f key = false] pruned *)
 
 val graft : ('a, 'b) t -> 'a list -> ('a, 'b) t -> ('a, 'b) t
-(** [graft tree path node] grafts [node] in [tree] at [path] *)
+(** [graft tree path subtree] grafts [subtree] in [tree] at [path], replacing
+    the whole subtree *)
 
 val graft_lazy : ('a, 'b) t -> 'a list -> ('a, 'b) t Lazy.t -> ('a, 'b) t
+(** Lazy version of [graft] *)
+
+val merge : ?values:('b -> 'b -> 'b) -> ('a, 'b) t -> ('a, 'b) t -> ('a, 'b) t
+(** Merges two tries, accepting an optional function to resolve value
+    conflicts. The default function discards the left-hand values. *)
+
+val append : ('a, 'b) t -> ('a list * ('a, 'b) t) -> ('a, 'b) t
+(** [append tree (path, subtree)] appends [subtree] in [tree] at [path], merging
+    with the previous subtree of [tree]. The interface allows for multiple
+    appends with a simple [List.fold_left] *)
