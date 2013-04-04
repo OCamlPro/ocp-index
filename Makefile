@@ -60,7 +60,7 @@ install: $(PROJECTS) $(manpage)
 .PHONY: uninstall
 uninstall:
 	ocp-build uninstall $(PROJECTS)
-	rm $(prefix)/man/man1/$(notdir $(manpage))
+	rm $(mandir)/man1/$(notdir $(manpage))
 
 configure: configure.ac
 	aclocal -I m4

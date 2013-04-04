@@ -5,3 +5,4 @@ aclocal.m4
 config.*
 man
 ocp-index
+Makefile.config
