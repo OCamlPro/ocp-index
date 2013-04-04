@@ -260,10 +260,6 @@ let rec trie_of_sig_item ?(comments=[]) path sig_item =
 let load_cmi t modul file =
   Trie.map_subtree t (string_to_list modul)
     (fun t ->
-      if Trie.sub t ['.'] <> Trie.empty then
-        Printf.eprintf
-          "[33mWarning: module %s defined more than once[m\n%!"
-          modul;
       let t =
         Trie.set t [] {
           path = [];
@@ -274,24 +270,21 @@ let load_cmi t modul file =
           doc = None
         }
       in
-      Trie.graft_lazy t ['.'] (lazy (
+      let children = lazy (
         let info = Cmi_format.read_cmi file in
         List.fold_left
-          (fun t sign ->
-            let chld, _comments = trie_of_sig_item [modul] sign in
+          (fun t sig_item ->
+            let chld, _comments = trie_of_sig_item [modul] sig_item in
             List.fold_left Trie.append t chld)
           Trie.empty
-          (info.Cmi_format.cmi_sign)
-      ))
+          info.Cmi_format.cmi_sign
+      ) in
+      Trie.graft_lazy t ['.'] children
     )
 
 let load_cmt t modul file =
   Trie.map_subtree t (string_to_list modul)
     (fun t ->
-      if Trie.sub t ['.'] <> Trie.empty then
-        Printf.eprintf
-          "[33mWarning: module %s defined more than once[m\n%!"
-          modul;
       let t =
         Trie.set t [] {
           path = [];
@@ -302,49 +295,28 @@ let load_cmt t modul file =
           doc = None
         }
       in
-      Trie.graft_lazy t ['.'] (lazy (
+      let children = lazy (
         let info = Cmt_format.read_cmt file in
         let comments = info.Cmt_format.cmt_comments in
         match info.Cmt_format.cmt_annots with
         | Cmt_format.Interface sign ->
             let t, _remaining_comments =
               List.fold_left
-                (fun (t,comments) sign ->
-                  let chld, comments = trie_of_sig_item ~comments [modul] sign in
-                  List.fold_left (fun t (k,v) -> Trie.graft t k v) t chld,
-                  comments)
+                (fun (t,comments) sig_item ->
+                  let chld, comments =
+                    trie_of_sig_item ~comments [modul] sig_item
+                  in
+                  List.fold_left Trie.append t chld, comments)
                 (Trie.empty, comments)
                 (sign.Typedtree.sig_type)
             in
             t
-
-            (* let types = *)
-            (*   List.map *)
-            (*     Typedtree.(function *)
-            (*       | {sig_desc = Tsig_value (id,_loc,v)} -> *)
-            (*          (\* v.val_val.Types.val_type; *\) t *)
-            (*       | x ->  t *)
-
-(* | 	Tsig_type of (Ident.t * string Asttypes.loc * type_declaration) list *)
-(* | 	Tsig_exception of Ident.t * string Asttypes.loc * exception_declaration *)
-(* | 	Tsig_module of Ident.t * string Asttypes.loc * module_type *)
-(* | 	Tsig_recmodule of (Ident.t * string Asttypes.loc * module_type) list *)
-(* | 	Tsig_modtype of Ident.t * string Asttypes.loc * modtype_declaration *)
-(* | 	Tsig_open of Path.t * Longident.t Asttypes.loc *)
-(* | 	Tsig_include of module_type * Types.signature *)
-(* | 	Tsig_class of class_description list *)
-(* | 	Tsig_class_type of class_type_declaration list *)
-            (*     ) *)
-            (*     sign.Typedtree.sig_items *)
-            (* in *)
-            (* t *)
         | _ ->
             Printf.eprintf "\027[33mWarning: unhandled cmti format\027[m\n%!";
             t
-            (* List.fold_left (fun t (key,v) -> Trie.graft t key v) *)
-            (*   Trie.empty *)
-            (*   (Cmt_format.read_cmt file) *)
-      ))
+      )
+      in
+      Trie.graft_lazy t ['.'] children
     )
 
 let load paths =
@@ -376,7 +348,6 @@ let load paths =
     paths
   in
   open_module ~cleanup_path:true t ["Pervasives"]
-
 
 (* - Output functions - *)
 

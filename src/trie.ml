@@ -127,10 +127,12 @@ let rec filter_keys f tree =
         !!(tree.children)
     )}
 
-let graft tree path node = map_subtree tree path (fun _ -> node)
+let graft tree path node =
+  map_subtree tree path (fun t -> { t with children = node.children })
 
 let graft_lazy tree path lazy_node =
-  map_subtree tree path (fun _ -> !!lazy_node)
+  map_subtree tree path
+    (fun t -> { t with children = lazy !!(!!lazy_node.children) })
 
 let rec merge ?(values = fun _ v -> v) t1 t2 =
   let rec aux l1 l2 = match l1,l2 with

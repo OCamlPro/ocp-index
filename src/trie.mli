@@ -52,13 +52,6 @@ val map_subtree :
     found at [path] in [tree], and bind the returned node back at that position
     in the tree *)
 
-(*
-val set_lazy_subtree :
-  ('a, 'b) t -> 'a list -> ('a * ('a,'b) t) list Lazy.t -> ('a, 'b) t
-(** [set_lazy_subtree t path lazy_children] sets the sub-tree of [t] pointed to
-    by [path] to have [lazy_children] *)
-*)
-
 val iter : ('a list -> 'b -> unit) -> ('a, 'b) t -> unit
 (** iters over all the bindings in the trie, top-down *)
 
@@ -77,8 +70,8 @@ val filter_keys : ('a -> bool) -> ('a, 'b) t -> ('a, 'b) t
 (** [filter f t] returns t with all subtrees for which [f key = false] pruned *)
 
 val graft : ('a, 'b) t -> 'a list -> ('a, 'b) t -> ('a, 'b) t
-(** [graft tree path subtree] grafts [subtree] in [tree] at [path], replacing
-    the whole subtree *)
+(** [graft tree path subtree] grafts the children of [subtree] in [tree] at
+    [path], replacing the whole subtree *)
 
 val graft_lazy : ('a, 'b) t -> 'a list -> ('a, 'b) t Lazy.t -> ('a, 'b) t
 (** Lazy version of [graft] *)
