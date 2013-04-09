@@ -43,4 +43,5 @@ ocaml-curses installed to build it:
 ```
 $ opam install curses
 $ ocp-build ocp-browser
+$ ocp-build install ocp-browser
 ```
