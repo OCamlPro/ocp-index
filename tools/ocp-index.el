@@ -33,3 +33,15 @@
     (setq ac-sources '(ac-source-ocp-index))))
 
 (add-to-list 'ac-modes 'tuareg-mode)
+
+;; Display type in the minibuffer
+
+(defun ocp-index-print-type ()
+  (interactive nil)
+  (require 'thingatpt)
+  (let ((symbol (thing-at-point 'symbol)))
+    (when symbol
+      (let* ((command (format "ocp-index type %s" symbol))
+             (output  (shell-command-to-string command))
+             (type    (replace-regexp-in-string "\n\+$" "" output)))
+        (message type)))))
