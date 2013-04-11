@@ -251,7 +251,7 @@ let rec trie_of_sig_item ?(comments=[]) path sig_item =
   in
   (string_to_list id.Ident.name,
    Trie.create
-     ~value:{path; kind; name = id.Ident.name; ty; loc; doc}
+     ~value:info
      ~children:(lazy ['.', children])
      ())
   :: siblings,
@@ -371,16 +371,9 @@ let complete_class _ = assert false
 
 let name id = String.concat "." (id.path @ [id.name])
 
-let ty id =
-  match id.ty with
-  | Some ty ->
-      !Oprint.out_sig_item Format.str_formatter ty;
-      Format.flush_str_formatter ()
-  | None -> ""
-
-let format_list fmt
+let format_list
     ?(paren=false) ?(left=fun _ -> ()) ?(right=fun _ -> ())
-    pr lst sep
+    pr sep fmt lst
   =
   let rec aux = function
     | [] -> ()
@@ -407,23 +400,75 @@ let format_lines fmt str =
   in
   aux 0
 
+let rec format_tydecl fmt = function
+  | Outcometree.Otyp_abstract -> ()
+  | Outcometree.Otyp_manifest (ty,_) ->
+      format_tydecl fmt ty
+  | Outcometree.Otyp_record fields ->
+      let print_field fmt (name, mut, arg) =
+        Format.fprintf fmt "@[<2>%s%s :@ %a@];"
+          (if mut then "mutable " else "") name
+          !Oprint.out_type arg
+      in
+      Format.fprintf fmt "{%a@;<1 -2>}"
+        (format_list ~left:(fun fmt -> Format.pp_print_space fmt ())
+           print_field Format.pp_print_space)
+        fields
+  | Outcometree.Otyp_sum constrs ->
+      let print_variant fmt (name, tyl, ret_type_opt) =
+        match ret_type_opt with
+        | None ->
+            if tyl = [] then Format.pp_print_string fmt name
+            else
+              Format.fprintf fmt "@[<2>%s of@ %a@]"
+                name
+                (format_list !Oprint.out_type
+                   (fun fmt () -> Format.fprintf fmt " *@ "))
+                tyl
+        | Some ret_type ->
+            if tyl = [] then
+              Format.fprintf fmt "@[<2>%s :@ %a@]" name
+                !Oprint.out_type ret_type
+            else
+              Format.fprintf fmt "@[<2>%s :@ %a -> %a@]"
+                name
+                (format_list !Oprint.out_type
+                   (fun fmt () -> Format.fprintf fmt " *@ "))
+                tyl
+                !Oprint.out_type ret_type
+      in
+      format_list print_variant (fun fmt () -> Format.fprintf fmt "@ | ")
+        fmt constrs
+  | ty ->
+      !Oprint.out_type fmt ty
+
+
 let format_ty fmt ty =
   match ty with
   | Outcometree.Osig_class (_,_,_,ctyp,_)
   | Outcometree.Osig_class_type (_,_,_,ctyp,_) ->
       !Oprint.out_class_type fmt ctyp
   | Outcometree.Osig_exception (_,tylst) ->
-      format_list fmt ~paren:true
-        !Oprint.out_type tylst
+      format_list ~paren:true
+        !Oprint.out_type
         (fun fmt () ->
           Format.pp_print_char fmt ','; Format.pp_print_space fmt ())
+        fmt
+        tylst
   | Outcometree.Osig_modtype (_,mtyp)
   | Outcometree.Osig_module (_,mtyp,_) ->
       !Oprint.out_module_type fmt mtyp
   | Outcometree.Osig_type ((_,_,ty,_,_),_) ->
-      !Oprint.out_type fmt ty
+      Format.fprintf fmt "@[<hv 2>%a@]" format_tydecl ty
   | Outcometree.Osig_value (_,ty,_) ->
       !Oprint.out_type fmt ty
+
+let ty id =
+  match id.ty with
+  | Some ty ->
+      format_ty Format.str_formatter ty;
+      Format.flush_str_formatter ()
+  | None -> ""
 
 let doc _ = assert false
 let loc _ = assert false
