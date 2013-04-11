@@ -123,12 +123,12 @@ let interactive opts () =
             | None -> String.sub query_buf 0 st.query_len, 0
             | Some (s,n) -> s, n
           in
-          match Info.complete opts.IndexOptions.lib_info query with
+          match LibIndex.complete opts.IndexOptions.lib_info query with
           | [] -> st
           | lst ->
               let nb = List.length lst in
               let nth = if nth >= nb then 0 else nth in
-              let s = Info.name (List.nth lst nth) in
+              let s = LibIndex.name (List.nth lst nth) in
               let len = min (String.length s) query_buf_max in
               String.blit s 0 query_buf 0 len;
               { nst with completion = Some (query, nth+1);
@@ -152,9 +152,9 @@ let interactive opts () =
         let fmt = Format.str_formatter in
         List.iter
           (fun id ->
-            Info.format_info ~color:opts.IndexOptions.color fmt id;
+            LibIndex.format_info ~color:opts.IndexOptions.color fmt id;
             Format.pp_force_newline fmt ())
-          (Info.complete opts.IndexOptions.lib_info query);
+          (LibIndex.complete opts.IndexOptions.lib_info query);
         Format.flush_str_formatter ()
       in
       let lines = string_split '\n' response_str in

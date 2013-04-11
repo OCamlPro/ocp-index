@@ -28,9 +28,9 @@ let complete_cmd =
     let fmt = Format.std_formatter in
     List.iter
       (fun id ->
-        Info.format_info ~color:opts.IndexOptions.color fmt id;
+        LibIndex.format_info ~color:opts.IndexOptions.color fmt id;
         Format.pp_print_newline fmt ())
-      (Info.complete opts.IndexOptions.lib_info query);
+      (LibIndex.complete opts.IndexOptions.lib_info query);
     Format.pp_print_flush fmt ()
   in
   let doc = "Print completions to stdout." in
@@ -44,8 +44,8 @@ let type_cmd =
   in
   let print_ty opts query =
     try
-      let id = Info.get opts.IndexOptions.lib_info query in
-      print_endline (Info.ty id)
+      let id = LibIndex.get opts.IndexOptions.lib_info query in
+      print_endline (LibIndex.ty id)
     with Not_found -> exit 2
   in
   let doc = "Print the type of an identifier." in

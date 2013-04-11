@@ -13,8 +13,8 @@
 (**************************************************************************)
 
 (** The type for common command-line options *)
-type t = { lib_info: Info.t; color: bool; }
+type t = { lib_info: LibIndex.t; color: bool; }
 
-(** The cmdliner term to get the common options and create the [Info.t]
+(** The cmdliner term to get the common options and create the [LibIndex.t]
     structure *)
 val common_opts : t Cmdliner.Term.t

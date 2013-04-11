@@ -15,7 +15,7 @@
 open Cmdliner
 
 (* -- common options -- *)
-type t = { lib_info: Info.t; color: bool; }
+type t = { lib_info: LibIndex.t; color: bool; }
 
 let rec subdirs acc path =
   Array.fold_left
@@ -100,7 +100,7 @@ let common_opts : t Term.t =
     in
     Term.(pure List.flatten $ arg)
   in
-  let lib_info : Info.t Term.t =
+  let lib_info : LibIndex.t Term.t =
     let dirs =
       Term.(
         pure (fun d -> remove_dups (List.fold_left subdirs [] d))
@@ -108,8 +108,8 @@ let common_opts : t Term.t =
       )
     in
     let init dirs opens =
-      let info = Info.load dirs in
-      List.fold_left Info.open_module info opens
+      let info = LibIndex.load dirs in
+      List.fold_left LibIndex.open_module info opens
     in
     Term.(pure init $ dirs $ open_modules)
   in
