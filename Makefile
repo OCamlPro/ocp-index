@@ -72,4 +72,4 @@ ocp-build.root:
 	  echo "Error: you need ocp-build >= 1.99." >&2;\
 	  exit 1;\
 	fi
-	ocp-build -init $(patsubst %,src/%.ocp,$(PROJECTS))
+	ocp-build -init
