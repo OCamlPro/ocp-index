@@ -249,13 +249,16 @@ let rec trie_of_sig_item ?(comments=[]) path sig_item =
         comments
     | _ -> Trie.empty, comments
   in
-  (string_to_list id.Ident.name,
-   Trie.create
-     ~value:info
-     ~children:(lazy ['.', children])
-     ())
-  :: siblings,
-  comments
+  let name = id.Ident.name in
+  if String.length name > 0 && name.[0] = '#' then [], comments
+  else
+    (string_to_list id.Ident.name,
+     Trie.create
+       ~value:info
+       ~children:(lazy ['.', children])
+       ())
+    :: siblings,
+    comments
 
 let load_cmi t modul file =
   Trie.map_subtree t (string_to_list modul)
@@ -442,7 +445,6 @@ let rec format_tydecl fmt = function
   | ty ->
       !Oprint.out_type fmt ty
 
-
 let format_ty fmt ty =
   match ty with
   | Outcometree.Osig_class (_,_,_,ctyp,_)
@@ -504,11 +506,14 @@ let format_info ?(color=true) fmt id =
     | Value -> Format.pp_print_string fmt "val"
     | Exception -> Format.pp_print_string fmt "exception"
     | Field parentty ->
-        Format.fprintf fmt "field(%a)" (colorise Type "%s") parentty.name
+        Format.fprintf fmt "field(%a)"
+          (colorise parentty.kind "%s") parentty.name
     | Variant parentty ->
-        Format.fprintf fmt "constr(%a)" (colorise Type "%s") parentty.name
+        Format.fprintf fmt "constr(%a)"
+          (colorise parentty.kind "%s") parentty.name
     | Method parentclass ->
-        Format.fprintf fmt "method(%a)" (colorise Class "%s") parentclass.name
+        Format.fprintf fmt "method(%a)"
+          (colorise parentclass.kind "%s") parentclass.name
     | Module -> Format.pp_print_string fmt "module"
     | ModuleType -> Format.pp_print_string fmt "modtype"
     | Class -> Format.pp_print_string fmt "class"
