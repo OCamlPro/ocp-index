@@ -15,11 +15,12 @@
 let (!!) = Lazy.force
 
 type ('a,'b) t =  {
-  value: 'b option;
+  value: 'b list;
   children: ('a * ('a,'b) t) list Lazy.t;
 }
 
 let create ?(children = lazy []) ?value () =
+  let value = match value with Some v -> [v] | None -> [] in
   { children; value; }
 
 let empty = create ()
@@ -34,15 +35,11 @@ let rec list_map_filter f = function
    otherwise impossible to know which branches to prune) *)
 let map_filter_values f tree =
   let rec aux value children = {
-    value = (
-      match value with
-      | None -> None
-      | Some value -> f value
-    );
+    value = list_map_filter f value;
     children = lazy (
       list_map_filter
         (fun (key, {value; children}) -> match aux value children with
-          | { value = None; children = lazy [] } -> None
+          | { value = []; children = lazy [] } -> None
           | r -> Some (key, r))
         !!children
     )
@@ -52,7 +49,7 @@ let map_filter_values f tree =
 
 let iter f tree =
   let rec aux rev_path tree =
-    (match tree.value with Some v -> f (List.rev rev_path) v | None -> ());
+    List.iter (f (List.rev rev_path)) tree.value;
     List.iter (fun (k,v) -> aux (k::rev_path) v) !!(tree.children)
   in
   aux [] tree
@@ -65,7 +62,7 @@ let fold f tree acc =
         acc
         !!(t.children)
     in
-    match t.value with Some v -> f acc (List.rev rev_path) v | None -> acc
+    List.fold_left (fun acc v -> f acc (List.rev rev_path) v) acc t.value
   in
   aux acc tree []
 
@@ -76,16 +73,19 @@ let sub tree path =
   in
   try aux tree path with Not_found -> empty
 
-let rec find tree = function
-  | h :: tl -> find (List.assoc h !!(tree.children)) tl
-  | [] -> match tree.value with
-      | Some v -> v
-      | None -> raise Not_found
+let rec find_all tree = function
+  | h :: tl -> find_all (List.assoc h !!(tree.children)) tl
+  | [] -> tree.value
+
+let find tree path =
+  match find_all tree path with
+  | v::_ -> v
+  | [] -> raise Not_found
 
 let mem tree path =
   let rec aux tree = function
     | h :: tl -> aux (List.assoc h !!(tree.children)) tl
-    | [] -> tree.value <> None
+    | [] -> tree.value <> []
   in
   try aux tree path with Not_found -> false
 
@@ -111,13 +111,16 @@ let rec map_subtree tree path f = match path with
       { tree with children }
 
 let set tree path value =
-  map_subtree tree path (fun t -> { t with value = Some value })
+  map_subtree tree path (fun t -> { t with value = [value] })
 
 let set_lazy tree path lazy_value =
-  map_subtree tree path (fun t -> { t with value = Some !!lazy_value })
+  map_subtree tree path (fun t -> { t with value = [!!lazy_value] })
+
+let add tree path value =
+  map_subtree tree path (fun t -> { t with value = value::t.value })
 
 let unset tree path =
-  map_subtree tree path (fun t -> { t with value = None })
+  map_subtree tree path (fun t -> { t with value = [] })
 
 let rec filter_keys f tree =
   { tree with
@@ -134,7 +137,7 @@ let graft_lazy tree path lazy_node =
   map_subtree tree path
     (fun t -> { t with children = lazy !!(!!lazy_node.children) })
 
-let rec merge ?(values = fun _ v -> v) t1 t2 =
+let rec merge ?(values = fun v1 v2 -> v2@v1) t1 t2 =
   let rec aux l1 l2 = match l1,l2 with
     | ((k1,v1) as h1 :: tl1), ((k2,v2) as h2 :: tl2) ->
         if k1 < k2 then h1 :: aux tl1 l2 else
@@ -142,10 +145,7 @@ let rec merge ?(values = fun _ v -> v) t1 t2 =
           (k1, merge ~values v1 v2) :: aux tl1 tl2
     | [], l | l, [] -> l
   in
-  let value = match t1.value, t2.value with
-    | Some v1, Some v2 -> Some (values v1 v2)
-    | None, v | v, None -> v
-  in
+  let value = values t1.value t2.value in
   let compare_keys (k1,_) (k2,_) = compare k1 k2 in
   let children = lazy (
     let c1 = List.sort compare_keys (Lazy.force t1.children) in

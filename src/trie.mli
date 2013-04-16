@@ -33,9 +33,15 @@ val find : ('a, 'b) t -> 'a list -> 'b
 (** Returns the value associated with the given path.
     @raise [Not_found] *)
 
+val find_all : ('a, 'b) t -> 'a list -> 'b list
+(** Returns all values associated with the given path, most recent first. *)
+
 val set : ('a, 'b) t -> 'a list -> 'b -> ('a, 'b) t
 (** Associates a value with the given path, or replaces if there was already
     one *)
+
+val add : ('a, 'b) t -> 'a list -> 'b -> ('a, 'b) t
+(** Associates a value with the given path, keeping previous bindings *)
 
 val set_lazy : ('a, 'b) t -> 'a list -> 'b Lazy.t -> ('a, 'b) t
 (** The same but taking a lazy value *)
@@ -76,9 +82,12 @@ val graft : ('a, 'b) t -> 'a list -> ('a, 'b) t -> ('a, 'b) t
 val graft_lazy : ('a, 'b) t -> 'a list -> ('a, 'b) t Lazy.t -> ('a, 'b) t
 (** Lazy version of [graft] *)
 
-val merge : ?values:('b -> 'b -> 'b) -> ('a, 'b) t -> ('a, 'b) t -> ('a, 'b) t
+val merge :
+  ?values:('b list -> 'b list -> 'b list) -> ('a, 'b) t -> ('a, 'b) t
+  -> ('a, 'b) t
 (** Merges two tries, accepting an optional function to resolve value
-    conflicts. The default function discards the left-hand values. *)
+    conflicts. The default function pushes right-hand values. on top of
+    left-hand ones *)
 
 val append : ('a, 'b) t -> ('a list * ('a, 'b) t) -> ('a, 'b) t
 (** [append tree (path, subtree)] appends [subtree] in [tree] at [path], merging
