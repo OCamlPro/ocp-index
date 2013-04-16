@@ -65,7 +65,7 @@ let open_module ?(cleanup_path=false) t path =
       fun id -> id
   in
   Trie.fold
-    (fun t path id -> Trie.set t path (f id))
+    (fun t path id -> Trie.add t path (f id))
     (Trie.sub t
        (List.fold_right (fun p acc -> string_to_list p @ '.' :: acc) path []))
     t
@@ -230,14 +230,14 @@ let rec trie_of_sig_item ?(comments=[]) path sig_item =
         let (fields, _) =
           Ctype.flatten_fields (Ctype.object_fields clsig.Types.cty_self)
         in
-        List.fold_left (fun t (lbl,kind,ty_expr) ->
+        List.fold_left (fun t (lbl,_,ty_expr) ->
           if lbl = "*dummy method*" then t else
             let ty = Printtyp.tree_of_typexp false ty_expr in
             let ty =
               Outcometree.Osig_type
                 (("", [], ty, Asttypes.Public, []), Outcometree.Orec_not)
             in
-            Trie.set t (string_to_list lbl)
+            Trie.add t (string_to_list lbl)
               { path = path;
                 kind = Method info;
                 name = lbl;
@@ -247,29 +247,6 @@ let rec trie_of_sig_item ?(comments=[]) path sig_item =
           Trie.empty
           fields,
         comments
-(*
-        let tylst = match (get_clsig cty).Types.cty_self.Types.desc with
-          | Types.Tobject (_, {contents = Some tylst}) -> tylst
-          | _ -> assert false
-        in
-        let path = path@[id.Ident.name]
-        List.fold_left
-          (fun (t,comments) sign ->
-            Trie.set t (string_to_list id.Ident.name) {
-              path;
-              kind = ;
-              name = modul;
-              ty = None;
-              loc = Location.in_file file;
-              doc = None }
-
-            let chlds,comments =
-              trie_of_type ~comments (path@[id.Ident.name]) sign
-            in
-            List.fold_left (fun t (k,v) -> Trie.graft t k v) t chlds, comments)
-          (Trie.empty,comments)
-          tylst
-*)
     | _ -> Trie.empty, comments
   in
   (string_to_list id.Ident.name,
@@ -284,7 +261,7 @@ let load_cmi t modul file =
   Trie.map_subtree t (string_to_list modul)
     (fun t ->
       let t =
-        Trie.set t [] {
+        Trie.add t [] {
           path = [];
           kind = Module;
           name = modul;
@@ -309,7 +286,7 @@ let load_cmt t modul file =
   Trie.map_subtree t (string_to_list modul)
     (fun t ->
       let t =
-        Trie.set t [] {
+        Trie.add t [] {
           path = [];
           kind = Module;
           name = modul;
