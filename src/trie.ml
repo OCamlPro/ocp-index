@@ -54,7 +54,7 @@ let iter f tree =
   in
   aux [] tree
 
-let fold f tree acc =
+let fold0 f tree acc =
   let rec aux acc t rev_path =
     let acc =
       List.fold_left
@@ -62,9 +62,14 @@ let fold f tree acc =
         acc
         !!(t.children)
     in
-    List.fold_left (fun acc v -> f acc (List.rev rev_path) v) acc t.value
+    f acc (List.rev rev_path) t.value
   in
   aux acc tree []
+
+let fold f =
+  fold0
+    (fun acc path values ->
+      List.fold_left (fun acc v -> f acc path v) acc values)
 
 let sub tree path =
   let rec aux tree = function

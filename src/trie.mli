@@ -64,6 +64,9 @@ val iter : ('a list -> 'b -> unit) -> ('a, 'b) t -> unit
 val fold : ('acc -> 'a list -> 'b -> 'acc) -> ('a, 'b) t -> 'acc -> 'acc
 (** folds over all bindings of the trie, bottom-up *)
 
+val fold0 : ('acc -> 'a list -> 'b list -> 'acc) -> ('a, 'b) t -> 'acc -> 'acc
+(** same as [fold], but the list of bindings at a given path is given at once *)
+
 val map_filter_values : ('b -> 'c option) -> ('a,'b) t -> ('a,'c) t
 (** Maps and filters over all values in the trie, removing the value if [None]
     is returned *)

@@ -354,8 +354,25 @@ let load paths =
 
 (* - Output functions - *)
 
+let filter_visible values =
+  let same_kind a b = match a.kind, b.kind with
+    | Field i, Field j | Variant i, Variant j | Method i, Method j ->
+        i.name = j.name
+    | a, b -> a = b
+  in
+  let rev =
+    List.fold_left
+      (fun acc info ->
+        if List.exists (fun n -> same_kind info n) acc
+        then acc else info::acc)
+      [] values
+  in
+  List.rev rev
+
 let trie_to_list trie =
-  Trie.fold (fun acc _path value -> value::acc) trie []
+  Trie.fold0
+    (fun acc _path values -> (filter_visible values) @ acc)
+    trie []
 
 let get t query = Trie.find t (string_to_list query)
 
