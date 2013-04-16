@@ -208,15 +208,15 @@ let rec trie_of_sig_item ?(comments=[]) path sig_item =
     | Types.Sig_module (id,Types.Mty_signature sign,_)
     | Types.Sig_modtype (id,Types.Modtype_manifest (Types.Mty_signature sign))
       ->
+        let path = path @ [id.Ident.name] in
         List.fold_left
           (fun (t,comments) sign ->
             let chlds,comments =
-              trie_of_sig_item ~comments (path@[id.Ident.name]) sign
+              trie_of_sig_item ~comments path sign
             in
             List.fold_left Trie.append t chlds, comments)
           (Trie.empty,comments)
           sign
-(* WIP
     | Types.Sig_class (id,{Types.cty_type=cty},_)
     | Types.Sig_class_type (id,{Types.clty_type=cty},_)
       ->
@@ -225,6 +225,29 @@ let rec trie_of_sig_item ?(comments=[]) path sig_item =
               get_clsig cty
           | Types.Cty_signature clsig -> clsig
         in
+        let clsig = get_clsig cty in
+        let path = path@[id.Ident.name] in
+        let (fields, _) =
+          Ctype.flatten_fields (Ctype.object_fields clsig.Types.cty_self)
+        in
+        List.fold_left (fun t (lbl,kind,ty_expr) ->
+          if lbl = "*dummy method*" then t else
+            let ty = Printtyp.tree_of_typexp false ty_expr in
+            let ty =
+              Outcometree.Osig_type
+                (("", [], ty, Asttypes.Public, []), Outcometree.Orec_not)
+            in
+            Trie.set t (string_to_list lbl)
+              { path = path;
+                kind = Method info;
+                name = lbl;
+                ty = Some ty;
+                loc;
+                doc = None })
+          Trie.empty
+          fields,
+        comments
+(*
         let tylst = match (get_clsig cty).Types.cty_self.Types.desc with
           | Types.Tobject (_, {contents = Some tylst}) -> tylst
           | _ -> assert false
