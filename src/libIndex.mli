@@ -16,6 +16,10 @@ type t
 
 type info
 
+(** Helper function, useful to lookup all subdirs of a given path before calling
+    [load] *)
+val unique_subdirs: string list -> string list
+
 (** load from include dirs *)
 val load: string list -> t
 

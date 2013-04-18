@@ -17,22 +17,6 @@ open Cmdliner
 (* -- common options -- *)
 type t = { lib_info: LibIndex.t; color: bool; }
 
-let rec subdirs acc path =
-  Array.fold_left
-    (fun acc p ->
-      let path = Filename.concat path p in
-      if Sys.is_directory path then subdirs acc path else acc)
-    (path::acc)
-    (Sys.readdir path)
-
-let remove_dups l =
-  let rec aux = function
-    | a::(b::_ as r) when a = b -> aux r
-    | a::r -> a :: aux r
-    | [] -> []
-  in
-  aux (List.sort compare l)
-
 let cmd_input_line cmd =
   try
     let ic = Unix.open_process_in cmd in
@@ -103,8 +87,7 @@ let common_opts : t Term.t =
   let lib_info : LibIndex.t Term.t =
     let dirs =
       Term.(
-        pure (fun d -> remove_dups (List.fold_left subdirs [] d))
-        $ ocamllib
+        pure LibIndex.unique_subdirs $ ocamllib
       )
     in
     let init dirs opens =

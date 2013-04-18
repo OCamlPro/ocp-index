@@ -50,6 +50,24 @@ let option_iter opt f = match opt with
   | Some x -> f x
   | None -> ()
 
+let unique_subdirs dir_list =
+  let rec subdirs acc path =
+    Array.fold_left
+      (fun acc p ->
+        let path = Filename.concat path p in
+        if Sys.is_directory path then subdirs acc path else acc)
+      (path::acc)
+      (Sys.readdir path)
+  in
+  let remove_dups l =
+    let rec aux = function
+      | a::(b::_ as r) when a = b -> aux r
+      | a::r -> a :: aux r
+      | [] -> []
+    in
+    aux (List.sort compare l)
+  in
+  remove_dups (List.fold_left subdirs [] dir_list)
 
 (* - Trie loading and manipulation functions - *)
 
