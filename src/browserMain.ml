@@ -120,20 +120,22 @@ let interactive opts () =
       let query =
         String.sub query_buf 0 st.query_len
       in
+      let toskip = ref st.scroll in
       let _set_formatter_ =
-        let toskip = ref st.scroll in
         let toprint = ref (w.height - 3) in
         let out str a b =
           if !toskip > 0 then ()
-          else if !toprint > 0 then
+          else if !toprint > 1 then
             for i = a to a + b - 1 do
               ignore (Curses.waddch w.output (int_of_char str.[i]))
             done
         in
         let newline () =
           if !toskip > 0 then decr toskip
+          else if !toprint > 2 then
+            (out "\n" 0 1; decr toprint)
           else if !toprint > 0 then
-            (decr toprint; if !toprint > 0 then out "\n" 0 1)
+            (out "\n..." 0 4; decr toprint)
         in
         let spaces n = out (String.make n ' ') 0 n in
         let flush () = () in
@@ -175,29 +177,35 @@ let interactive opts () =
           in { LibIndex.Format.f }
       in
       let _ = Curses.wclear w.output in
-      let response = LibIndex.complete opts.IndexOptions.lib_info query in
+      let response =
+        LibIndex.complete
+          opts.IndexOptions.lib_info
+          ~filter:opts.IndexOptions.filter
+          query
+      in
       let _ =
         let fmt = Format.std_formatter in
         List.iter
           (fun id ->
-             Format.pp_open_hvbox fmt 4;
+             Format.open_hvbox 4;
              LibIndex.Format.kind ~colorise fmt id;
-             Format.pp_print_char fmt ' ';
+             Format.print_char ' ';
              LibIndex.Format.path ~colorise fmt id;
              if id.LibIndex.ty <> None then
-               (Format.pp_print_char fmt ' ';
-                Format.pp_open_hbox fmt ();
+               (Format.print_char ' ';
+                Format.open_hbox ();
                 LibIndex.Format.ty ~colorise fmt id;
-                Format.pp_close_box fmt ());
+                Format.close_box ());
              if id.LibIndex.doc <> None then
-               (Format.pp_print_newline fmt ();
-                Format.pp_print_string fmt "    ";
+               (Format.force_newline ();
+                Format.print_string "    ";
                 LibIndex.Format.doc ~colorise fmt id);
-             Format.pp_close_box fmt ();
-             Format.pp_force_newline fmt ())
+             Format.close_box ();
+             Format.force_newline ())
           response
       in
       let _ = Curses.wrefresh w.output in
+      let st = { st with scroll = st.scroll - !toskip } in
       loop st
   in
   loop { query_len = 0; scroll = 0; completion = None }
