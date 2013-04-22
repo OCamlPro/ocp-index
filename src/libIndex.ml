@@ -399,12 +399,19 @@ let trie_to_list trie =
 let all t =
   trie_to_list t
 
+let filter t f =
+  Trie.fold0
+    (fun acc _path values ->
+       (filter_visible (List.filter f values)) @ acc)
+    t []
+
 let get t query = Trie.find t (string_to_list query)
 
-let complete t query =
-  trie_to_list
+let complete t ?filter:(f = fun _ -> true) query =
+  filter
     (Trie.filter_keys ((<>) '.')
        (Trie.sub t (string_to_list query)))
+    f
 
 
 (* - Output - *)

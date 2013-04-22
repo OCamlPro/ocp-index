@@ -15,7 +15,7 @@
 open Cmdliner
 
 (* -- common options -- *)
-type t = { lib_info: LibIndex.t; color: bool; }
+type t = { lib_info: LibIndex.t; color: bool; filter: LibIndex.info -> bool }
 
 let cmd_input_line cmd =
   try
@@ -84,6 +84,50 @@ let common_opts : t Term.t =
     in
     Term.(pure List.flatten $ arg)
   in
+  let filter : (LibIndex.info -> bool) Term.t =
+    let opts = [
+      "t", `Types; "types", `Types;
+      "v", `Values; "values", `Values;
+      "e", `Exceptions; "exceptions", `Exceptions;
+      "c", `Constructs; "constructs", `Constructs;
+      "m", `Modules; "modules", `Modules;
+      "s", `Sigs; "sigs", `Sigs;
+    ] in
+    let show =
+      Arg.(value & opt (list (enum opts)) [] & info ["s";"show"]
+             ~doc:"Kinds of elements to show in answers: $(docv) is a \
+                   comma-separated list of `$(i,types)', `$(i,values)' and \
+                   methods, `$(i,exceptions)', `$(i,constructs)' (record \
+                   fields and sum type constructors), `$(i,modules)' and \
+                   classes, `$(i,sigs)' (module and class types). The default \
+                   is $(b,v,e,c,m)"
+             ~docv:"LIST")
+    in
+    let hide =
+      Arg.(value & opt (list (enum opts)) [] & info ["h";"hide"]
+             ~doc:"kinds of elements not to show in answers: $(docv) is a \
+                   comma-separated list of element kinds (see `--show')"
+             ~docv:"LIST")
+    in
+    Term.(
+      pure (fun show hide ->
+          let f key default = List.mem key show ||
+                              default && not (List.mem key hide)
+          in
+          let t,v,e,c,m,s =
+            f `Types false, f `Values true, f `Exceptions true,
+            f `Constructs true, f `Modules true, f `Sigs false
+          in
+          LibIndex.(fun info -> match info.kind with
+              | Type -> t
+              | Value | Method _ -> v
+              | Exception -> e
+              | Field _ | Variant _ -> c
+              | Module | Class -> m
+              | ModuleType | ClassType -> s))
+      $ show $ hide
+    )
+  in
   let lib_info : LibIndex.t Term.t =
     let dirs =
       Term.(
@@ -97,6 +141,6 @@ let common_opts : t Term.t =
     Term.(pure init $ dirs $ open_modules)
   in
   Term.(
-    pure (fun lib_info color -> { lib_info; color; })
-    $ lib_info $ color
+    pure (fun lib_info color filter -> { lib_info; color; filter })
+    $ lib_info $ color $ filter
   )

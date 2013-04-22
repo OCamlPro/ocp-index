@@ -34,7 +34,10 @@ let complete_cmd =
                       else LibIndex.Format.no_color)
            fmt info;
          Format.pp_print_newline fmt ())
-      (LibIndex.complete opts.IndexOptions.lib_info query);
+      (LibIndex.complete
+         opts.IndexOptions.lib_info
+         ~filter:opts.IndexOptions.filter
+         query);
     Format.pp_print_flush fmt ()
   in
   let doc = "Print completions to stdout." in

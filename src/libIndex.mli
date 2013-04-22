@@ -64,7 +64,7 @@ val get: t -> string -> info
 
 (** Lookup identifiers starting with the given string. Completion stops at
     module boundaries (it wont unfold contents of modules) *)
-val complete: t -> string -> info list
+val complete: t -> ?filter:(info -> bool) -> string -> info list
 
 
 (** {2,Printing} *)
