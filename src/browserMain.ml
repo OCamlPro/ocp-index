@@ -64,34 +64,6 @@ let clear_input w =
   let _ = Curses.wmove w.input 1 2 in
   ()
 
-let rec skipn l n =
-  if n = 0 then l else match l with
-    | _::r -> skipn r (n-1)
-    | [] -> []
-
-let rec curseprint win attr str =
-  let len = String.length str in
-  let i = try String.index str '\027' with Not_found -> len in
-  let _ = Curses.waddstr win (String.sub str 0 i) in
-  Curses.wattr_off win attr;
-  if i < len then
-    if String.sub str (i+1) 2 = "[m" then
-      let attr = Curses.WA.normal in
-      Curses.wattron win attr;
-      curseprint win attr (String.sub str (i+3) (len - i - 3))
-    else
-      let str = String.sub str (i+1) (len - i - 1) in
-      Scanf.sscanf str
-        "[%um%n"
-        (fun color i ->
-          let attr =
-            if color = 1 then Curses.WA.bold
-            else Curses.WA.color_pair (color - 30)
-          in
-          Curses.wattron win attr;
-          curseprint win attr (String.sub str i (String.length str - i)))
-  else attr
-
 type state = {
   query_len: int;
   scroll: int; (* for scrolling: how many lines to skip before printing *)
@@ -128,7 +100,7 @@ let interactive opts () =
           | lst ->
               let nb = List.length lst in
               let nth = if nth >= nb then 0 else nth in
-              let s = LibIndex.name (List.nth lst nth) in
+              let s = LibIndex.Print.path (List.nth lst nth) in
               let len = min (String.length s) query_buf_max in
               String.blit s 0 query_buf 0 len;
               { nst with completion = Some (query, nth+1);
@@ -148,30 +120,83 @@ let interactive opts () =
       let query =
         String.sub query_buf 0 st.query_len
       in
-      let response_str =
-        let fmt = Format.str_formatter in
+      let _set_formatter_ =
+        let toskip = ref st.scroll in
+        let toprint = ref (w.height - 3) in
+        let out str a b =
+          if !toskip > 0 then ()
+          else if !toprint > 0 then
+            for i = a to a + b - 1 do
+              ignore (Curses.waddch w.output (int_of_char str.[i]))
+            done
+        in
+        let newline () =
+          if !toskip > 0 then decr toskip
+          else if !toprint > 0 then
+            (decr toprint; if !toprint > 0 then out "\n" 0 1)
+        in
+        let spaces n = out (String.make n ' ') 0 n in
+        let flush () = () in
+        Format.set_all_formatter_output_functions
+          ~out ~flush ~newline ~spaces
+      in
+      let colorise =
+        if not opts.IndexOptions.color then
+          LibIndex.Format.no_color
+        else
+          let attr = function
+            | LibIndex.Type -> Curses.WA.color_pair 6
+            | LibIndex.Value -> Curses.WA.bold
+            | LibIndex.Exception -> Curses.WA.color_pair 3
+            | LibIndex.Field _ | LibIndex.Variant _ -> Curses.WA.color_pair 4
+            | LibIndex.Method _ -> Curses.WA.bold
+            | LibIndex.Module | LibIndex.ModuleType -> Curses.WA.color_pair 1
+            | LibIndex.Class | LibIndex.ClassType -> Curses.WA.color_pair 5
+          in
+          let _set_tags =
+            Format.set_tags true;
+            Format.set_formatter_tag_functions {
+              Format.
+              mark_open_tag =
+                (fun a -> Curses.wattron w.output (int_of_string a); "");
+              mark_close_tag =
+                (fun a -> Curses.wattroff w.output (int_of_string a); "");
+              print_open_tag = (fun _ -> ());
+              print_close_tag = (fun _ -> ());
+            }
+          in
+          let f kind fstr fmt =
+            let tag = string_of_int (attr kind) in
+            Format.pp_open_tag fmt tag;
+            Format.kfprintf
+              (fun fmt ->
+                 Format.pp_close_tag fmt ())
+              fmt fstr
+          in { LibIndex.Format.f }
+      in
+      let _ = Curses.wclear w.output in
+      let response = LibIndex.complete opts.IndexOptions.lib_info query in
+      let _ =
+        let fmt = Format.std_formatter in
         List.iter
           (fun id ->
-            LibIndex.format_info ~color:opts.IndexOptions.color fmt id;
-            Format.pp_force_newline fmt ())
-          (LibIndex.complete opts.IndexOptions.lib_info query);
-        Format.flush_str_formatter ()
+             Format.pp_open_hvbox fmt 4;
+             LibIndex.Format.kind ~colorise fmt id;
+             Format.pp_print_char fmt ' ';
+             LibIndex.Format.path ~colorise fmt id;
+             if id.LibIndex.ty <> None then
+               (Format.pp_print_char fmt ' ';
+                Format.pp_open_hbox fmt ();
+                LibIndex.Format.ty ~colorise fmt id;
+                Format.pp_close_box fmt ());
+             if id.LibIndex.doc <> None then
+               (Format.pp_print_newline fmt ();
+                Format.pp_print_string fmt "    ";
+                LibIndex.Format.doc ~colorise fmt id);
+             Format.pp_close_box fmt ();
+             Format.pp_force_newline fmt ())
+          response
       in
-      let lines = string_split '\n' response_str in
-      let lines = skipn lines st.scroll in
-      let _ = Curses.wclear w.output in
-      let max_y = w.height - 4 in
-      let rec pr attr = function
-        | line::r ->
-            let y,_ = Curses.getyx w.output in
-            if y < max_y then
-              (Curses.wattron w.output attr;
-               let attr = curseprint w.output attr line in
-               let _ = Curses.waddch w.output (int_of_char '\n') in
-               pr attr r)
-        | [] -> ()
-      in
-      let _ = pr Curses.WA.normal lines in
       let _ = Curses.wrefresh w.output in
       loop st
   in

@@ -15,10 +15,13 @@
 
 (* - Main types - *)
 
+(* How we keep types represented internally *)
+type ty = Outcometree.out_sig_item
+
 type info = { path: string list;
               kind: kind;
               name: string;
-              ty: Outcometree.out_sig_item option;
+              ty: ty option;
               loc: Location.t;
               doc: string option;
            (* library: string option *) }
@@ -370,7 +373,8 @@ let load paths =
   in
   open_module ~cleanup_path:true t ["Pervasives"]
 
-(* - Output functions - *)
+
+(* - Query functions - *)
 
 let filter_visible values =
   let same_kind a b = match a.kind, b.kind with
@@ -392,6 +396,9 @@ let trie_to_list trie =
     (fun acc _path values -> (filter_visible values) @ acc)
     trie []
 
+let all t =
+  trie_to_list t
+
 let get t query = Trie.find t (string_to_list query)
 
 let complete t query =
@@ -399,125 +406,47 @@ let complete t query =
     (Trie.filter_keys ((<>) '.')
        (Trie.sub t (string_to_list query)))
 
-let complete_module _ = assert false
 
-let complete_value _ = assert false
+(* - Output - *)
 
-let complete_type _ = assert false
+module IndexFormat = struct
 
-let complete_class _ = assert false
-
-let name id = String.concat "." (id.path @ [id.name])
-
-let format_list
-    ?(paren=false) ?(left=fun _ -> ()) ?(right=fun _ -> ())
-    pr sep fmt lst
-  =
-  let rec aux = function
+  let list
+      ?(paren=false) ?(left=fun _ -> ()) ?(right=fun _ -> ())
+      pr sep fmt lst
+    =
+    let rec aux = function
+      | [] -> ()
+      | [x] -> pr fmt x
+      | x::r -> pr fmt x; sep fmt (); aux r
+    in
+    match lst with
     | [] -> ()
-    | [x] -> pr fmt x
-    | x::r -> pr fmt x; sep fmt (); aux r
-  in
-  match lst with
-  | [] -> ()
-  | [x] -> left fmt; pr fmt x; right fmt
-  | _::_::_ ->
-      if paren then Format.pp_print_char fmt '(';
-      left fmt; aux lst; right fmt;
-      if paren then Format.pp_print_char fmt ')'
+    | [x] -> left fmt; pr fmt x; right fmt
+    | _::_::_ ->
+        if paren then Format.pp_print_char fmt '(';
+        left fmt; aux lst; right fmt;
+        if paren then Format.pp_print_char fmt ')'
 
-let format_lines fmt str =
-  let len = String.length str in
-  let rec aux i =
-    if i >= len then () else
-      let j = try String.index_from str i '\n' with Not_found -> len in
-      Format.pp_print_string fmt (String.trim (String.sub str i (j - i)));
-      if j < len - 1 then
-        (Format.pp_force_newline fmt ();
-         aux (j+1))
-  in
-  aux 0
+  let lines fmt str =
+    let len = String.length str in
+    let rec aux i =
+      if i >= len then () else
+        let j = try String.index_from str i '\n' with Not_found -> len in
+        Format.pp_print_string fmt (String.trim (String.sub str i (j - i)));
+        if j < len - 1 then
+          (Format.pp_force_newline fmt ();
+           aux (j+1))
+    in
+    aux 0
 
-let rec format_tydecl fmt = function
-  | Outcometree.Otyp_abstract -> ()
-  | Outcometree.Otyp_manifest (ty,_) ->
-      format_tydecl fmt ty
-  | Outcometree.Otyp_record fields ->
-      let print_field fmt (name, mut, arg) =
-        Format.fprintf fmt "@[<2>%s%s :@ %a@];"
-          (if mut then "mutable " else "") name
-          !Oprint.out_type arg
-      in
-      Format.fprintf fmt "{%a@;<1 -2>}"
-        (format_list ~left:(fun fmt -> Format.pp_print_space fmt ())
-           print_field Format.pp_print_space)
-        fields
-  | Outcometree.Otyp_sum constrs ->
-      let print_variant fmt (name, tyl, ret_type_opt) =
-        match ret_type_opt with
-        | None ->
-            if tyl = [] then Format.pp_print_string fmt name
-            else
-              Format.fprintf fmt "@[<2>%s of@ %a@]"
-                name
-                (format_list !Oprint.out_type
-                   (fun fmt () -> Format.fprintf fmt " *@ "))
-                tyl
-        | Some ret_type ->
-            if tyl = [] then
-              Format.fprintf fmt "@[<2>%s :@ %a@]" name
-                !Oprint.out_type ret_type
-            else
-              Format.fprintf fmt "@[<2>%s :@ %a -> %a@]"
-                name
-                (format_list !Oprint.out_type
-                   (fun fmt () -> Format.fprintf fmt " *@ "))
-                tyl
-                !Oprint.out_type ret_type
-      in
-      format_list print_variant (fun fmt () -> Format.fprintf fmt "@ | ")
-        fmt constrs
-  | ty ->
-      !Oprint.out_type fmt ty
+  type coloriser =
+    { f: 'a. kind ->
+        ('a, Format.formatter, unit) format -> Format.formatter
+        -> 'a }
 
-let format_ty fmt ty =
-  match ty with
-  | Outcometree.Osig_class (_,_,_,ctyp,_)
-  | Outcometree.Osig_class_type (_,_,_,ctyp,_) ->
-      !Oprint.out_class_type fmt ctyp
-  | Outcometree.Osig_exception (_,tylst) ->
-      format_list ~paren:true
-        !Oprint.out_type
-        (fun fmt () ->
-          Format.pp_print_char fmt ','; Format.pp_print_space fmt ())
-        fmt
-        tylst
-  | Outcometree.Osig_modtype (_,mtyp)
-  | Outcometree.Osig_module (_,mtyp,_) ->
-      !Oprint.out_module_type fmt mtyp
-  | Outcometree.Osig_type ((_,_,ty,_,_),_) ->
-      Format.fprintf fmt "@[<hv 2>%a@]" format_tydecl ty
-  | Outcometree.Osig_value (_,ty,_) ->
-      !Oprint.out_type fmt ty
-
-let ty id =
-  match id.ty with
-  | Some ty ->
-      format_ty Format.str_formatter ty;
-      Format.flush_str_formatter ()
-  | None -> ""
-
-let doc _ = assert false
-let loc _ = assert false
-
-let all t =
-  trie_to_list t
-
-(* Trie.fold (fun key opt acc -> if opt <> None then key::acc else acc) t [] *)
-
-let format_info ?(color=true) fmt id =
-  let colorise =
-    if color then fun kind fstr fmt ->
+  let color =
+    let f kind fstr fmt =
       let colorcode = match kind with
         | Type -> "\027[36m"
         | Value -> "\027[1m"
@@ -529,30 +458,139 @@ let format_info ?(color=true) fmt id =
       in
       Format.pp_print_as fmt 0 colorcode;
       Format.kfprintf (fun fmt -> Format.pp_print_as fmt 0 "\027[m") fmt fstr
-    else fun _ fstr fmt ->
-      Format.fprintf fmt fstr
-  in
-  List.iter (Format.fprintf fmt "%a." (colorise Module "%s")) id.path;
-  colorise id.kind "%s" fmt id.name;
-  option_iter id.ty
-    (Format.fprintf fmt " @[<h>%a@]" (fun fmt -> colorise Type "%a" fmt format_ty));
-  let format_kind fmt = function
+    in { f }
+
+  let no_color =
+    let f _ fstr fmt = Format.fprintf fmt fstr in
+    { f }
+
+  let name ?(colorise = no_color) fmt id =
+    colorise.f id.kind "%s" fmt id.name
+
+  let path ?(colorise = no_color) fmt id =
+    List.iter
+      (Format.fprintf fmt "%a." (colorise.f Module "%s"))
+      id.path;
+    name ~colorise fmt id
+
+  let kind ?(colorise = no_color) fmt id =
+    match id.kind with
     | Type -> Format.pp_print_string fmt "type"
     | Value -> Format.pp_print_string fmt "val"
     | Exception -> Format.pp_print_string fmt "exception"
     | Field parentty ->
         Format.fprintf fmt "field(%a)"
-          (colorise parentty.kind "%s") parentty.name
+          (colorise.f parentty.kind "%s") parentty.name
     | Variant parentty ->
         Format.fprintf fmt "constr(%a)"
-          (colorise parentty.kind "%s") parentty.name
+          (colorise.f parentty.kind "%s") parentty.name
     | Method parentclass ->
         Format.fprintf fmt "method(%a)"
-          (colorise parentclass.kind "%s") parentclass.name
+          (colorise.f parentclass.kind "%s") parentclass.name
     | Module -> Format.pp_print_string fmt "module"
     | ModuleType -> Format.pp_print_string fmt "modtype"
     | Class -> Format.pp_print_string fmt "class"
     | ClassType -> Format.pp_print_string fmt "classtype"
-  in
-  Format.fprintf fmt " <%a>" format_kind id.kind;
-  option_iter id.doc (Format.fprintf fmt "@\n    @[<h>%a@]" format_lines)
+
+  let rec tydecl fmt =
+    let open Outcometree in
+    function
+    | Otyp_abstract -> ()
+    | Otyp_manifest (ty,_) -> tydecl fmt ty
+    | Otyp_record fields ->
+        let print_field fmt (name, mut, arg) =
+          Format.fprintf fmt "@[<2>%s%s :@ %a@];"
+            (if mut then "mutable " else "") name
+            !Oprint.out_type arg
+        in
+        Format.fprintf fmt "{%a@;<1 -2>}"
+          (list ~left:(fun fmt -> Format.pp_print_space fmt ())
+             print_field Format.pp_print_space)
+          fields
+    | Otyp_sum constrs ->
+        let print_variant fmt (name, tyl, ret_type_opt) =
+          match ret_type_opt with
+          | None ->
+              if tyl = [] then Format.pp_print_string fmt name
+              else
+                Format.fprintf fmt "@[<2>%s of@ %a@]"
+                  name
+                  (list !Oprint.out_type
+                     (fun fmt () -> Format.fprintf fmt " *@ "))
+                  tyl
+          | Some ret_type ->
+              if tyl = [] then
+                Format.fprintf fmt "@[<2>%s :@ %a@]" name
+                  !Oprint.out_type ret_type
+              else
+                Format.fprintf fmt "@[<2>%s :@ %a -> %a@]"
+                  name
+                  (list !Oprint.out_type
+                     (fun fmt () -> Format.fprintf fmt " *@ "))
+                  tyl
+                  !Oprint.out_type ret_type
+        in
+        list print_variant (fun fmt () -> Format.fprintf fmt "@ | ")
+          fmt constrs
+    | ty ->
+        !Oprint.out_type fmt ty
+
+  let out_ty fmt ty =
+    let open Outcometree in
+    match ty with
+    | Osig_class (_,_,_,ctyp,_)
+    | Osig_class_type (_,_,_,ctyp,_) ->
+        !Oprint.out_class_type fmt ctyp
+    | Osig_exception (_,tylst) ->
+        list ~paren:true
+          !Oprint.out_type
+          (fun fmt () ->
+            Format.pp_print_char fmt ','; Format.pp_print_space fmt ())
+          fmt
+          tylst
+    | Osig_modtype (_,mtyp)
+    | Osig_module (_,mtyp,_) ->
+        !Oprint.out_module_type fmt mtyp
+    | Osig_type ((_,_,ty,_,_),_) ->
+        Format.fprintf fmt "@[<hv 2>%a@]" tydecl ty
+    | Osig_value (_,ty,_) ->
+        !Oprint.out_type fmt ty
+
+  let ty ?(colorise = no_color) fmt id =
+    option_iter id.ty
+      (colorise.f Type "%a" fmt out_ty)
+
+  let doc ?colorise:(_ = no_color) fmt id =
+    option_iter id.doc (Format.fprintf fmt "@[<h>%a@]" lines)
+
+  let info ?(colorise = no_color) fmt id =
+    path ~colorise fmt id;
+    Format.fprintf fmt " %a" (kind ~colorise) id;
+    if id.ty <> None then
+      Format.fprintf fmt " @[<h>%a@]" (ty ~colorise) id;
+    if id.doc <> None then
+      Format.fprintf fmt "@\n    %a" (doc ~colorise) id
+end
+
+module Print = struct
+  let make (f: ?colorise: IndexFormat.coloriser -> 'a) ?(color=false) id =
+    let colorise =
+      if color then IndexFormat.color else IndexFormat.no_color
+    in
+    f ~colorise Format.str_formatter id;
+    Format.flush_str_formatter ()
+
+  let name = make IndexFormat.name
+
+  let path = make IndexFormat.path
+
+  let kind = make IndexFormat.kind
+
+  let ty = make IndexFormat.ty
+
+  let doc = make IndexFormat.doc
+
+  let info = make IndexFormat.info
+end
+
+module Format = IndexFormat
