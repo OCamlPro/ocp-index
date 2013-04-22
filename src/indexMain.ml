@@ -17,7 +17,7 @@ open Cmdliner
 let default_cmd =
   let doc = "Explore the interfaces of installed OCaml libraries." in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ IndexOptions.common_opts)),
-  Term.info "ocp-index" ~version:"0.0.1" ~doc
+  Term.info "ocp-index" ~version:"0.1.0" ~doc
 
 let complete_cmd =
   let doc = "Complete identifiers starting with prefix $(docv)." in
