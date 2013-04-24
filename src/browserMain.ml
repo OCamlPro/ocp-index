@@ -210,13 +210,13 @@ let interactive opts () =
   in
   loop { query_len = 0; scroll = 0; completion = None }
 
-let interactive_cmd : unit Term.t * Term.info =
+let browser_cmd : unit Term.t * Term.info =
   let doc = "Interactively completes and prints documentation." in
   Term.(pure interactive $ IndexOptions.common_opts $ pure ()),
-  Term.info "interactive" ~doc
+  Term.info "ocp-browser" ~doc
 
 let () =
-  match Term.eval interactive_cmd
+  match Term.eval browser_cmd
   with
   | `Error _ -> exit 1
   | _ -> exit 0
