@@ -27,6 +27,101 @@ let cmd_input_line cmd =
   with
   | End_of_file | Unix.Unix_error _ -> failwith "cmd_input_line"
 
+
+(* -- configuration file -- *)
+type conf_file = { rec_include_dirs: string list;
+                   include_dirs: string list;
+                   (* libs: string list *) }
+
+let string_split char str =
+  let rec aux pos =
+    try
+      let i = String.index_from str pos char in
+      String.sub str pos (i - pos) :: aux (succ i)
+    with Not_found | Invalid_argument _ ->
+        let l = String.length str in
+        [ String.sub str pos (l - pos) ]
+  in
+  aux 0
+
+let get_conf_file ?(path=Sys.getcwd()) () =
+  let ( / ) = Filename.concat
+  in
+  let load conf file =
+    try
+      let ic = open_in file in
+      let contents =
+        let b = Buffer.create 512 in
+        try while true do
+            let s = input_line ic in
+            let n = try String.index s '#' with Not_found -> String.length s in
+            Buffer.add_substring b s 0 n;
+            Buffer.add_char b '\n'
+          done; assert false
+        with End_of_file -> Buffer.contents b
+      in
+      let absolute dir =
+        (* todo: use +lib to load camllib/lib ? *)
+        if Filename.is_relative dir then Filename.dirname file / dir
+        else dir
+      in
+      List.fold_left
+        (fun conf s -> match string_split ' ' s with
+           | [] | [""] -> conf
+           | "dir" :: dirs ->
+               let dirs = List.map absolute dirs in
+               { conf with include_dirs = dirs @ conf.include_dirs }
+           | "rec" :: "dir" :: dirs ->
+               let dirs = List.map absolute dirs in
+               { conf with rec_include_dirs = dirs @ conf.rec_include_dirs }
+           (* | "lib" :: libs ->
+                { conf with libs = libs @ conf.libs } *)
+           | wrong_key :: _ ->
+               let e = Printf.sprintf "wrong configuration key %S" wrong_key
+               in raise (Invalid_argument e))
+        conf
+        (string_split '\n' contents)
+    with
+    | Sys_error _ ->
+        Printf.eprintf
+          "ocp-index warning: could not open %S for reading configuration.\n%!"
+          file;
+        conf
+    | Invalid_argument err ->
+        Printf.eprintf
+          "ocp-index warning: error in configuration file %S:\n%s\n%!"
+          file err;
+        conf
+  in
+  let rec find_conf_file path =
+    let conf_file_name = ".ocp-index" in
+    if Sys.file_exists (path / conf_file_name)
+    then Some (path / conf_file_name)
+    else
+      let path =
+        if Filename.is_relative path then Sys.getcwd () / path
+        else path
+      in
+      let parent = Filename.dirname path in
+      if parent <> path then find_conf_file parent
+      else None
+  in
+  let conf =
+    { rec_include_dirs = []; include_dirs = []; (* libs = [] *) }
+  in
+  let conf =
+    try
+      let f = Sys.getenv "HOME" / ".ocp" / "ocp-index.conf" in
+      if Sys.file_exists f then load conf f else conf
+    with Not_found -> conf
+  in
+  let conf = match find_conf_file path with
+    | Some c -> load conf c
+    | None -> conf
+  in
+  conf
+
+
 let common_opts : t Term.t =
   let ocamllib : string list Term.t =
     let arg =
@@ -41,13 +136,8 @@ let common_opts : t Term.t =
           (try [cmd_input_line "ocamlc -where"] with Failure _ -> []) @
           List.flatten paths
       | [] ->
-          let paths =
-            (try [cmd_input_line "ocamlc -where"] with Failure _ -> []) @
+          (try [cmd_input_line "ocamlc -where"] with Failure _ -> []) @
             (try [cmd_input_line "opam config var lib"] with Failure _ -> [])
-          in
-          if paths = [] then
-            failwith "Failed to guess OCaml / opam lib dirs. Please use `-I'"
-          else paths
     in
     Term.(pure set_default $ arg)
   in
@@ -129,10 +219,20 @@ let common_opts : t Term.t =
     )
   in
   let lib_info : LibIndex.t Term.t =
+    let conf_file = get_conf_file () in
     let dirs =
-      Term.(
-        pure LibIndex.unique_subdirs $ ocamllib
-      )
+      let get_all_dirs ocamllib =
+        let dirs =
+          List.fold_left
+            (fun incl d -> if List.mem d incl then incl else d :: incl)
+            (LibIndex.unique_subdirs (conf_file.rec_include_dirs @ ocamllib))
+            conf_file.include_dirs
+        in
+        if dirs = [] then
+          failwith "Failed to guess OCaml / opam lib dirs. Please use `-I'"
+        else dirs
+      in
+      Term.(pure get_all_dirs $ ocamllib)
     in
     let init dirs opens =
       let info = LibIndex.load dirs in
