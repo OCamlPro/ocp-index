@@ -59,7 +59,22 @@ let type_cmd =
   Term.(pure print_ty $ IndexOptions.common_opts $ t),
   Term.info "type" ~doc
 
+let locate_cmd =
+  let doc = "Get the location of definition of $(docv)." in
+  let t =
+    Arg.(required & pos 0 (some string) None & info [] ~doc ~docv:"STRING")
+  in
+  let print_loc opts query =
+    try
+      let id = LibIndex.get opts.IndexOptions.lib_info query in
+      print_endline (LibIndex.Print.loc id)
+    with Not_found -> exit 2
+  in
+  let doc = "Get the location where an identifier was defined." in
+  Term.(pure print_loc $ IndexOptions.common_opts $ t),
+  Term.info "locate" ~doc
+
 let () =
-  match Term.eval_choice default_cmd [complete_cmd; type_cmd] with
+  match Term.eval_choice default_cmd [complete_cmd; type_cmd; locate_cmd] with
   | `Error _ -> exit 1
   | _ -> exit 0

@@ -570,6 +570,15 @@ module IndexFormat = struct
   let doc ?colorise:(_ = no_color) fmt id =
     option_iter id.doc (Format.fprintf fmt "@[<h>%a@]" lines)
 
+  let loc ?colorise:(_ = no_color) fmt id =
+    if id.loc = Location.none then
+      Format.fprintf fmt "@[<h><no location information>@]"
+    else
+      let pos = id.loc.Location.loc_start in
+      Format.fprintf fmt "@[<h>%s:%d:%d@]"
+        pos.Lexing.pos_fname pos.Lexing.pos_lnum
+        (pos.Lexing.pos_cnum - pos.Lexing.pos_bol)
+
   let info ?(colorise = no_color) fmt id =
     path ~colorise fmt id;
     Format.fprintf fmt " %a" (kind ~colorise) id;
@@ -596,6 +605,8 @@ module Print = struct
   let ty = make IndexFormat.ty
 
   let doc = make IndexFormat.doc
+
+  let loc = make IndexFormat.loc
 
   let info = make IndexFormat.info
 end
