@@ -18,12 +18,16 @@
 (* How we keep types represented internally *)
 type ty = Outcometree.out_sig_item
 
+type orig_file = Cmt of string | Cmti of string | Cmi of string
+
 type info = { path: string list;
               kind: kind;
               name: string;
               ty: ty option;
-              loc: Location.t;
+              loc_sig: Location.t;
+              loc_impl: Location.t Lazy.t;
               doc: string option;
+              file: orig_file;
            (* library: string option *) }
 
 and kind =
@@ -35,14 +39,13 @@ and kind =
 
 type t = (char, info) Trie.t
 
-
 (* - Utility functions - *)
 
 let string_to_list s =
   let rec aux acc i = if i >= 0 then aux (s.[i]::acc) (i - 1) else acc in
   aux [] (String.length s - 1)
 
-let _list_to_string l =
+let list_to_string l =
   let rec aux n = function
     | [] -> String.create n
     | c::r -> let s = aux (n+1) r in s.[n] <- c; s
@@ -71,6 +74,9 @@ let unique_subdirs dir_list =
     aux (List.sort compare l)
   in
   remove_dups (List.fold_left subdirs [] dir_list)
+
+let orig_file_name = function
+  | Cmt f | Cmti f | Cmi f -> f
 
 (* - Trie loading and manipulation functions - *)
 
@@ -107,13 +113,17 @@ let associate_comment ?(after_only=false) comments loc =
           aux comments
         else if cstart > lend + 1 then
           None, (comment, cloc)::comments
-        else if String.length comment < 2 || comment.[0] <> '*' || comment.[1] = '*' then
+        else if String.length comment < 2 ||
+                comment.[0] <> '*' || comment.[1] = '*'
+        then
           aux comments
         else
-          let comment = String.trim (String.sub comment 1 (String.length comment - 1)) in
-          match aux comments with
-          | None, comments -> Some comment, comments
-          | Some c, comments -> Some (String.concat "\n" [comment; c]), comments
+        let comment =
+          String.trim (String.sub comment 1 (String.length comment - 1))
+        in
+        match aux comments with
+        | None, comments -> Some comment, comments
+        | Some c, comments -> Some (String.concat "\n" [comment; c]), comments
   in
   aux comments
 
@@ -176,8 +186,10 @@ let trie_of_type_decl ?(comments=[]) info ty_decl =
             kind = Field info;
             name = id.Ident.name;
             ty = Some ty;
-            loc = Location.none;
-            doc = None
+            loc_sig = info.loc_sig;
+            loc_impl = info.loc_impl;
+            doc = None;
+            file = info.file;
           } ())
         fields,
       comments
@@ -202,13 +214,48 @@ let trie_of_type_decl ?(comments=[]) info ty_decl =
             kind = Variant info;
             name = id.Ident.name;
             ty = Some ty;
-            loc = Location.none;
-            doc = None
+            loc_sig = info.loc_sig;
+            loc_impl = info.loc_impl;
+            doc = None;
+            file = info.file;
           } ())
         variants,
       comments
 
-let rec trie_of_sig_item ?(comments=[]) path sig_item =
+(* We usually load the info from the cmti file ; however, that doesn't give
+   the implementation location. This function loads the cmt to get it. *)
+let locate_impl cmt path name kind =
+  try
+    if not (Sys.file_exists cmt) then raise Not_found;
+    let rec find_item path sign =
+      match path with
+      | [] ->
+          List.find (fun item -> kind = kind_of_sig_item item &&
+                                 name = (id_of_sig_item item).Ident.name)
+            sign
+      | modul::path ->
+          let modul =
+            List.find (fun item -> kind = Module &&
+                                   modul = (id_of_sig_item item).Ident.name)
+              sign
+          in
+          match modul with
+          | Types.Sig_module (_,Types.Mty_signature sign,_) ->
+              find_item path sign
+          | _ -> raise Not_found
+    in
+    let cmt_contents = Cmt_format.read_cmt cmt in
+    let sign =
+      match cmt_contents.Cmt_format.cmt_annots with
+      | Cmt_format.Implementation impl -> List.rev impl.Typedtree.str_type
+      | _ -> raise Not_found
+    in
+    let item = find_item path sign in
+    loc_of_sig_item item
+  with
+  | Not_found -> Location.none
+
+let rec trie_of_sig_item ?(comments=[]) orig_file path sig_item =
   let id = id_of_sig_item sig_item in
   let loc = loc_of_sig_item sig_item in
   let doc, comments =
@@ -217,7 +264,19 @@ let rec trie_of_sig_item ?(comments=[]) path sig_item =
   in
   let ty = Some (ty_of_sig_item sig_item) in
   let kind = kind_of_sig_item sig_item in
-  let info = {path; kind; name = id.Ident.name; ty; loc; doc} in
+  let loc_sig, loc_impl = match orig_file with
+    | Cmi f | Cmti f ->
+        loc, lazy (
+          let cmt = Filename.chop_extension f ^ ".cmt" in
+          locate_impl cmt (List.tl path) id.Ident.name kind
+        )
+    | Cmt _ ->
+        (* we assume there is no mli, so point the intf to the implementation *)
+        loc, Lazy.from_val loc
+  in
+  let info = {path; kind; name = id.Ident.name; ty;
+              loc_sig; loc_impl; doc; file = orig_file}
+  in
   let siblings, comments = (* read fields / variants ... *)
     match sig_item with
     | Types.Sig_type (_id,descr,_is_rec) ->
@@ -233,7 +292,7 @@ let rec trie_of_sig_item ?(comments=[]) path sig_item =
         List.fold_left
           (fun (t,comments) sign ->
             let chlds,comments =
-              trie_of_sig_item ~comments path sign
+              trie_of_sig_item ~comments orig_file path sign
             in
             List.fold_left Trie.append t chlds, comments)
           (Trie.empty,comments)
@@ -263,8 +322,10 @@ let rec trie_of_sig_item ?(comments=[]) path sig_item =
                 kind = Method info;
                 name = lbl;
                 ty = Some ty;
-                loc;
-                doc = None })
+                loc_sig = loc_sig;
+                loc_impl = loc_impl;
+                doc = None;
+                file = info.file })
           Trie.empty
           fields,
         comments
@@ -281,7 +342,7 @@ let rec trie_of_sig_item ?(comments=[]) path sig_item =
     :: siblings,
     comments
 
-let load_cmi t modul file =
+let load_cmi t modul orig_file =
   Trie.map_subtree t (string_to_list modul)
     (fun t ->
       let t =
@@ -290,15 +351,17 @@ let load_cmi t modul file =
           kind = Module;
           name = modul;
           ty = None;
-          loc = Location.in_file file;
-          doc = None
+          loc_sig = Location.none;
+          loc_impl = Lazy.from_val Location.none;
+          doc = None;
+          file = orig_file;
         }
       in
       let children = lazy (
-        let info = Cmi_format.read_cmi file in
+        let info = Cmi_format.read_cmi (orig_file_name orig_file) in
         List.fold_left
           (fun t sig_item ->
-            let chld, _comments = trie_of_sig_item [modul] sig_item in
+            let chld, _comments = trie_of_sig_item orig_file [modul] sig_item in
             List.fold_left Trie.append t chld)
           Trie.empty
           info.Cmi_format.cmi_sign
@@ -306,7 +369,7 @@ let load_cmi t modul file =
       Trie.graft_lazy t ['.'] children
     )
 
-let load_cmt t modul file =
+let load_cmt t modul orig_file =
   Trie.map_subtree t (string_to_list modul)
     (fun t ->
       let t =
@@ -315,61 +378,90 @@ let load_cmt t modul file =
           kind = Module;
           name = modul;
           ty = None;
-          loc = Location.in_file file;
-          doc = None
+          loc_sig = Location.none;
+          loc_impl = Lazy.from_val Location.none;
+          doc = None;
+          file = orig_file;
         }
       in
       let children = lazy (
-        let info = Cmt_format.read_cmt file in
+        let info = Cmt_format.read_cmt (orig_file_name orig_file) in
         let comments = info.Cmt_format.cmt_comments in
         match info.Cmt_format.cmt_annots with
-        | Cmt_format.Interface sign ->
-            let t, _remaining_comments =
+        | Cmt_format.Implementation {Typedtree.str_type = sign; _}
+        | Cmt_format.Interface {Typedtree.sig_type = sign; _}
+          ->
+            let t, _trailing_comments =
               List.fold_left
                 (fun (t,comments) sig_item ->
-                  let chld, comments =
-                    trie_of_sig_item ~comments [modul] sig_item
-                  in
-                  List.fold_left Trie.append t chld, comments)
+                   let chld, comments =
+                     trie_of_sig_item ~comments orig_file [modul] sig_item
+                   in
+                   List.fold_left Trie.append t chld, comments)
                 (Trie.empty, comments)
-                (sign.Typedtree.sig_type)
+                sign
             in
             t
         | _ ->
-            Printf.eprintf "\027[33mWarning: unhandled cmti format\027[m\n%!";
+            Printf.eprintf "\027[33mWarning: unhandled cmt format\027[m\n%!";
             t
       )
       in
       Trie.graft_lazy t ['.'] children
     )
 
+let load_file t modul f = match f with
+  | Cmi _ -> load_cmi t modul f
+  | Cmt _ | Cmti _ -> load_cmt t modul f
+
+let load_files t dir files =
+  let split_filename file =
+    try
+      let i = String.rindex file '.' in
+      let len = String.length file in
+      let modul = String.capitalize (String.sub file 0 i) in
+      let ext = String.lowercase (String.sub file (i+1) (len-i-1)) in
+      modul, ext
+    with Not_found -> file, ""
+  in
+  let sort_modules acc file =
+    let reg base = Trie.add acc (string_to_list base) in
+    match split_filename file with
+    | base, "cmi" -> reg base (Cmi (Filename.concat dir file))
+    | base, "cmt" -> reg base (Cmt (Filename.concat dir file))
+    | base, "cmti" -> reg base (Cmti (Filename.concat dir file))
+    | _ -> acc
+  in
+  let modules =
+    List.fold_left sort_modules Trie.empty files
+  in
+  Trie.fold0 (fun t modul files ->
+      match files with
+      | [] -> t
+      | f1::fs ->
+          (* Load by order of priority:
+             - first cmti, more info than cmi, ocamldocs, and doesn't expose
+               private values
+             - then cmt, it means there is no mli, everything is exposed
+             - then cmi, has the interface if not much more *)
+          let choose_file f1 f2 = match f1,f2 with
+            | (Cmti _ as f), _ | _, (Cmti _ as f)
+            | (Cmt _ as f), _ | _, (Cmt _ as f)
+            | (Cmi _ as f), _ -> f
+          in
+          let file = List.fold_left choose_file f1 fs in
+          let modul = list_to_string modul in
+          load_file t modul file)
+    modules
+    t
+
+let load_dir t dir =
+  let files = Array.to_list (Sys.readdir dir) in
+  load_files t dir files
+
 let load paths =
   let t =
-    List.fold_left (fun t path ->
-      let files = Sys.readdir path in
-      let has_cmti base =
-        let n = base ^ ".cmti" in
-        let rec aux i = i >= 0 && (files.(i) = n || aux (i-1)) in
-        aux (Array.length files - 1)
-      in
-      Array.fold_left (fun t file ->
-        let basename, extension = try
-            let i = String.rindex file '.' in
-            let len = String.length file in
-            String.sub file 0 i, String.sub file (i+1) (len-i-1)
-          with Not_found -> file, ""
-        in
-        let modul = String.capitalize basename in
-        match extension with
-        | "cmi" when not (has_cmti basename) ->
-            load_cmi t modul (Filename.concat path file)
-        | "cmti" ->
-            load_cmt t modul (Filename.concat path file)
-        | _ -> t)
-      t
-      files)
-    (Trie.create ())
-    paths
+    List.fold_left load_dir (Trie.create ()) paths
   in
   open_module ~cleanup_path:true t ["Pervasives"]
 
@@ -571,10 +663,12 @@ module IndexFormat = struct
     option_iter id.doc (Format.fprintf fmt "@[<h>%a@]" lines)
 
   let loc ?colorise:(_ = no_color) fmt id =
-    if id.loc = Location.none then
+    let loc = Lazy.force id.loc_impl in
+    (* let loc = id.loc_sig in *)
+    if loc = Location.none then
       Format.fprintf fmt "@[<h><no location information>@]"
     else
-      let pos = id.loc.Location.loc_start in
+      let pos = loc.Location.loc_start in
       Format.fprintf fmt "@[<h>%s:%d:%d@]"
         pos.Lexing.pos_fname pos.Lexing.pos_lnum
         (pos.Lexing.pos_cnum - pos.Lexing.pos_bol)

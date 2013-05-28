@@ -18,14 +18,19 @@ type t
 (** Internal representation of types *)
 type ty
 
+(** The type of files we get our data from *)
+type orig_file = private Cmt of string | Cmti of string | Cmi of string
+
 (** Contains the information on a given identifier *)
 type info = private {
   path: string list;
   kind: kind;
   name: string;
   ty: ty option;
-  loc: Location.t;
+  loc_sig: Location.t;
+  loc_impl: Location.t Lazy.t;
   doc: string option;
+  file: orig_file;
   (* library: string option *) }
 
 (** The kind of elements that can be stored in the trie *)
