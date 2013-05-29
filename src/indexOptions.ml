@@ -236,7 +236,7 @@ let common_opts : t Term.t =
     in
     let init dirs opens =
       let info = LibIndex.load dirs in
-      List.fold_left LibIndex.open_module info opens
+      List.fold_left (LibIndex.open_module ~cleanup_path:true) info opens
     in
     Term.(pure init $ dirs $ open_modules)
   in
