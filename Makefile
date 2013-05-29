@@ -48,14 +48,10 @@ install: $(PROJECTS) $(manpage)
 	@echo
 	@echo "=== ocp-index installed ==="
 	@echo
-	@echo "To setup tuareg-mode to use ocp-index for completion, please add"
-	@echo "the following line to your .emacs :"
-	@echo
-	@echo '(load-file "'$(prefix)/share/typerex/ocp-index/ocp-index.el'")'
-	@echo
-	@echo "This requires that you have auto-complete-el installed. See"
-	@echo "M-x customize-group auto-complete for parameters."
-	@echo
+	@if $$(which emacs >/dev/null); then \
+	  tools/emacs-setup.sh $(prefix)/share/typerex/ocp-index; \
+	  echo; \
+	fi
 
 .PHONY: uninstall
 uninstall:
