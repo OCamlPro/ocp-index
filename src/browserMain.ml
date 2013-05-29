@@ -191,11 +191,16 @@ let interactive opts () =
              LibIndex.Format.kind ~colorise fmt id;
              Format.print_char ' ';
              LibIndex.Format.path ~colorise fmt id;
-             if id.LibIndex.ty <> None then
-               (Format.print_char ' ';
-                Format.open_hbox ();
-                LibIndex.Format.ty ~colorise fmt id;
-                Format.close_box ());
+             (match id with
+              | { LibIndex.ty = None }
+              | { LibIndex.kind = LibIndex.Module | LibIndex.ModuleType |
+                                  LibIndex.Class | LibIndex.ClassType }
+                -> ()
+              | { LibIndex.ty = Some _ } ->
+                  Format.print_char ' ';
+                  Format.open_hbox ();
+                  LibIndex.Format.ty ~colorise fmt id;
+                  Format.close_box ());
              if id.LibIndex.doc <> None then
                (Format.force_newline ();
                 Format.print_string "    ";
