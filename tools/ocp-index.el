@@ -138,7 +138,7 @@
     (set (make-local-variable 'ac-delay) 0.0)
     (set (make-local-variable 'ac-expand-on-auto-complete) nil)
     (set (make-local-variable 'ac-ignore-case) nil)
-    (set (make-local-variable 'ac-quick-help-delay) 0.0)
+    (set (make-local-variable 'ac-quick-help-delay) 0.2)
     (set (make-local-variable 'ac-trigger-commands) nil)))
 
 
