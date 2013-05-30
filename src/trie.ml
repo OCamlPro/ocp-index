@@ -71,6 +71,15 @@ let fold f =
     (fun acc path values ->
       List.fold_left (fun acc v -> f acc path v) acc values)
 
+let map f tree =
+  let rec aux rev_path tree =
+    { value = List.map (f (List.rev rev_path)) tree.value;
+      children = lazy (
+        List.map (fun (k,v) -> k, aux (k::rev_path) v) !!(tree.children)
+      )}
+  in
+  aux [] tree
+
 let sub tree path =
   let rec aux tree = function
   | [] -> tree

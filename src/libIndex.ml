@@ -80,16 +80,18 @@ let orig_file_name = function
 
 (* - Trie loading and manipulation functions - *)
 
+let fix_path_prefix strip new_pfx =
+  let rec tln n = function
+    | [] -> []
+    | _::tl as l -> if n > 0 then tln (n-1) tl else l
+  in
+  let rev_pfx = List.rev new_pfx in
+  fun id -> {id with path = List.rev_append rev_pfx (tln strip id.path)}
+
 let open_module ?(cleanup_path=false) t path =
   let f =
-    if cleanup_path then
-      let n = List.length path in
-      let rec tln n = function
-        | [] -> [] | _::tl -> if n > 0 then tln (n-1) tl else tl
-      in
-      fun id -> {id with path = tln n id.path}
-    else
-      fun id -> id
+    if cleanup_path then fix_path_prefix (List.length path) []
+    else fun id -> id
   in
   Trie.fold
     (fun t path id -> Trie.add t path (f id))
@@ -255,7 +257,9 @@ let locate_impl cmt path name kind =
   with
   | Not_found -> Location.none
 
-let rec trie_of_sig_item ?(comments=[]) orig_file path sig_item =
+(* [parents] is a list of lazy siblings::lv1_ancestors::etc, needed for
+   lookup of idents accessible in the current scope *)
+let rec trie_of_sig_item ?(comments=[]) parents orig_file path sig_item =
   let id = id_of_sig_item sig_item in
   let loc = loc_of_sig_item sig_item in
   let doc, comments =
@@ -283,20 +287,52 @@ let rec trie_of_sig_item ?(comments=[]) orig_file path sig_item =
         trie_of_type_decl ~comments info descr
     | _ -> [], comments
   in
-  let children, comments = (* read module / class contents *)
+  (* read module / class contents *)
+  let children, comments =
     match sig_item with
     | Types.Sig_module (id,Types.Mty_signature sign,_)
     | Types.Sig_modtype (id,Types.Modtype_manifest (Types.Mty_signature sign))
       ->
         let path = path @ [id.Ident.name] in
-        List.fold_left
-          (fun (t,comments) sign ->
-            let chlds,comments =
-              trie_of_sig_item ~comments orig_file path sign
-            in
-            List.fold_left Trie.append t chlds, comments)
-          (Trie.empty,comments)
-          sign
+        let rec children_comments = lazy (
+          List.fold_left
+            (fun (t,comments) sign ->
+               let chlds,comments =
+                 let siblings = lazy (fst (Lazy.force children_comments)) in
+                 trie_of_sig_item ~comments (siblings::parents) orig_file
+                   path sign
+               in
+               List.fold_left Trie.append t chlds, comments)
+            (Trie.empty,comments)
+            sign
+        ) in
+        let a,b = Lazy.force children_comments in lazy a, b
+    | Types.Sig_module (_,Types.Mty_ident sig_ident,_) ->
+        let sig_path =
+          let rec get_path = function
+            | Path.Pident id -> [id.Ident.name]
+            | Path.Pdot (path, s, _) -> get_path path @ [s]
+            | Path.Papply (p1, _p2) -> get_path p1
+          in
+          get_path sig_ident
+        in
+        let sig_key =
+          List.fold_right (fun s acc -> string_to_list s @ '.' :: acc)
+            sig_path []
+        in
+        let rec lookup = function
+          | [] -> Trie.empty
+          | lazy t :: parents ->
+              let s = Trie.sub t sig_key in
+              if s = Trie.empty then lookup parents else
+                let rewrite_path =
+                  fix_path_prefix
+                    (List.length parents + List.length sig_path)
+                    (path @ [id.Ident.name])
+                in
+                Trie.map (fun _k v -> rewrite_path v) s
+        in
+        lazy (lookup parents), comments
     | Types.Sig_class (id,{Types.cty_type=cty},_)
     | Types.Sig_class_type (id,{Types.clty_type=cty},_)
       ->
@@ -310,26 +346,27 @@ let rec trie_of_sig_item ?(comments=[]) orig_file path sig_item =
         let (fields, _) =
           Ctype.flatten_fields (Ctype.object_fields clsig.Types.cty_self)
         in
-        List.fold_left (fun t (lbl,_,ty_expr) ->
-          if lbl = "*dummy method*" then t else
-            let ty = Printtyp.tree_of_typexp false ty_expr in
-            let ty =
-              Outcometree.Osig_type
-                (("", [], ty, Asttypes.Public, []), Outcometree.Orec_not)
-            in
-            Trie.add t (string_to_list lbl)
-              { path = path;
-                kind = Method info;
-                name = lbl;
-                ty = Some ty;
-                loc_sig = loc_sig;
-                loc_impl = loc_impl;
-                doc = None;
-                file = info.file })
+        lazy (List.fold_left (fun t (lbl,_,ty_expr) ->
+            if lbl = "*dummy method*" then t else
+              let ty = Printtyp.tree_of_typexp false ty_expr in
+              let ty =
+                Outcometree.Osig_type
+                  (("", [], ty, Asttypes.Public, []), Outcometree.Orec_not)
+              in
+              Trie.add t (string_to_list lbl)
+                { path = path;
+                  kind = Method info;
+                  name = lbl;
+                  ty = Some ty;
+                  loc_sig = loc_sig;
+                  loc_impl = loc_impl;
+                  doc = None;
+                  file = info.file })
           Trie.empty
-          fields,
+          fields),
         comments
-    | _ -> Trie.empty, comments
+    | _ ->
+        lazy Trie.empty, comments
   in
   let name = id.Ident.name in
   if String.length name > 0 && name.[0] = '#' then [], comments
@@ -337,12 +374,12 @@ let rec trie_of_sig_item ?(comments=[]) orig_file path sig_item =
     (string_to_list id.Ident.name,
      Trie.create
        ~value:info
-       ~children:(lazy ['.', children])
+       ~children:(lazy ['.', Lazy.force children])
        ())
     :: siblings,
     comments
 
-let load_cmi t modul orig_file =
+let load_cmi root t modul orig_file =
   Trie.map_subtree t (string_to_list modul)
     (fun t ->
       let t =
@@ -357,19 +394,21 @@ let load_cmi t modul orig_file =
           file = orig_file;
         }
       in
-      let children = lazy (
+      let rec children = lazy (
         let info = Cmi_format.read_cmi (orig_file_name orig_file) in
         List.fold_left
           (fun t sig_item ->
-            let chld, _comments = trie_of_sig_item orig_file [modul] sig_item in
+            let chld, _comments =
+              trie_of_sig_item [children; root] orig_file [modul] sig_item
+            in
             List.fold_left Trie.append t chld)
           Trie.empty
           info.Cmi_format.cmi_sign
-      ) in
-      Trie.graft_lazy t ['.'] children
-    )
+      )
+      in
+      Trie.graft_lazy t ['.'] children)
 
-let load_cmt t modul orig_file =
+let load_cmt root t modul orig_file =
   Trie.map_subtree t (string_to_list modul)
     (fun t ->
       let t =
@@ -384,7 +423,7 @@ let load_cmt t modul orig_file =
           file = orig_file;
         }
       in
-      let children = lazy (
+      let rec children = lazy (
         let info = Cmt_format.read_cmt (orig_file_name orig_file) in
         let comments = info.Cmt_format.cmt_comments in
         match info.Cmt_format.cmt_annots with
@@ -395,7 +434,8 @@ let load_cmt t modul orig_file =
               List.fold_left
                 (fun (t,comments) sig_item ->
                    let chld, comments =
-                     trie_of_sig_item ~comments orig_file [modul] sig_item
+                     trie_of_sig_item ~comments [children; root] orig_file
+                       [modul] sig_item
                    in
                    List.fold_left Trie.append t chld, comments)
                 (Trie.empty, comments)
@@ -403,16 +443,17 @@ let load_cmt t modul orig_file =
             in
             t
         | _ ->
-            Printf.eprintf "\027[33mWarning: unhandled cmt format\027[m\n%!";
+            Printf.eprintf
+              "\027[33mWarning: %S: unhandled cmt format.\027[m\n%!"
+              (orig_file_name orig_file);
             t
       )
       in
-      Trie.graft_lazy t ['.'] children
-    )
+      Trie.graft_lazy t ['.'] children)
 
-let load_file t modul f = match f with
-  | Cmi _ -> load_cmi t modul f
-  | Cmt _ | Cmti _ -> load_cmt t modul f
+let load_file root t modul f = match f with
+  | Cmi _ -> load_cmi root t modul f
+  | Cmt _ | Cmti _ -> load_cmt root t modul f
 
 let load_files t dir files =
   let split_filename file =
@@ -435,25 +476,28 @@ let load_files t dir files =
   let modules =
     List.fold_left sort_modules Trie.empty files
   in
-  Trie.fold0 (fun t modul files ->
-      match files with
-      | [] -> t
-      | f1::fs ->
-          (* Load by order of priority:
-             - first cmti, more info than cmi, ocamldocs, and doesn't expose
-               private values
-             - then cmt, it means there is no mli, everything is exposed
-             - then cmi, has the interface if not much more *)
-          let choose_file f1 f2 = match f1,f2 with
-            | (Cmti _ as f), _ | _, (Cmti _ as f)
-            | (Cmt _ as f), _ | _, (Cmt _ as f)
-            | (Cmi _ as f), _ -> f
-          in
-          let file = List.fold_left choose_file f1 fs in
-          let modul = list_to_string modul in
-          load_file t modul file)
-    modules
-    t
+  let rec root = lazy (
+    Trie.fold0 (fun t modul files ->
+        match files with
+        | [] -> t
+        | f1::fs ->
+            (* Load by order of priority:
+               - first cmti, more info than cmi, ocamldocs, and doesn't expose
+                 private values
+               - then cmt, it means there is no mli, everything is exposed
+               - then cmi, has the interface if not much more *)
+            let choose_file f1 f2 = match f1,f2 with
+              | (Cmti _ as f), _ | _, (Cmti _ as f)
+              | (Cmt _ as f), _ | _, (Cmt _ as f)
+              | (Cmi _ as f), _ -> f
+            in
+            let file = List.fold_left choose_file f1 fs in
+            let modul = list_to_string modul in
+            load_file root t modul file)
+      modules
+      t
+  )
+  in Lazy.force root
 
 let load_dir t dir =
   let files = Array.to_list (Sys.readdir dir) in
