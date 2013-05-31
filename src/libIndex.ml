@@ -39,6 +39,16 @@ and kind =
 
 type t = (char, info) Trie.t
 
+(* This type is used to pass the full structure to functions building sub-trees,
+   so that they can (lazily) lookup type or module type indirections in scope.
+   Values of this type should have the form {[
+     [ [Module;Submodule], lazy subtrie_at_Module.Submodule;
+       [Module], lazy subtrie_at_Module;
+       [], lazy subtrie_at_Root ]
+   ]}
+*)
+type parents = (string list * t Lazy.t) list
+
 (* - Utility functions - *)
 
 let string_to_list s =
@@ -139,6 +149,86 @@ let ty_of_sig_item =
   | Types.Sig_modtype(id, decl) -> tree_of_modtype_declaration id decl
   | Types.Sig_class(id, decl, rs) -> tree_of_class_declaration id decl rs
   | Types.Sig_class_type(id, decl, rs) -> tree_of_cltype_declaration id decl rs
+
+(* The types may contain unqualified identifiers.
+   We need to do some (lazy) lookup in the trie to qualify them, so that
+   for example [M.empty] shows up as [M.t] and not just [t] *)
+let qualify_ty (parents:parents) ty =
+  let qualify ident =
+    let path =
+      let rec get_path = function
+        | Outcometree.Oide_ident name -> [name]
+        | Outcometree.Oide_dot (path, s) -> get_path path @ [s]
+        | Outcometree.Oide_apply (p1, _p2) -> get_path p1
+      in
+      get_path ident
+    in
+    let key = string_to_list (String.concat "." path) in
+    let rec lookup = function
+      | [] | ([],_) :: _ -> ident
+      | ((path1::pathn), lazy t) :: parents ->
+          if not (List.exists (fun id -> id.kind = Type) (Trie.find_all t key))
+          then lookup parents
+          else
+            let rec add_pfx = function
+              | Outcometree.Oide_dot (idp, s) ->
+                  Outcometree.Oide_dot (add_pfx idp, s)
+              | Outcometree.Oide_apply (idp, idp2) ->
+                  Outcometree.Oide_apply (add_pfx idp, idp2)
+              | Outcometree.Oide_ident s ->
+                  let parentpath =
+                    List.fold_right
+                      (fun modl acc -> Outcometree.Oide_dot (acc,modl))
+                      pathn (Outcometree.Oide_ident path1)
+                  in
+                  Outcometree.Oide_dot (parentpath, s)
+            in add_pfx ident
+    in
+    lookup parents
+  in
+  let rec aux = (* Some kind of Outcometree.map_ty *)
+    let open Outcometree in
+    function
+    | Otyp_abstract -> Otyp_abstract
+    | Otyp_alias (ty, str) -> Otyp_alias (aux ty, str)
+    | Otyp_arrow (str, ty1, ty2) -> Otyp_arrow (str, aux ty1, aux ty2)
+    | Otyp_class (bl, id, tylist) ->
+        Otyp_class (bl, qualify id, List.map aux tylist)
+    | Otyp_constr (id, tylist) ->
+        Otyp_constr (qualify id, List.map aux tylist)
+    | Otyp_manifest (ty1, ty2) -> Otyp_manifest (aux ty1, aux ty2)
+    | Otyp_object (strtylist, blopt) ->
+        Otyp_object (List.map (fun (str,ty) -> str, aux ty) strtylist, blopt)
+    | Otyp_record (strbltylist) ->
+        Otyp_record (List.map (fun (str,bl,ty) -> str, bl, aux ty) strbltylist)
+    | Otyp_stuff str -> Otyp_stuff str
+    | Otyp_sum (strtylisttyoptlist) ->
+        Otyp_sum
+          (List.map (fun (str,tylist,tyopt) ->
+               str, List.map aux tylist,
+               match tyopt with Some ty -> Some (aux ty)
+                              | None -> None)
+              strtylisttyoptlist)
+    | Otyp_tuple (tylist) -> Otyp_tuple (List.map aux tylist)
+    | Otyp_var (bl, str) -> Otyp_var (bl, str)
+    | Otyp_variant (bl, var, bl2, strlistopt) ->
+        Otyp_variant (bl, var, bl2, strlistopt)
+    | Otyp_poly (str, ty) -> Otyp_poly (str, aux ty)
+    | Otyp_module (str, strl, tylist) ->
+        Otyp_module (str, strl, List.map aux tylist)
+  in
+  aux ty
+
+let qualify_ty_in_sig_item (parents:parents) =
+  let qual = qualify_ty parents in
+  let open Outcometree in
+  function
+  | Osig_type ((str, list, ty, priv, tylist2), rc) ->
+      Osig_type ((str, list, qual ty, priv,
+        List.map (fun (ty1,ty2) -> qual ty1, qual ty2) tylist2), rc)
+  | Osig_value (str, ty, str2) -> Osig_value (str, qual ty, str2)
+  | Osig_exception (str, tylist) -> Osig_exception (str, List.map qual tylist)
+  | out_sig -> out_sig (* don't get down in modules, classes and their types *)
 
 let loc_of_sig_item = function
   | Types.Sig_value (_,descr) -> descr.Types.val_loc
@@ -257,9 +347,9 @@ let locate_impl cmt path name kind =
   with
   | Not_found -> Location.none
 
-(* [parents] is a list of lazy siblings::lv1_ancestors::etc, needed for
-   lookup of idents accessible in the current scope *)
-let rec trie_of_sig_item ?(comments=[]) parents orig_file path sig_item =
+let rec trie_of_sig_item
+    ?(comments=[]) (parents:parents) (orig_file:orig_file) path sig_item
+  =
   let id = id_of_sig_item sig_item in
   let loc = loc_of_sig_item sig_item in
   let doc, comments =
@@ -299,8 +389,8 @@ let rec trie_of_sig_item ?(comments=[]) parents orig_file path sig_item =
             (fun (t,comments) sign ->
                let chlds,comments =
                  let siblings = lazy (fst (Lazy.force children_comments)) in
-                 trie_of_sig_item ~comments (siblings::parents) orig_file
-                   path sign
+                 trie_of_sig_item ~comments ((path,siblings) :: parents)
+                   orig_file path sign
                in
                List.fold_left Trie.append t chlds, comments)
             (Trie.empty,comments)
@@ -322,12 +412,12 @@ let rec trie_of_sig_item ?(comments=[]) parents orig_file path sig_item =
         in
         let rec lookup = function
           | [] -> Trie.empty
-          | lazy t :: parents ->
+          | (parentpath, lazy t) :: parents ->
               let s = Trie.sub t sig_key in
               if s = Trie.empty then lookup parents else
                 let rewrite_path =
                   fix_path_prefix
-                    (List.length parents + List.length sig_path)
+                    (List.length parentpath + List.length sig_path)
                     (path @ [id.Ident.name])
                 in
                 Trie.map (fun _k v -> rewrite_path v) s
@@ -379,6 +469,36 @@ let rec trie_of_sig_item ?(comments=[]) parents orig_file path sig_item =
     :: siblings,
     comments
 
+(* Can work in a subtree (t doesn't have to be the root) *)
+let qualify_type_idents parents t =
+  let qualify _key id =
+    let rel_path =
+      let rec rm_pfx parents path = match parents,path with
+        | [_root], path -> path
+        | _::parents, _::path -> rm_pfx parents path
+        | _ -> assert false
+      in
+      rm_pfx parents id.path
+    in
+    let qualify_ty ty =
+      let parents =
+        let rec aux acc path = match acc,path with
+          | ((pfx, parent) :: _), modl::r ->
+              let t = lazy (
+                Trie.sub (Lazy.force parent) (string_to_list (modl ^ "."))
+              ) in
+              aux ((pfx @ [modl], t) :: acc) r
+          | _ -> acc
+        in
+        aux parents rel_path
+      in
+      qualify_ty_in_sig_item parents ty
+    in
+    { id with ty = match id.ty with Some ty -> Some (qualify_ty ty)
+                                  | None -> None }
+  in
+  Trie.map qualify t
+
 let load_cmi root t modul orig_file =
   Trie.map_subtree t (string_to_list modul)
     (fun t ->
@@ -399,11 +519,17 @@ let load_cmi root t modul orig_file =
         List.fold_left
           (fun t sig_item ->
             let chld, _comments =
-              trie_of_sig_item [children; root] orig_file [modul] sig_item
+              trie_of_sig_item [[modul], children; [], root]
+                orig_file [modul] sig_item
             in
             List.fold_left Trie.append t chld)
           Trie.empty
           info.Cmi_format.cmi_sign
+      )
+      in
+      let children = lazy (
+        qualify_type_idents [[modul], children; [], root]
+          (Lazy.force children)
       )
       in
       Trie.graft_lazy t ['.'] children)
@@ -426,6 +552,7 @@ let load_cmt root t modul orig_file =
       let rec children = lazy (
         let info = Cmt_format.read_cmt (orig_file_name orig_file) in
         let comments = info.Cmt_format.cmt_comments in
+        let parents = [[modul], children; [], root] in
         match info.Cmt_format.cmt_annots with
         | Cmt_format.Implementation {Typedtree.str_type = sign; _}
         | Cmt_format.Interface {Typedtree.sig_type = sign; _}
@@ -434,7 +561,7 @@ let load_cmt root t modul orig_file =
               List.fold_left
                 (fun (t,comments) sig_item ->
                    let chld, comments =
-                     trie_of_sig_item ~comments [children; root] orig_file
+                     trie_of_sig_item ~comments parents orig_file
                        [modul] sig_item
                    in
                    List.fold_left Trie.append t chld, comments)
@@ -447,6 +574,11 @@ let load_cmt root t modul orig_file =
               "\027[33mWarning: %S: unhandled cmt format.\027[m\n%!"
               (orig_file_name orig_file);
             t
+      )
+      in
+      let children = lazy (
+        qualify_type_idents [[modul], children; [], root]
+          (Lazy.force children)
       )
       in
       Trie.graft_lazy t ['.'] children)

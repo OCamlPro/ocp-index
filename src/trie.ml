@@ -87,9 +87,12 @@ let sub tree path =
   in
   try aux tree path with Not_found -> empty
 
-let rec find_all tree = function
-  | h :: tl -> find_all (List.assoc h !!(tree.children)) tl
-  | [] -> tree.value
+let find_all tree path =
+  let rec aux tree = function
+    | h :: tl -> aux (List.assoc h !!(tree.children)) tl
+    | [] -> tree.value
+  in
+  try aux tree path with Not_found -> []
 
 let find tree path =
   match find_all tree path with
