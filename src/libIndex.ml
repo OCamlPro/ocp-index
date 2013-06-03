@@ -100,15 +100,16 @@ let fix_path_prefix strip new_pfx =
   fun id -> {id with path = List.rev_append rev_pfx (tln strip id.path)}
 
 let open_module ?(cleanup_path=false) t path =
-  let f =
-    if cleanup_path then fix_path_prefix (List.length path) []
-    else fun id -> id
+  let strip_path = fix_path_prefix (List.length path) [] in
+  let modpath =
+    List.fold_right (fun p acc -> string_to_list p @ '.' :: acc) path []
   in
-  Trie.fold
-    (fun t path id -> Trie.add t path (f id))
-    (Trie.sub t
-       (List.fold_right (fun p acc -> string_to_list p @ '.' :: acc) path []))
-    t
+  let submodule = Trie.sub t modpath in
+  let submodule =
+    if cleanup_path then Trie.map (fun _key -> strip_path) submodule
+    else submodule
+  in
+  Trie.merge t submodule
 
 (* Pops comments from a list of comments (string * loc) to find the ones that
    are associated to a given location. Also returns the remaining comments after

@@ -31,21 +31,19 @@ let rec list_map_filter f = function
       | Some h -> h :: list_map_filter f tl
       | None -> list_map_filter f tl
 
-(* actually a map_filter, which causes it to force all the lazies (it's
-   otherwise impossible to know which branches to prune) *)
-let map_filter_values f tree =
-  let rec aux value children = {
-    value = list_map_filter f value;
+let map f tree =
+  let rec aux rev_path tree = {
+    value = (match tree.value with
+        | [] -> []
+        | v -> List.map (f (List.rev rev_path)) v);
     children = lazy (
-      list_map_filter
-        (fun (key, {value; children}) -> match aux value children with
-          | { value = []; children = lazy [] } -> None
-          | r -> Some (key, r))
-        !!children
+      List.map
+        (fun (key,value) -> (key, aux (key::rev_path) value))
+        !!(tree.children)
     )
   }
   in
-  aux tree.value tree.children
+  aux [] tree
 
 let iter f tree =
   let rec aux rev_path tree =
@@ -70,15 +68,6 @@ let fold f =
   fold0
     (fun acc path values ->
       List.fold_left (fun acc v -> f acc path v) acc values)
-
-let map f tree =
-  let rec aux rev_path tree =
-    { value = List.map (f (List.rev rev_path)) tree.value;
-      children = lazy (
-        List.map (fun (k,v) -> k, aux (k::rev_path) v) !!(tree.children)
-      )}
-  in
-  aux [] tree
 
 let sub tree path =
   let rec aux tree = function
@@ -135,6 +124,9 @@ let set_lazy tree path lazy_value =
 
 let add tree path value =
   map_subtree tree path (fun t -> { t with value = value::t.value })
+
+let add_lazy tree path lazy_value =
+  map_subtree tree path (fun t -> { t with value = !!lazy_value::t.value })
 
 let unset tree path =
   map_subtree tree path (fun t -> { t with value = [] })

@@ -40,10 +40,13 @@ val set : ('a, 'b) t -> 'a list -> 'b -> ('a, 'b) t
 (** Associates a value with the given path, or replaces if there was already
     one *)
 
+val set_lazy : ('a, 'b) t -> 'a list -> 'b Lazy.t -> ('a, 'b) t
+(** The same but taking a lazy value *)
+
 val add : ('a, 'b) t -> 'a list -> 'b -> ('a, 'b) t
 (** Associates a value with the given path, keeping previous bindings *)
 
-val set_lazy : ('a, 'b) t -> 'a list -> 'b Lazy.t -> ('a, 'b) t
+val add_lazy : ('a, 'b) t -> 'a list -> 'b Lazy.t -> ('a, 'b) t
 (** The same but taking a lazy value *)
 
 val unset : ('a, 'b) t -> 'a list -> ('a, 'b) t
@@ -67,12 +70,8 @@ val fold : ('acc -> 'a list -> 'b -> 'acc) -> ('a, 'b) t -> 'acc -> 'acc
 val fold0 : ('acc -> 'a list -> 'b list -> 'acc) -> ('a, 'b) t -> 'acc -> 'acc
 (** same as [fold], but the list of bindings at a given path is given at once *)
 
-val map : ('a list -> 'b -> 'b) -> ('a, 'b) t ->  ('a, 'b) t
-(** maps a function on all values in the trie *)
-
-val map_filter_values : ('b -> 'c option) -> ('a,'b) t -> ('a,'c) t
-(** Maps and filters over all values in the trie, removing the value if [None]
-    is returned *)
+val map : ('a list -> 'b -> 'c) -> ('a,'b) t -> ('a,'c) t
+(** Maps over all bindings of the trie *)
 
 val sub : ('a, 'b) t -> 'a list -> ('a,'b) t
 (** [sub t p] returns the sub-trie associated with the path [p] in the trie
@@ -92,7 +91,7 @@ val merge :
   ?values:('b list -> 'b list -> 'b list) -> ('a, 'b) t -> ('a, 'b) t
   -> ('a, 'b) t
 (** Merges two tries, accepting an optional function to resolve value
-    conflicts. The default function pushes right-hand values. on top of
+    conflicts. The default function pushes right-hand values on top of
     left-hand ones *)
 
 val append : ('a, 'b) t -> ('a list * ('a, 'b) t) -> ('a, 'b) t
