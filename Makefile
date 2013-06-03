@@ -38,7 +38,7 @@ distclean:
 .PHONY: install
 install: $(PROJECTS) $(manpage)
 	ocp-build install \
-	  -install-lib $(prefix)/lib/ocp-indent \
+	  -install-lib $(prefix)/lib/ocp-index \
 	  -install-bin $(prefix)/bin \
 	  -install-data $(prefix)/share/typerex \
 	  $(PROJECTS)
