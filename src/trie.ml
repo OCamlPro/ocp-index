@@ -57,10 +57,10 @@ let iter f tree =
 let fold0 f tree acc =
   let rec aux acc t rev_path =
     let acc =
-      List.fold_left
-        (fun acc (key,n) -> aux acc n (key::rev_path))
-        acc
+      List.fold_right
+        (fun (key,n) acc -> aux acc n (key::rev_path))
         !!(t.children)
+        acc
     in
     f acc (List.rev rev_path) t.value
   in

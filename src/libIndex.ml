@@ -71,7 +71,8 @@ let unique_subdirs dir_list =
     Array.fold_left
       (fun acc p ->
         let path = Filename.concat path p in
-        if try Sys.is_directory path with Sys_error _ -> false then subdirs acc path else acc)
+        if try Sys.is_directory path with Sys_error _ -> false
+        then subdirs acc path else acc)
       (path::acc)
       (Sys.readdir path)
   in
@@ -650,18 +651,15 @@ let filter_visible values =
         i.name = j.name
     | a, b -> a = b
   in
-  let rev =
-    List.fold_left
-      (fun acc info ->
-        if List.exists (fun n -> same_kind info n) acc
-        then acc else info::acc)
-      [] values
-  in
-  List.rev rev
+  List.fold_left
+    (fun acc info ->
+       if List.exists (fun n -> same_kind info n) acc
+       then acc else info::acc)
+    [] values
 
 let trie_to_list trie =
   Trie.fold0
-    (fun acc _path values -> (filter_visible values) @ acc)
+    (fun acc _path values -> List.rev_append (filter_visible values) acc)
     trie []
 
 let all t =
@@ -670,7 +668,7 @@ let all t =
 let filter t f =
   Trie.fold0
     (fun acc _path values ->
-       (filter_visible (List.filter f values)) @ acc)
+       List.rev_append (filter_visible (List.filter f values)) acc)
     t []
 
 let get t query = Trie.find t (string_to_list query)
