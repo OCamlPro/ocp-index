@@ -55,7 +55,9 @@ install: $(PROJECTS) $(manpage)
 
 .PHONY: uninstall
 uninstall:
-	ocp-build uninstall $(PROJECTS)
+	ocp-build uninstall \
+	  -install-lib $(prefix)/lib/ocp-index \
+	  $(PROJECTS)
 	rm $(mandir)/man1/$(notdir $(manpage))
 
 configure: configure.ac
