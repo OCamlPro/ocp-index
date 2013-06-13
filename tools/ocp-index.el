@@ -59,7 +59,8 @@
                          (file-name-nondirectory
                           (file-name-sans-extension
                            (buffer-file-name))))))
-    (format "%s %s -O %s %s" ocp-index-path cmd current-module arg)))
+    (format "%s %s %s -O %s %s"
+            ocp-index-path ocp-index-options cmd current-module arg)))
 
 (defun ac-ocp-index-candidates ()
   (let* ((command     (ocp-index-cmd "complete" ac-prefix))
