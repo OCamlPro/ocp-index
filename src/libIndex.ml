@@ -71,7 +71,7 @@ let unique_subdirs dir_list =
     Array.fold_left
       (fun acc p ->
         let path = Filename.concat path p in
-        if Sys.is_directory path then subdirs acc path else acc)
+        if try Sys.is_directory path with Sys_error _ -> false then subdirs acc path else acc)
       (path::acc)
       (Sys.readdir path)
   in
