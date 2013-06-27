@@ -1,0 +1,35 @@
+LIB = ocp-index-lib
+
+VERSION = $(shell awk -F'[(,)]' '/AC_INIT/ { print $$3 }' configure.ac)
+
+OCAMLOPTS = $(shell ocamlfind query -i-format compiler-libs compiler-libs.common)
+OCAMLBUILD = ocamlbuild -cflags "$(OCAMLOPTS)"
+
+all: $(LIB).cma $(LIB).cmxa
+
+ALWAYS:
+
+%.cma: ALWAYS $(GENERATED)
+	$(OCAMLBUILD) src/$@
+
+%.cmxa: ALWAYS $(GENERATED)
+	$(OCAMLBUILD) src/$@
+
+.PHONY: clean
+clean:
+	rm -rf META _build
+
+_build/src/META:
+	mkdir -p _build/src
+	echo 'version = "'$(VERSION)'"' > $@
+	echo 'archive(byte) = "'$(LIB)'.cma"' >> $@
+	echo 'archive(native) = "'$(LIB)'.cmxa"' >> $@
+	echo 'requires = "compiler-libs compiler-libs.common"' >> $@
+
+INTERFACES = libIndex
+
+.PHONY: install
+install: _build/src/META $(LIB).cma $(LIB).cmxa
+	cd _build/src && ocamlfind install $(LIB) META \
+	  $(INTERFACES:=.cmi) \
+	  $(LIB).cma $(LIB).cmxa $(LIB).a
