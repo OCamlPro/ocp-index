@@ -51,6 +51,23 @@ type parents = (string list * t Lazy.t) list
 
 (* - Utility functions - *)
 
+let debug_enabled =
+  try match Sys.getenv "OCP_DEBUG" with "" | "0" -> false | _ -> true
+  with Not_found -> false
+
+let debug =
+  if debug_enabled then
+    fun fmt -> Printf.eprintf ("\027[36m"^^fmt^^"\027[m%!")
+  else
+    fun fmt -> Printf.ifprintf stderr fmt
+
+let timer () =
+  if debug_enabled then
+    let t = Sys.time () in
+    fun () -> Sys.time () -. t
+  else
+    fun () -> 0.
+
 let string_to_list s =
   let rec aux acc i = if i >= 0 then aux (s.[i]::acc) (i - 1) else acc in
   aux [] (String.length s - 1)
@@ -517,16 +534,24 @@ let load_cmi root t modul orig_file =
         }
       in
       let rec children = lazy (
+        debug "Loading %s..." (orig_file_name orig_file);
+        let chrono = timer () in
         let info = Cmi_format.read_cmi (orig_file_name orig_file) in
-        List.fold_left
-          (fun t sig_item ->
-            let chld, _comments =
-              trie_of_sig_item [[modul], children; [], root]
-                orig_file [modul] sig_item
-            in
-            List.fold_left Trie.append t chld)
-          Trie.empty
-          info.Cmi_format.cmi_sign
+        debug " %.3fs ; now registering..." (chrono());
+        let chrono = timer () in
+        let t =
+          List.fold_left
+            (fun t sig_item ->
+               let chld, _comments =
+                 trie_of_sig_item [[modul], children; [], root]
+                   orig_file [modul] sig_item
+               in
+               List.fold_left Trie.append t chld)
+            Trie.empty
+            info.Cmi_format.cmi_sign
+        in
+        debug " %.3fs ; done\n%!" (chrono());
+        t
       )
       in
       let children = lazy (
@@ -552,30 +577,39 @@ let load_cmt root t modul orig_file =
         }
       in
       let rec children = lazy (
+        debug "Loading %s..." (orig_file_name orig_file);
+        let chrono = timer () in
         let info = Cmt_format.read_cmt (orig_file_name orig_file) in
+        debug " %.3fs ; now registering..." (chrono());
+        let chrono = timer () in
         let comments = info.Cmt_format.cmt_comments in
         let parents = [[modul], children; [], root] in
-        match info.Cmt_format.cmt_annots with
-        | Cmt_format.Implementation {Typedtree.str_type = sign; _}
-        | Cmt_format.Interface {Typedtree.sig_type = sign; _}
-          ->
-            let t, _trailing_comments =
-              List.fold_left
-                (fun (t,comments) sig_item ->
-                   let chld, comments =
-                     trie_of_sig_item ~comments parents orig_file
-                       [modul] sig_item
-                   in
-                   List.fold_left Trie.append t chld, comments)
-                (Trie.empty, comments)
-                sign
-            in
-            t
-        | _ ->
-            Printf.eprintf
-              "\027[33mWarning: %S: unhandled cmt format.\027[m\n%!"
-              (orig_file_name orig_file);
-            t
+        let t =
+          match info.Cmt_format.cmt_annots with
+          | Cmt_format.Implementation {Typedtree.str_type = sign; _}
+          | Cmt_format.Interface {Typedtree.sig_type = sign; _}
+            ->
+              let t, _trailing_comments =
+                List.fold_left
+                  (fun (t,comments) sig_item ->
+                     let chld, comments =
+                       trie_of_sig_item ~comments parents orig_file
+                         [modul] sig_item
+                     in
+                     List.fold_left Trie.append t chld, comments)
+                  (Trie.empty, comments)
+                  sign
+              in
+              t
+          (* | Cmt_format.Packed  *)
+          | _ ->
+              Printf.eprintf
+                "\027[33mWarning: %S: unhandled cmt format.\027[m\n%!"
+                (orig_file_name orig_file);
+              t
+        in
+        debug " %.3fs ; done\n%!" (chrono());
+        t
       )
       in
       let children = lazy (
@@ -585,7 +619,12 @@ let load_cmt root t modul orig_file =
       in
       Trie.graft_lazy t ['.'] children)
 
-let load_file root t modul f = match f with
+let debug_file_counter = ref 0
+let debug_dir_counter = ref 0
+
+let load_file root t modul f =
+  incr debug_file_counter;
+  match f with
   | Cmi _ -> load_cmi root t modul f
   | Cmt _ | Cmti _ -> load_cmt root t modul f
 
@@ -634,13 +673,17 @@ let load_files t dir files =
   in Lazy.force root
 
 let load_dir t dir =
+  incr debug_dir_counter;
   let files = Array.to_list (Sys.readdir dir) in
   load_files t dir files
 
 let load paths =
+  let chrono = timer () in
   let t =
     List.fold_left load_dir (Trie.create ()) paths
   in
+  debug "Modules directory loaded in %.3fs (%d files in %d directories)...\n"
+    (chrono()) !debug_file_counter !debug_dir_counter;
   open_module ~cleanup_path:true t ["Pervasives"]
 
 
