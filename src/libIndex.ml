@@ -26,7 +26,7 @@ type info = { path: string list;
               ty: ty option;
               loc_sig: Location.t;
               loc_impl: Location.t Lazy.t;
-              doc: string option;
+              doc: string option Lazy.t;
               file: orig_file;
            (* library: string option *) }
 
@@ -132,6 +132,7 @@ let open_module ?(cleanup_path=false) t path =
    are associated to a given location. Also returns the remaining comments after
    the location. *)
 let associate_comment ?(after_only=false) comments loc =
+  if loc = Location.none then None, comments else
   let lstart = loc.Location.loc_start.Lexing.pos_lnum
   and lend =  loc.Location.loc_end.Lexing.pos_lnum in
   let rec aux = function
@@ -280,7 +281,7 @@ let kind_of_sig_item = function
   | Types.Sig_class _ -> Class
   | Types.Sig_class_type _ -> ClassType
 
-let trie_of_type_decl ?(comments=[]) info ty_decl =
+let trie_of_type_decl ?comments info ty_decl =
   match ty_decl.Types.type_kind with
   | Types.Type_abstract -> [], comments
   | Types.Type_record (fields,_repr) ->
@@ -299,7 +300,7 @@ let trie_of_type_decl ?(comments=[]) info ty_decl =
             ty = Some ty;
             loc_sig = info.loc_sig;
             loc_impl = info.loc_impl;
-            doc = None;
+            doc = lazy None;
             file = info.file;
           } ())
         fields,
@@ -327,7 +328,7 @@ let trie_of_type_decl ?(comments=[]) info ty_decl =
             ty = Some ty;
             loc_sig = info.loc_sig;
             loc_impl = info.loc_impl;
-            doc = None;
+            doc = lazy None;
             file = info.file;
           } ())
         variants,
@@ -367,13 +368,17 @@ let locate_impl cmt path name kind =
   | Not_found -> Location.none
 
 let rec trie_of_sig_item
-    ?(comments=[]) (parents:parents) (orig_file:orig_file) path sig_item
+    ?comments (parents:parents) (orig_file:orig_file) path sig_item
   =
   let id = id_of_sig_item sig_item in
   let loc = loc_of_sig_item sig_item in
   let doc, comments =
-    if loc = Location.none then None, comments
-    else associate_comment comments loc
+    match comments with
+    | None -> lazy None, None
+    | Some comments ->
+        let assoc = lazy (associate_comment (Lazy.force comments) loc) in
+        lazy (fst (Lazy.force assoc)),
+        Some (lazy (snd (Lazy.force assoc)))
   in
   let ty = Some (ty_of_sig_item sig_item) in
   let kind = kind_of_sig_item sig_item in
@@ -393,7 +398,7 @@ let rec trie_of_sig_item
   let siblings, comments = (* read fields / variants ... *)
     match sig_item with
     | Types.Sig_type (_id,descr,_is_rec) ->
-        trie_of_type_decl ~comments info descr
+        trie_of_type_decl ?comments info descr
     | _ -> [], comments
   in
   (* read module / class contents *)
@@ -408,14 +413,19 @@ let rec trie_of_sig_item
             (fun (t,comments) sign ->
                let chlds,comments =
                  let siblings = lazy (fst (Lazy.force children_comments)) in
-                 trie_of_sig_item ~comments ((path,siblings) :: parents)
+                 trie_of_sig_item ?comments ((path,siblings) :: parents)
                    orig_file path sign
                in
                List.fold_left Trie.append t chlds, comments)
             (Trie.empty,comments)
             sign
         ) in
-        let a,b = Lazy.force children_comments in lazy a, b
+        let children = lazy (fst (Lazy.force children_comments)) in
+        let comments = match comments, children_comments with
+          | None, _ -> None
+          | Some _, lazy (_, comments) -> comments
+        in
+        children, comments
     | Types.Sig_module (_,Types.Mty_ident sig_ident,_) ->
         let sig_path =
           let rec get_path = function
@@ -469,7 +479,7 @@ let rec trie_of_sig_item
                   ty = Some ty;
                   loc_sig = loc_sig;
                   loc_impl = loc_impl;
-                  doc = None;
+                  doc = lazy None;
                   file = info.file })
           Trie.empty
           fields),
@@ -529,7 +539,7 @@ let load_cmi root t modul orig_file =
           ty = None;
           loc_sig = Location.none;
           loc_impl = Lazy.from_val Location.none;
-          doc = None;
+          doc = lazy None;
           file = orig_file;
         }
       in
@@ -572,7 +582,7 @@ let load_cmt root t modul orig_file =
           ty = None;
           loc_sig = Location.none;
           loc_impl = Lazy.from_val Location.none;
-          doc = None;
+          doc = lazy None;
           file = orig_file;
         }
       in
@@ -582,7 +592,7 @@ let load_cmt root t modul orig_file =
         let info = Cmt_format.read_cmt (orig_file_name orig_file) in
         debug " %.3fs ; now registering..." (chrono());
         let chrono = timer () in
-        let comments = info.Cmt_format.cmt_comments in
+        let comments = Some (Lazy.from_val info.Cmt_format.cmt_comments) in
         let parents = [[modul], children; [], root] in
         let t =
           match info.Cmt_format.cmt_annots with
@@ -593,7 +603,7 @@ let load_cmt root t modul orig_file =
                 List.fold_left
                   (fun (t,comments) sig_item ->
                      let chld, comments =
-                       trie_of_sig_item ~comments parents orig_file
+                       trie_of_sig_item ?comments parents orig_file
                          [modul] sig_item
                      in
                      List.fold_left Trie.append t chld, comments)
@@ -878,7 +888,7 @@ module IndexFormat = struct
       (colorise.f Type "%a" fmt out_ty)
 
   let doc ?colorise:(_ = no_color) fmt id =
-    option_iter id.doc (Format.fprintf fmt "@[<h>%a@]" lines)
+    option_iter (Lazy.force id.doc) (Format.fprintf fmt "@[<h>%a@]" lines)
 
   let loc ?colorise:(_ = no_color) fmt id =
     let loc = Lazy.force id.loc_impl in
@@ -896,7 +906,7 @@ module IndexFormat = struct
     Format.fprintf fmt " %a" (kind ~colorise) id;
     if id.ty <> None then
       Format.fprintf fmt " @[<h>%a@]" (ty ~colorise) id;
-    if id.doc <> None then
+    if Lazy.force id.doc <> None then
       Format.fprintf fmt "@\n    %a" (doc ~colorise) id
 end
 

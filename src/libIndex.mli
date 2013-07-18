@@ -29,7 +29,7 @@ type info = private {
   ty: ty option;
   loc_sig: Location.t;
   loc_impl: Location.t Lazy.t;
-  doc: string option;
+  doc: string option Lazy.t;
   file: orig_file;
   (* library: string option *) }
 
