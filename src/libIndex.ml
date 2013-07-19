@@ -197,9 +197,9 @@ let qualify_ty (parents:parents) ty =
                   Outcometree.Oide_apply (add_pfx idp, idp2)
               | Outcometree.Oide_ident s ->
                   let parentpath =
-                    List.fold_right
-                      (fun modl acc -> Outcometree.Oide_dot (acc,modl))
-                      pathn (Outcometree.Oide_ident path1)
+                    List.fold_left
+                      (fun acc modl -> Outcometree.Oide_dot (acc,modl))
+                      (Outcometree.Oide_ident path1) pathn
                   in
                   Outcometree.Oide_dot (parentpath, s)
             in add_pfx ident
