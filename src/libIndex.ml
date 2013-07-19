@@ -629,6 +629,146 @@ let load_cmt root t modul orig_file =
       in
       Trie.graft_lazy t ['.'] children)
 
+(* Predifined elements which are not in Pervasives
+   List and doc taken from
+   http://caml.inria.fr/pub/docs/manual-ocaml/manual034.html (4.00.1) *)
+let predefined : info list =
+  let open Outcometree in
+  let mktype name ?(params=[]) ?(def=Otyp_abstract) doc = {
+    path = [];
+    kind = Type;
+    name = name;
+    ty = Some (Osig_type (
+        (name,List.map (fun v -> v,(true,true)) params,def,Asttypes.Public,[]),
+        Orec_not));
+    loc_sig = Location.none;
+    loc_impl = lazy Location.none;
+    doc = lazy (Some doc);
+    file = Cmi "*built-in*";
+  } in
+  let mkvariant name parent params = {
+    path = [];
+    kind = Variant parent;
+    name = name;
+    ty = Some (Osig_type (("", [],
+                           (match params with [] -> Otyp_sum []
+                                            | l -> Otyp_tuple l),
+                           Asttypes.Public, []),
+                          Outcometree.Orec_not));
+    loc_sig = Location.none;
+    loc_impl = lazy Location.none;
+    doc = lazy None;
+    file = Cmi "*built-in*";
+  } in
+  let mkexn name params doc = {
+    path = [];
+    kind = Exception;
+    name = name;
+    ty = Some (Osig_exception (name,params));
+    loc_sig = Location.none;
+    loc_impl = lazy Location.none;
+    doc = lazy (Some doc);
+    file = Cmi "*built-in*";
+  }
+  in
+  let var name = Otyp_var (false, name) in
+  let constr ?(params=[]) name =
+    Otyp_constr (Oide_ident name, List.map var params)
+  in
+  let ibool =
+    mktype "bool" ~def:(Otyp_sum ["true",[],None; "false",[],None])
+      "The type of booleans (truth values)."
+  in let itrue = mkvariant "true" ibool []
+  in let ifalse = mkvariant "false" ibool []
+  in
+  let ilist =
+    mktype "list"
+      ~params:["'a"]
+      ~def:(Otyp_sum ["[]", [], None;
+                      "::", [var "a"; constr ~params:["a"] "list"], None])
+      "The type of lists whose elements have type 'a."
+  in let icons = mkvariant "::" ilist [var "a"; constr ~params:["a"] "list"]
+  in let inil = mkvariant "[]" ilist []
+  in
+  let ioption =
+    mktype "option"
+      ~def:(Otyp_sum ["None",[],None; "Some", [var "a"], None])
+      "The type of optional values of type 'a."
+  in let isome = mkvariant "Some" ioption [var "a"]
+  in let inone = mkvariant "None" ioption []
+  in [
+    mktype "int" "The type of integer numbers.";
+    mktype "char" "The type of characters.";
+    mktype "string" "The type of character strings.";
+    mktype "float" "The type of floating-point numbers.";
+    ibool; itrue; ifalse;
+    mktype "unit" ~def:(Otyp_stuff "()") "The type of the unit value.";
+    mktype "exn" "The type of exception values.";
+    mktype "array" "The type of arrays whose elements have type 'a.";
+    ilist; inil; icons;
+    ioption; isome; inone;
+    mktype "int32"
+      "The type of signed 32-bit integers. See the Int32 module.";
+    mktype "int64"
+      "The type of signed 64-bit integers. See the Int64 module.";
+    mktype "nativeint"
+      "The type of signed, platform-native integers (32 bits on 32-bit \
+       processors, 64 bits on 64-bit processors). See the Nativeint module.";
+    mktype "format6"
+      "The type of format strings. 'a is the type of the parameters of the \
+       format, 'f is the result type for the printf-style functions, 'b is the \
+       type of the first argument given to %a and %t printing functions (see \
+       module Printf), 'c is the result type of these functions, and also the \
+       type of the argument transmitted to the first argument of kprintf-style \
+       functions, 'd is the result type for the scanf-style functions (see \
+       module Scanf), and 'e is the type of the receiver function for the \
+       scanf-style functions.";
+    mktype "lazy_t"
+      "This type is used to implement the Lazy module. It should not be used \
+       directly.";
+    mkexn "Match_failure" [constr "string"; constr "int"; constr "int"]
+      "Exception raised when none of the cases of a pattern-matching apply. \
+       The arguments are the location of the match keyword in the source code \
+       (file name, line number, column number).";
+    mkexn "Assert_failure" [constr "string"; constr "int"; constr "int"]
+      "Exception raised when an assertion fails. The arguments are the \
+       location of the assert keyword in the source code (file name, line \
+       number, column number).";
+    mkexn "Invalid_argument" [constr "string"]
+      "Exception raised by library functions to signal that the given \
+       arguments do not make sense.";
+    mkexn "Failure" [constr "string"]
+      "Exception raised by library functions to signal that they are undefined \
+       on the given arguments.";
+    mkexn "Not_found" []
+      "Exception raised by search functions when the desired object could not \
+       be found.";
+    mkexn "Out_of_memory" []
+      "Exception raised by the garbage collector when there is insufficient \
+       memory to complete the computation.";
+    mkexn "Stack_overflow" []
+      "Exception raised by the bytecode interpreter when the evaluation stack \
+       reaches its maximal size. This often indicates infinite or excessively \
+       deep recursion in the user’s program.";
+    mkexn "Sys_error" [constr "string"]
+      "Exception raised by the input/output functions to report an operating \
+       system error.";
+    mkexn "End_of_file" []
+      "Exception raised by input functions to signal that the end of file has \
+       been reached.";
+    mkexn "Division_by_zero" []
+      "Exception raised by integer division and remainder operations when \
+       their second argument is zero.";
+    mkexn "Sys_blocked_io" []
+      "A special case of Sys_error raised when no I/O is possible on a \
+       non-blocking I/O channel.";
+    mkexn "Undefined_recursive_module"
+      [constr "string"; constr "int"; constr "int"]
+      "Exception raised when an ill-founded recursive module definition is \
+       evaluated. The arguments are the location of the definition in the \
+       source code (file name, line number, column number).";
+  ]
+
 let debug_file_counter = ref 0
 let debug_dir_counter = ref 0
 
@@ -688,10 +828,16 @@ let load_dir t dir =
   load_files t dir files
 
 let load paths =
-  let chrono = timer () in
+  let t = Trie.create () in
   let t =
-    List.fold_left load_dir (Trie.create ()) paths
+    List.fold_left
+      (fun t info ->
+         Trie.add t (string_to_list info.name) info)
+      t
+      predefined
   in
+  let chrono = timer () in
+  let t = List.fold_left load_dir t paths in
   debug "Modules directory loaded in %.3fs (%d files in %d directories)...\n"
     (chrono()) !debug_file_counter !debug_dir_counter;
   open_module ~cleanup_path:true t ["Pervasives"]
