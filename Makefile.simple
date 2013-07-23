@@ -2,8 +2,7 @@ LIB = ocp-index-lib
 
 VERSION = $(shell awk -F'[(,)]' '/AC_INIT/ { print $$3 }' configure.ac)
 
-OCAMLOPTS = $(shell ocamlfind query -i-format compiler-libs compiler-libs.common)
-OCAMLBUILD = ocamlbuild -cflags "$(OCAMLOPTS)"
+OCAMLBUILD = ocamlbuild -pkg compiler-libs.common -use-ocamlfind
 
 all: $(LIB).cma $(LIB).cmxa
 
@@ -14,6 +13,11 @@ ALWAYS:
 
 %.cmxa: ALWAYS $(GENERATED)
 	$(OCAMLBUILD) src/$@
+
+ocp-index.exe: ALWAYS
+	cp -rf ../cmdliner/src cmdliner
+	$(OCAMLBUILD) -pkg unix -I cmdliner -I src src/indexMain.native
+	cp _build/src/indexMain.native ocp-index.exe
 
 .PHONY: clean
 clean:
