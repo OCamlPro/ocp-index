@@ -201,7 +201,7 @@ let interactive opts () =
                   Format.open_hbox ();
                   LibIndex.Format.ty ~colorise fmt id;
                   Format.close_box ());
-             if id.LibIndex.doc <> None then
+             if Lazy.force id.LibIndex.doc <> None then
                (Format.force_newline ();
                 Format.print_string "    ";
                 LibIndex.Format.doc ~colorise fmt id);
