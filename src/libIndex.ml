@@ -467,6 +467,7 @@ let rec trie_of_sig_item
         in
         lazy (List.fold_left (fun t (lbl,_,ty_expr) ->
             if lbl = "*dummy method*" then t else
+              let _ = Printtyp.reset_and_mark_loops ty_expr in
               let ty = Printtyp.tree_of_typexp false ty_expr in
               let ty =
                 Outcometree.Osig_type
