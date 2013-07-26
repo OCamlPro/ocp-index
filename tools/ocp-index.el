@@ -13,8 +13,8 @@
   "*Path to access the ocp-index command"
   :group 'ocp-index :type '(file))
 
-(defcustom ocp-index-options ""
-  "*Command-line parameters to add to ocp-index invocations (ex. --show=types)"
+(defcustom ocp-index-options "--show=types"
+  "*Command-line parameters to add to ocp-index invocations (ex. --show=sigs)"
   :group 'ocp-index :type 'string)
 
 (defcustom ocp-index-override-auto-complete-defaults t
@@ -115,10 +115,18 @@
           (forward-line (1- line))
           (forward-char column))))))
 
+(defun ocp-index-print-type-at-point ()
+  (interactive nil)
+  (ocp-index-print-type (ocp-index-completion-prefix)))
+
+(defun ocp-index-jump-to-definition-at-point ()
+  (interactive nil)
+  (ocp-index-jump-to-definition (ocp-index-completion-prefix)))
+
 (defun ocp-index-setup-keymap ()
   (interactive nil)
-  (local-set-key (kbd "C-c t") 'ocp-index-print-type)
-  (local-set-key (kbd "C-c ;") 'ocp-index-jump-to-definition)
+  (local-set-key (kbd "C-c t") 'ocp-index-print-type-at-point)
+  (local-set-key (kbd "C-c ;") 'ocp-index-jump-to-definition-at-point)
   (local-set-key (kbd "C-c TAB") 'auto-complete))
 
 (defun ocp-index-setup-completion ()
