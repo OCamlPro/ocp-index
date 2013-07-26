@@ -13,7 +13,12 @@
 (**************************************************************************)
 
 (** The type for common command-line options *)
-type t = { lib_info: LibIndex.t; color: bool; filter: LibIndex.info -> bool }
+type t = {
+  lib_info: LibIndex.t;
+  color: bool;
+  filter: LibIndex.info -> bool;
+  project_root: string option;
+}
 
 (** The cmdliner term to get the common options and create the [LibIndex.t]
     structure *)

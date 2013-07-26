@@ -67,7 +67,7 @@ let locate_cmd =
   let print_loc opts query =
     try
       let id = LibIndex.get opts.IndexOptions.lib_info query in
-      print_endline (LibIndex.Print.loc id)
+      print_endline (LibIndex.Print.loc ?root:opts.IndexOptions.project_root id)
     with Not_found -> exit 2
   in
   let doc = "Get the location where an identifier was defined." in

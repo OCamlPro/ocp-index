@@ -95,7 +95,8 @@ module Format: sig
 
   val doc: ?colorise:coloriser -> Format.formatter -> info -> unit
 
-  val loc: ?colorise:coloriser -> Format.formatter -> info -> unit
+  val loc:
+    ?root:string -> ?colorise:coloriser -> Format.formatter -> info -> unit
 
   val info: ?colorise:coloriser -> Format.formatter -> info -> unit
 end
@@ -106,6 +107,6 @@ module Print: sig
   val kind: ?color:bool -> info -> string
   val ty: ?color:bool -> info -> string
   val doc: ?color:bool -> info -> string
-  val loc: ?color:bool -> info -> string
+  val loc: ?root:string -> ?color:bool -> info -> string
   val info: ?color:bool -> info -> string
 end

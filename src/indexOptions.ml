@@ -15,7 +15,12 @@
 open Cmdliner
 
 (* -- common options -- *)
-type t = { lib_info: LibIndex.t; color: bool; filter: LibIndex.info -> bool }
+type t = {
+  lib_info: LibIndex.t;
+  color: bool;
+  filter: LibIndex.info -> bool;
+  project_root: string option;
+}
 
 let cmd_input_line cmd =
   try
@@ -35,6 +40,7 @@ let cmd_input_line cmd =
 (* -- configuration file -- *)
 type conf_file = { rec_include_dirs: string list;
                    include_dirs: string list;
+                   conf_file_dir: string option;
                    (* libs: string list *) }
 
 let string_split char str =
@@ -111,7 +117,8 @@ let get_conf_file ?(path=Sys.getcwd()) () =
       else None
   in
   let conf =
-    { rec_include_dirs = []; include_dirs = []; (* libs = [] *) }
+    { rec_include_dirs = []; include_dirs = []; conf_file_dir = None;
+      (* libs = [] *) }
   in
   let conf =
     try
@@ -120,7 +127,7 @@ let get_conf_file ?(path=Sys.getcwd()) () =
     with Not_found -> conf
   in
   let conf = match find_conf_file path with
-    | Some c -> load conf c
+    | Some c -> load {conf with conf_file_dir = Some (Filename.dirname c)} c
     | None -> conf
   in
   conf
@@ -222,7 +229,7 @@ let common_opts : t Term.t =
       $ show $ hide
     )
   in
-  let lib_info : LibIndex.t Term.t =
+  let lib_info_and_conf_file : (LibIndex.t * conf_file) Term.t =
     let conf_file = get_conf_file () in
     let dirs =
       let get_all_dirs ocamllib =
@@ -240,11 +247,14 @@ let common_opts : t Term.t =
     in
     let init dirs opens =
       let info = LibIndex.load dirs in
-      List.fold_left (LibIndex.open_module ~cleanup_path:true) info opens
+      List.fold_left (LibIndex.open_module ~cleanup_path:true) info opens,
+      conf_file
     in
     Term.(pure init $ dirs $ open_modules)
   in
   Term.(
-    pure (fun lib_info color filter -> { lib_info; color; filter })
-    $ lib_info $ color $ filter
+    pure
+      (fun (lib_info,conf_file) color filter ->
+         { lib_info; color; filter; project_root = conf_file.conf_file_dir })
+    $ lib_info_and_conf_file $ color $ filter
   )

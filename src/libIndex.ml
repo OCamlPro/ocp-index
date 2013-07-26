@@ -1037,16 +1037,20 @@ module IndexFormat = struct
   let doc ?colorise:(_ = no_color) fmt id =
     option_iter (Lazy.force id.doc) (Format.fprintf fmt "@[<h>%a@]" lines)
 
-  let loc ?colorise:(_ = no_color) fmt id =
+  let loc ?root ?colorise:(_ = no_color) fmt id =
     let loc = Lazy.force id.loc_impl in
     (* let loc = id.loc_sig in *)
     if loc = Location.none then
       Format.fprintf fmt "@[<h><no location information>@]"
     else
       let pos = loc.Location.loc_start in
+      let fname = match root with
+        | Some r when Filename.is_relative pos.Lexing.pos_fname ->
+            Filename.concat r pos.Lexing.pos_fname
+        | _ -> pos.Lexing.pos_fname
+      in
       Format.fprintf fmt "@[<h>%s:%d:%d@]"
-        pos.Lexing.pos_fname pos.Lexing.pos_lnum
-        (pos.Lexing.pos_cnum - pos.Lexing.pos_bol)
+        fname pos.Lexing.pos_lnum (pos.Lexing.pos_cnum - pos.Lexing.pos_bol)
 
   let info ?(colorise = no_color) fmt id =
     path ~colorise fmt id;
@@ -1075,7 +1079,7 @@ module Print = struct
 
   let doc = make IndexFormat.doc
 
-  let loc = make IndexFormat.loc
+  let loc ?root = make (IndexFormat.loc ?root)
 
   let info = make IndexFormat.info
 end

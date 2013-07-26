@@ -109,16 +109,11 @@
       (let ((file   (match-string 1 output))
             (line   (string-to-number (match-string 2 output)))
             (column (string-to-number (match-string 3 output))))
-        (let ((file
-               (if (file-exists-p file) file
-                 (if (file-exists-p (concat "../" file))
-                     (concat "../" file)
-                   ))))
-          (when file
-            (find-file file)
-            (goto-char (point-min))
-            (forward-line (1- line))
-            (forward-char column)))))))
+        (when file
+          (find-file file)
+          (goto-char (point-min))
+          (forward-line (1- line))
+          (forward-char column))))))
 
 (defun ocp-index-setup-keymap ()
   (interactive nil)
