@@ -599,6 +599,7 @@ let load_cmt root t modul orig_file =
           match info.Cmt_format.cmt_annots with
           | Cmt_format.Implementation {Typedtree.str_type = sign; _}
           | Cmt_format.Interface {Typedtree.sig_type = sign; _}
+          | Cmt_format.Packed (sign, _)
             ->
               let t, _trailing_comments =
                 List.fold_left
@@ -612,7 +613,6 @@ let load_cmt root t modul orig_file =
                   sign
               in
               t
-          (* | Cmt_format.Packed  *)
           | _ ->
               Printf.eprintf
                 "\027[33mWarning: %S: unhandled cmt format.\027[m\n%!"
