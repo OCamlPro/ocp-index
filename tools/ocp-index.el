@@ -92,6 +92,7 @@
                    (format "type ident (%s): " default) nil nil default))))
   (let* ((command (ocp-index-cmd "type" ident))
          (output  (shell-command-to-string command))
+         (output  (if (string= output "") "No definition found" output))
          (type    (replace-regexp-in-string "\n\+$" "" output)))
     (message type)))
 
@@ -105,7 +106,7 @@
          (output  (shell-command-to-string command))
          (match   (string-match "^\\([^:]*\\):\\([0-9]\+\\):\\([0-9]\+\\)"
                                 output)))
-    (when match
+    (if match
       (let ((file   (match-string 1 output))
             (line   (string-to-number (match-string 2 output)))
             (column (string-to-number (match-string 3 output))))
@@ -113,7 +114,9 @@
           (find-file file)
           (goto-char (point-min))
           (forward-line (1- line))
-          (forward-char column))))))
+          (forward-char column)))
+      (if (string= output "") (message "No definition found")
+        (message (replace-regexp-in-string "\n\+$" "" output))))))
 
 (defun ocp-index-print-type-at-point ()
   (interactive nil)
