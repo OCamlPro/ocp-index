@@ -96,13 +96,14 @@
          (type    (replace-regexp-in-string "\n\+$" "" output)))
     (message type)))
 
-(defun ocp-index-jump-to-definition (ident)
+(defun ocp-index-jump-to-definition (ident sig)
   "Jump to the definition of an ocaml identifier using ocp-index"
   (interactive (let ((default (ocp-index-completion-prefix)))
                  (list
                   (read-string
                    (format "lookup ident (%s): " default) nil nil default))))
-  (let* ((command (ocp-index-cmd "locate" ident))
+  (let* ((cmd     (if sig "locate -i" "locate"))
+         (command (ocp-index-cmd cmd ident))
          (output  (shell-command-to-string command))
          (match   (string-match "^\\([^:]*\\):\\([0-9]\+\\):\\([0-9]\+\\)"
                                 output)))
@@ -124,12 +125,17 @@
 
 (defun ocp-index-jump-to-definition-at-point ()
   (interactive nil)
-  (ocp-index-jump-to-definition (ocp-index-completion-prefix)))
+  (ocp-index-jump-to-definition (ocp-index-completion-prefix) nil))
+
+(defun ocp-index-jump-to-sig-at-point ()
+  (interactive nil)
+  (ocp-index-jump-to-definition (ocp-index-completion-prefix) t))
 
 (defun ocp-index-setup-keymap ()
   (interactive nil)
   (local-set-key (kbd "C-c t") 'ocp-index-print-type-at-point)
   (local-set-key (kbd "C-c ;") 'ocp-index-jump-to-definition-at-point)
+  (local-set-key (kbd "C-c :") 'ocp-index-jump-to-sig-at-point)
   (local-set-key (kbd "C-c TAB") 'auto-complete))
 
 (defun ocp-index-setup-completion ()

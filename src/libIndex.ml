@@ -1037,9 +1037,11 @@ module IndexFormat = struct
   let doc ?colorise:(_ = no_color) fmt id =
     option_iter (Lazy.force id.doc) (Format.fprintf fmt "@[<h>%a@]" lines)
 
-  let loc ?root ?colorise:(_ = no_color) fmt id =
-    let loc = Lazy.force id.loc_impl in
-    (* let loc = id.loc_sig in *)
+  let loc ?root ?(intf=false) ?colorise:(_ = no_color) fmt id =
+    let loc =
+      if intf then id.loc_sig
+      else Lazy.force id.loc_impl
+    in
     if loc = Location.none then
       Format.fprintf fmt "@[<h><no location information>@]"
     else
@@ -1079,7 +1081,7 @@ module Print = struct
 
   let doc = make IndexFormat.doc
 
-  let loc ?root = make (IndexFormat.loc ?root)
+  let loc ?root ?intf = make (IndexFormat.loc ?root ?intf)
 
   let info = make IndexFormat.info
 end

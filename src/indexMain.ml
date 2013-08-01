@@ -64,14 +64,20 @@ let locate_cmd =
   let t =
     Arg.(required & pos 0 (some string) None & info [] ~doc ~docv:"STRING")
   in
-  let print_loc opts query =
+  let interface: bool Term.t =
+    let doc =
+      "Lookup the interface instead of the implementation, if it exists" in
+    Arg.(value & flag & info ["i";"interface"] ~doc)
+  in
+  let print_loc opts intf query =
     try
       let id = LibIndex.get opts.IndexOptions.lib_info query in
-      print_endline (LibIndex.Print.loc ?root:opts.IndexOptions.project_root id)
+      print_endline
+        (LibIndex.Print.loc ?root:opts.IndexOptions.project_root ~intf id)
     with Not_found -> exit 2
   in
   let doc = "Get the location where an identifier was defined." in
-  Term.(pure print_loc $ IndexOptions.common_opts $ t),
+  Term.(pure print_loc $ IndexOptions.common_opts $ interface $ t),
   Term.info "locate" ~doc
 
 let () =
