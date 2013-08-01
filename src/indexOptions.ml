@@ -36,102 +36,37 @@ let cmd_input_line cmd =
   with
   | End_of_file | Unix.Unix_error _ | Sys_error _ -> failwith "cmd_input_line"
 
+let find_build_dir path =
+  let ( / ) = Filename.concat in
+  let files = Sys.readdir path in
+  let len = Array.length files in
+  let rec look i =
+    if i >= len then None
+    else match files.(i) with
+      | "_obuild" | "_build" -> Some (path / files.(i))
+      | "OMakeroot" -> Some (path)
+      | _ -> look (i+1)
+  in
+  look 0
 
-(* -- configuration file -- *)
-type conf_file = { rec_include_dirs: string list;
-                   include_dirs: string list;
-                   conf_file_dir: string option;
-                   (* libs: string list *) }
-
-let string_split char str =
-  let rec aux pos =
-    try
-      let i = String.index_from str pos char in
-      String.sub str pos (i - pos) :: aux (succ i)
-    with Not_found | Invalid_argument _ ->
-        let l = String.length str in
-        [ String.sub str pos (l - pos) ]
+let project_root ?(path=Sys.getcwd()) () =
+  let ( / ) = Filename.concat in
+  let home = try Sys.getenv "HOME" with Not_found -> "" in
+  let path =
+    if Filename.is_relative path then Sys.getcwd () / path
+    else path
   in
-  aux 0
-
-let get_conf_file ?(path=Sys.getcwd()) () =
-  let ( / ) = Filename.concat
+  let rec find path =
+    match find_build_dir path with
+    | None ->
+        let parent = Filename.dirname path in
+        if path = parent || path = home then None
+        else find parent
+    | Some build -> Some (path, build)
   in
-  let load conf file =
-    try
-      let ic = open_in file in
-      let contents =
-        let b = Buffer.create 512 in
-        try while true do
-            let s = input_line ic in
-            let n = try String.index s '#' with Not_found -> String.length s in
-            Buffer.add_substring b s 0 n;
-            Buffer.add_char b '\n'
-          done; assert false
-        with End_of_file -> Buffer.contents b
-      in
-      let absolute dir =
-        (* todo: use +lib to load camllib/lib ? *)
-        if Filename.is_relative dir then Filename.dirname file / dir
-        else dir
-      in
-      List.fold_left
-        (fun conf s -> match string_split ' ' s with
-           | [] | [""] -> conf
-           | "dir" :: dirs ->
-               let dirs = List.map absolute dirs in
-               { conf with include_dirs = dirs @ conf.include_dirs }
-           | "rec" :: "dir" :: dirs ->
-               let dirs = List.map absolute dirs in
-               { conf with rec_include_dirs = dirs @ conf.rec_include_dirs }
-           (* | "lib" :: libs ->
-                { conf with libs = libs @ conf.libs } *)
-           | wrong_key :: _ ->
-               let e = Printf.sprintf "wrong configuration key %S" wrong_key
-               in raise (Invalid_argument e))
-        conf
-        (string_split '\n' contents)
-    with
-    | Sys_error _ ->
-        Printf.eprintf
-          "ocp-index warning: could not open %S for reading configuration.\n%!"
-          file;
-        conf
-    | Invalid_argument err ->
-        Printf.eprintf
-          "ocp-index warning: error in configuration file %S:\n%s\n%!"
-          file err;
-        conf
-  in
-  let rec find_conf_file path =
-    let conf_file_name = ".ocp-index" in
-    if Sys.file_exists (path / conf_file_name)
-    then Some (path / conf_file_name)
-    else
-      let path =
-        if Filename.is_relative path then Sys.getcwd () / path
-        else path
-      in
-      let parent = Filename.dirname path in
-      if parent <> path then find_conf_file parent
-      else None
-  in
-  let conf =
-    { rec_include_dirs = []; include_dirs = []; conf_file_dir = None;
-      (* libs = [] *) }
-  in
-  let conf =
-    try
-      let f = Sys.getenv "HOME" / ".ocp" / "ocp-index.conf" in
-      if Sys.file_exists f then load conf f else conf
-    with Not_found -> conf
-  in
-  let conf = match find_conf_file path with
-    | Some c -> load {conf with conf_file_dir = Some (Filename.dirname c)} c
-    | None -> conf
-  in
-  conf
-
+  match find path with
+  | None -> None, None
+  | Some (root, build) -> Some root, Some build
 
 let common_opts : t Term.t =
   let ocamllib : string list Term.t =
@@ -229,32 +164,38 @@ let common_opts : t Term.t =
       $ show $ hide
     )
   in
-  let lib_info_and_conf_file : (LibIndex.t * conf_file) Term.t =
-    let conf_file = get_conf_file () in
-    let dirs =
-      let get_all_dirs ocamllib =
-        let dirs =
-          List.fold_left
-            (fun incl d -> if List.mem d incl then incl else d :: incl)
-            (LibIndex.unique_subdirs (conf_file.rec_include_dirs @ ocamllib))
-            conf_file.include_dirs
-        in
-        if dirs = [] then
-          failwith "Failed to guess OCaml / opam lib dirs. Please use `-I'"
-        else dirs
-      in
-      Term.(pure get_all_dirs $ ocamllib)
+  let project_dirs : (string option * string option) Term.t =
+    let root =
+      let doc = "Set the current project root (default: try to guess)" in
+      Arg.(value & opt (some string) None & info ["root"] ~docv:"DIR" ~doc)
     in
-    let init dirs opens =
-      let info = LibIndex.load dirs in
-      List.fold_left (LibIndex.open_module ~cleanup_path:true) info opens,
-      conf_file
+    let build =
+      let doc = "Set the current project build dir (default: try to guess)" in
+      Arg.(value & opt (some string) None & info ["build"] ~docv:"DIR" ~doc)
     in
-    Term.(pure init $ dirs $ open_modules)
+    let default root build =
+      match root, build with
+      | None, None -> project_root ()
+      | Some r as root, None -> root, find_build_dir r
+      | None, (Some b as build) -> Some (Filename.dirname b), build
+      | ds -> ds
+    in
+    Term.(pure default $ root $ build)
+  in
+  let lib_info ocamllib (_root,build) opens =
+    let dirs = match build with
+      | None -> ocamllib
+      | Some d -> LibIndex.unique_subdirs (d :: ocamllib)
+    in
+    if dirs = [] then
+      failwith "Failed to guess OCaml / opam lib dirs. Please use `-I'";
+    let info = LibIndex.load dirs in
+    List.fold_left (LibIndex.open_module ~cleanup_path:true) info opens
   in
   Term.(
     pure
-      (fun (lib_info,conf_file) color filter ->
-         { lib_info; color; filter; project_root = conf_file.conf_file_dir })
-    $ lib_info_and_conf_file $ color $ filter
+      (fun ocamllib project_dirs opens color filter ->
+         { lib_info = lib_info ocamllib project_dirs opens;
+           color; filter; project_root = fst project_dirs })
+    $ ocamllib $ project_dirs $ open_modules $ color $ filter
   )
