@@ -347,7 +347,7 @@ let locate_impl cmt path name kind =
             sign
       | modul::path ->
           let modul =
-            List.find (fun item -> kind = Module &&
+            List.find (fun item -> kind_of_sig_item item = Module &&
                                    modul = (id_of_sig_item item).Ident.name)
               sign
           in
@@ -356,12 +356,17 @@ let locate_impl cmt path name kind =
               find_item path sign
           | _ -> raise Not_found
     in
+    debug "Loading %s (looking up %s.%s)..." cmt (String.concat "." path) name;
+    let chrono = timer () in
     let cmt_contents = Cmt_format.read_cmt cmt in
+    debug " %.3fs ; now registering..." (chrono());
+    let chrono = timer () in
     let sign =
       match cmt_contents.Cmt_format.cmt_annots with
       | Cmt_format.Implementation impl -> List.rev impl.Typedtree.str_type
       | _ -> raise Not_found
     in
+    debug " %.3fs ; done\n%!" (chrono());
     let item = find_item path sign in
     loc_of_sig_item item
   with
