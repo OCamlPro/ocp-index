@@ -24,24 +24,45 @@ let complete_cmd =
   let t =
     Arg.(required & pos 0 (some string) None & info [] ~doc ~docv:"STRING")
   in
-  let print_compl opts query =
+  let sexpr: bool Term.t =
+    let doc = "Output the result as a s-expression." in
+    Arg.(value & flag & info ["sexp"] ~doc)
+  in
+  let print_compl opts sexpr query =
     let fmt = Format.std_formatter in
-    List.iter
-      (fun info ->
-         LibIndex.Format.info
-           ~colorise:(if opts.IndexOptions.color
-                      then LibIndex.Format.color
-                      else LibIndex.Format.no_color)
-           fmt info;
-         Format.pp_print_newline fmt ())
-      (LibIndex.complete
-         opts.IndexOptions.lib_info
-         ~filter:opts.IndexOptions.filter
-         query);
+    let results =
+      LibIndex.complete
+        opts.IndexOptions.lib_info
+        ~filter:opts.IndexOptions.filter
+        query
+    in
+    if sexpr then (
+      Format.pp_print_string fmt "(\n";
+      List.iter (fun info ->
+          let (!) f x = f ?colorise:None x in
+          Format.fprintf fmt "  (\"%a\"" !LibIndex.Format.path info;
+          Format.fprintf fmt " (:name . \"%a\")" !LibIndex.Format.name info;
+          Format.fprintf fmt " (:type . %S)" (LibIndex.Print.ty info);
+          Format.fprintf fmt " (:kind . \"%a\")" !LibIndex.Format.kind info;
+          (if Lazy.force info.LibIndex.doc <> None
+           then Format.fprintf fmt " (:doc . %S)" (LibIndex.Print.doc info));
+          Format.fprintf fmt ")\n"
+        )
+        results;
+      Format.pp_print_string fmt ")\n"
+    ) else
+      List.iter (fun info ->
+          LibIndex.Format.info
+            ~colorise:(if opts.IndexOptions.color
+                       then LibIndex.Format.color
+                       else LibIndex.Format.no_color)
+            fmt info;
+          Format.pp_print_newline fmt ())
+        results;
     Format.pp_print_flush fmt ()
   in
   let doc = "Print completions to stdout." in
-  Term.(pure print_compl $ IndexOptions.common_opts $ t),
+  Term.(pure print_compl $ IndexOptions.common_opts $ sexpr $ t),
   Term.info "complete" ~doc
 
 let type_cmd =

@@ -63,17 +63,26 @@
             ocp-index-path cmd ocp-index-options current-module arg)))
 
 (defun ac-ocp-index-candidates ()
-  (let* ((command     (ocp-index-cmd "complete" ac-prefix))
-         (output      (shell-command-to-string command))
-         (lines       (replace-regexp-in-string "\n \+" " " output))
-         (defs        (split-string lines "\n"))
-         (split-lines (mapcar '(lambda(def) (split-string def " ")) defs))
-         (symbols     (mapcar 'car-safe split-lines)))
-    (setq ac-ocp-index-current-doc split-lines)
-    symbols))
+  (let* ((command (ocp-index-cmd "complete --sexp" ac-prefix))
+         (output  (shell-command-to-string command))
+         (defs    (car-safe (read-from-string output))))
+    (setq ac-ocp-index-current-doc defs)
+    (mapcar 'car-safe defs)))
 
 (defun ac-ocp-index-documentation (symbol)
-  (mapconcat 'identity (cdr (assoc symbol ac-ocp-index-current-doc)) " "))
+  (let* ((info (cdr (assoc symbol ac-ocp-index-current-doc)))
+         (kind (cdr (assoc :kind info)))
+         (type (cdr (assoc :type info)))
+         (doc  (cdr (assoc :doc info))))
+    (if doc
+        (format "<%s> %s\n---\n%s" kind type doc)
+      (format "<%s> %s" kind type))))
+
+(defun ac-ocp-index-action ()
+  (let* ((symbol (buffer-substring (ocp-index-completion-prefix-start) (point)))
+         (info (cdr (assoc symbol ac-ocp-index-current-doc)))
+         (type   (cdr (assoc :type info))))
+    (message (format "%s: %s" symbol type))))
 
 (defun ac-ocp-index-init ()
   (setq ac-ocp-index-current-doc nil))
@@ -82,7 +91,9 @@
   '((init . ac-ocp-index-init)
     (candidates . ac-ocp-index-candidates)
     (symbol . "o")
-    (document . ac-ocp-index-documentation)))
+    (document . ac-ocp-index-documentation)
+    (action . ac-ocp-index-action)
+    ))
 
 (defun ocp-index-print-type (ident)
   "Display the type of an ocaml identifier in the mini-buffer using ocp-index"
@@ -110,12 +121,14 @@
     (if match
       (let ((file   (match-string 1 output))
             (line   (string-to-number (match-string 2 output)))
-            (column (string-to-number (match-string 3 output))))
+            (column (string-to-number (match-string 3 output)))
+            (last-buffer (current-buffer)))
         (when file
           (find-file-other-window file)
           (goto-char (point-min))
           (forward-line (1- line))
-          (forward-char column)))
+          (forward-char column)
+          (switch-to-buffer-other-window last-buffer)))
       (if (string= output "") (message "No definition found")
         (message (replace-regexp-in-string "\n\+$" "" output))))))
 
