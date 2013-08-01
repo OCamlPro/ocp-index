@@ -32,16 +32,6 @@ make install
 ```
 See below to compile and install the optional `ocp-browser`.
 
-## Configuration file
-
-`ocp-index` will look for a `.ocp-index` file in the current project or in your
-home directory. The file format is *not* final at the moment and likely to
-change. That said, if you want to try it out, you can put a file `.ocp-index` at
-the root of your project containing `rec dir _build` (or whatever the name of
-your build dir) to have ocp-index lookup the interfaces from your current
-project.
-
-
 ## Other tools
 
 ### Emacs mode
