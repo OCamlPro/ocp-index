@@ -111,7 +111,7 @@
             (line   (string-to-number (match-string 2 output)))
             (column (string-to-number (match-string 3 output))))
         (when file
-          (find-file file)
+          (find-file-other-window file)
           (goto-char (point-min))
           (forward-line (1- line))
           (forward-char column)))
