@@ -53,6 +53,9 @@ val unique_subdirs: string list -> string list
     these files will be lazily read whenever needed. *)
 val load: string list -> t
 
+(** Load a single file into a trie *)
+val add_file: t -> string -> t
+
 (** Consider the module at the given path as opened, i.e. rebind its contents at
     the root of the trie. If [cleanup_path], also change its contents to refer
     to the new path. *)

@@ -848,6 +848,9 @@ let load paths =
     (chrono()) !debug_file_counter !debug_dir_counter;
   open_module ~cleanup_path:true t ["Pervasives"]
 
+let add_file t file =
+  let dir, file = Filename.dirname file, Filename.basename file in
+  load_files t dir [file]
 
 (* - Query functions - *)
 

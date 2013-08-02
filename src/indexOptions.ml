@@ -107,8 +107,8 @@ let common_opts : t Term.t =
     in
     Term.(pure to_bool $ arg)
   in
-  let open_modules : string list list Term.t =
-    let arg =
+  let open_modules : (string list list * string list list) Term.t =
+    let arg_open =
       let doc =
         "Consider the given (comma-separated list of) modules are opened \
          for lookup."
@@ -118,7 +118,19 @@ let common_opts : t Term.t =
         info ["O";"open"] ~docv:"MODULES" ~doc
       )
     in
-    Term.(pure List.flatten $ arg)
+    let arg_full_open =
+      let doc =
+        "Like `--open', but if the .cmt is available, load even the \
+         elements that would be restricted by the interface. Useful for \
+         the current file."
+      in
+      Arg.(
+        value & opt_all (list ~sep:',' (list ~sep:'.' string)) [] &
+        info ["F";"full-open"] ~docv:"MODULES" ~doc
+      )
+    in
+    Term.(pure (fun o fo -> List.flatten o, List.flatten fo)
+          $ arg_open $ arg_full_open)
   in
   let filter : (LibIndex.info -> bool) Term.t =
     let opts = [
@@ -132,8 +144,8 @@ let common_opts : t Term.t =
     let show =
       Arg.(value & opt (list (enum opts)) [] & info ["s";"show"]
              ~doc:"Kinds of elements to show in answers: $(docv) is a \
-                   comma-separated list of `$(i,types)', `$(i,values)' and \
-                   methods, `$(i,exceptions)', `$(i,constructs)' (record \
+    comma-separated list of `$(i,types)', `$(i,values)' and \
+  methods, `$(i,exceptions)', `$(i,constructs)' (record \
                    fields and sum type constructors), `$(i,modules)' and \
                    classes, `$(i,sigs)' (module and class types). The default \
                    is $(b,v,e,c,m)"
@@ -182,7 +194,7 @@ let common_opts : t Term.t =
     in
     Term.(pure default $ root $ build)
   in
-  let lib_info ocamllib (_root,build) opens =
+  let lib_info ocamllib (_root,build) (opens,full_opens) =
     let dirs = match build with
       | None -> ocamllib
       | Some d -> LibIndex.unique_subdirs (d :: ocamllib)
@@ -190,7 +202,24 @@ let common_opts : t Term.t =
     if dirs = [] then
       failwith "Failed to guess OCaml / opam lib dirs. Please use `-I'";
     let info = LibIndex.load dirs in
-    List.fold_left (LibIndex.open_module ~cleanup_path:true) info opens
+    let info =
+      List.fold_left (LibIndex.open_module ~cleanup_path:true) info opens
+    in
+    let full_open_files =
+      List.fold_left LibIndex.(fun files m ->
+          try
+            match (get info (String.concat "." m)).file with
+            | Cmti f | Cmi f ->
+                let f = Filename.chop_extension f ^ ".cmt" in
+                if Sys.file_exists f then f::files
+                else files
+            | Cmt _ -> files
+          with
+          | Not_found -> files)
+        [] full_opens
+    in
+    let info = List.fold_left LibIndex.add_file info full_open_files in
+    List.fold_left (LibIndex.open_module ~cleanup_path:true) info full_opens
   in
   Term.(
     pure

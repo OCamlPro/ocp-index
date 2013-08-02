@@ -59,7 +59,7 @@
                          (file-name-nondirectory
                           (file-name-sans-extension
                            (buffer-file-name))))))
-    (format "%s %s %s -O %s %s"
+    (format "%s %s %s --full-open %s %s"
             ocp-index-path cmd ocp-index-options current-module arg)))
 
 (defun ac-ocp-index-candidates ()
