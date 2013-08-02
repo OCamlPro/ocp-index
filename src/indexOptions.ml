@@ -205,21 +205,11 @@ let common_opts : t Term.t =
     let info =
       List.fold_left (LibIndex.open_module ~cleanup_path:true) info opens
     in
-    let full_open_files =
-      List.fold_left LibIndex.(fun files m ->
-          try
-            match (get info (String.concat "." m)).file with
-            | Cmti f | Cmi f ->
-                let f = Filename.chop_extension f ^ ".cmt" in
-                if Sys.file_exists f then f::files
-                else files
-            | Cmt _ -> files
-          with
-          | Not_found -> files)
-        [] full_opens
+    let info =
+      List.fold_left (LibIndex.fully_open_module ~cleanup_path:true)
+        info full_opens
     in
-    let info = List.fold_left LibIndex.add_file info full_open_files in
-    List.fold_left (LibIndex.open_module ~cleanup_path:true) info full_opens
+    info
   in
   Term.(
     pure

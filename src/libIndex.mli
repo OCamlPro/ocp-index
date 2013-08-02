@@ -61,6 +61,9 @@ val add_file: t -> string -> t
     to the new path. *)
 val open_module: ?cleanup_path:bool -> t -> string list -> t
 
+(** Same as [open_module], but tries to open even the elements that are not in
+    the external interface (this needs a cmt to be present) *)
+val fully_open_module: ?cleanup_path:bool -> t -> string list -> t
 
 (** {2,Querying} *)
 

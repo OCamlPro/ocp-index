@@ -72,6 +72,9 @@ let string_to_list s =
   let rec aux acc i = if i >= 0 then aux (s.[i]::acc) (i - 1) else acc in
   aux [] (String.length s - 1)
 
+let modpath_to_list path =
+  List.fold_right (fun p acc -> string_to_list p @ '.' :: acc) path []
+
 let list_to_string l =
   let rec aux n = function
     | [] -> String.create n
@@ -118,10 +121,7 @@ let fix_path_prefix strip new_pfx =
 
 let open_module ?(cleanup_path=false) t path =
   let strip_path = fix_path_prefix (List.length path) [] in
-  let modpath =
-    List.fold_right (fun p acc -> string_to_list p @ '.' :: acc) path []
-  in
-  let submodule = Trie.sub t modpath in
+  let submodule = Trie.sub t (modpath_to_list path) in
   let submodule =
     if cleanup_path then Trie.map (fun _key -> strip_path) submodule
     else submodule
@@ -440,10 +440,7 @@ let rec trie_of_sig_item
           in
           get_path sig_ident
         in
-        let sig_key =
-          List.fold_right (fun s acc -> string_to_list s @ '.' :: acc)
-            sig_path []
-        in
+        let sig_key = modpath_to_list sig_path in
         let rec lookup = function
           | [] -> Trie.empty
           | (parentpath, lazy t) :: parents ->
@@ -847,6 +844,45 @@ let load paths =
   debug "Modules directory loaded in %.3fs (%d files in %d directories)...\n"
     (chrono()) !debug_file_counter !debug_dir_counter;
   open_module ~cleanup_path:true t ["Pervasives"]
+
+let fully_open_module ?(cleanup_path=false) t path =
+  let base_path = match path with
+    | m::_ -> string_to_list m
+    | [] -> []
+  in
+  (* Merge trying to keep the documentation if the new trie has none *)
+  let merge v1 v2 =
+    let fallback_doc info = match Lazy.force info.doc with
+      | Some _ as some -> some
+      | None ->
+          try Lazy.force (List.find (fun i -> i.kind = info.kind) v1).doc
+          with Not_found -> None
+    in
+    List.map (fun info -> { info with doc = lazy (fallback_doc info) }) v2
+  in
+  let tpath = modpath_to_list path in
+  let mod_trie = Trie.sub t tpath in
+  let mod_trie =
+    try match (Trie.find t base_path).file with
+      | Cmti f | Cmi f ->
+          let f = Filename.chop_extension f ^ ".cmt" in
+          if not (Sys.file_exists f) then mod_trie
+          else
+            let dir,base = Filename.dirname f, Filename.basename f in
+            let t = load_files Trie.empty dir [base] in
+            let t = Trie.sub t tpath in
+            Trie.merge ~values:merge mod_trie t
+      | Cmt _ -> mod_trie
+    with Not_found -> mod_trie
+  in
+  (* cleanup and merge at root (cf. open_module) *)
+  let mod_trie =
+    if cleanup_path then
+      let pathlen = List.length path in
+      Trie.map (fun _key -> fix_path_prefix pathlen []) mod_trie
+    else mod_trie
+  in
+  Trie.merge t mod_trie
 
 let add_file t file =
   let dir, file = Filename.dirname file, Filename.basename file in
