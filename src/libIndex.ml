@@ -851,14 +851,19 @@ let fully_open_module ?(cleanup_path=false) t path =
     | [] -> []
   in
   (* Merge trying to keep the documentation if the new trie has none *)
-  let merge v1 v2 =
-    let fallback_doc info = match Lazy.force info.doc with
-      | Some _ as some -> some
-      | None ->
-          try Lazy.force (List.find (fun i -> i.kind = info.kind) v1).doc
-          with Not_found -> None
+  let merge intfs impls =
+    let keep_intf info =
+      try
+        let intf = List.find (fun i -> i.kind = info.kind) intfs in
+        let doc = lazy (match Lazy.force info.doc with
+            | None -> Lazy.force intf.doc
+            | some -> some)
+        in
+        let loc_sig = intf.loc_sig in
+        { info with doc; loc_sig }
+      with Not_found -> info
     in
-    List.map (fun info -> { info with doc = lazy (fallback_doc info) }) v2
+    List.map keep_intf impls
   in
   let tpath = modpath_to_list path in
   let mod_trie = Trie.sub t tpath in
