@@ -112,7 +112,8 @@
   (interactive (let ((default (ocp-index-completion-prefix)))
                  (list
                   (read-string
-                   (format "lookup ident (%s): " default) nil nil default))))
+                   (format "lookup ident (%s): " default) nil nil default)
+                  nil)))
   (let* ((cmd     (if sig "locate -i" "locate"))
          (command (ocp-index-cmd cmd ident))
          (output  (shell-command-to-string command))
