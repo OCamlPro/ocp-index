@@ -1030,6 +1030,8 @@ module IndexFormat = struct
           (list ~left:(fun fmt -> Format.pp_print_space fmt ())
              print_field Format.pp_print_space)
           fields
+    | Otyp_sum [] ->
+        Format.pp_print_char fmt '-'
     | Otyp_sum constrs ->
         let print_variant fmt (name, tyl, ret_type_opt) =
           match ret_type_opt with
@@ -1064,6 +1066,8 @@ module IndexFormat = struct
     | Osig_class (_,_,_,ctyp,_)
     | Osig_class_type (_,_,_,ctyp,_) ->
         !Oprint.out_class_type fmt ctyp
+    | Osig_exception (_,[]) ->
+        Format.pp_print_char fmt '-'
     | Osig_exception (_,tylst) ->
         list ~paren:true
           !Oprint.out_type
