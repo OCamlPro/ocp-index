@@ -42,7 +42,7 @@ and kind = private
   | Class | ClassType
 
 
-(** {2,Building} *)
+(** {2 Building} *)
 
 (** Helper function, useful to lookup all subdirs of a given path before calling
     [load] *)
@@ -65,7 +65,7 @@ val open_module: ?cleanup_path:bool -> t -> string list -> t
     the external interface (this needs a cmt to be present) *)
 val fully_open_module: ?cleanup_path:bool -> t -> string list -> t
 
-(** {2,Querying} *)
+(** {2 Querying} *)
 
 (** Returns all bindings in the trie *)
 val all: t -> info list
@@ -78,7 +78,7 @@ val get: t -> string -> info
 val complete: t -> ?filter:(info -> bool) -> string -> info list
 
 
-(** {2,Printing} *)
+(** {2 Printing} *)
 
 module Format: sig
   type coloriser =
