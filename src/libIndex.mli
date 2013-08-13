@@ -12,6 +12,9 @@
 (*                                                                        *)
 (**************************************************************************)
 
+(** {1 ocp-index}
+    Lightweight documentation extractor for installed OCaml libraries.
+    This module contains the whole API. *)
 
 (** {2 Main types} *)
 
@@ -43,11 +46,16 @@ and kind = IndexTypes.kind = private
   | Class | ClassType
 
 
-(** {2 Building} *)
+(** {2 Utility functions} *)
 
-(** Helper function, useful to lookup all subdirs of a given path before calling
-    [load] *)
-val unique_subdirs: string list -> string list
+module Misc: sig
+  (** Helper function, useful to lookup all subdirs of a given path before
+      calling [load] *)
+  val unique_subdirs: string list -> string list
+end
+
+
+(** {2 Building} *)
 
 (** Build the trie from a list of include directories. They will be scanned for
     [.cmi] and [.cmt] files to complete on module names, and the contents of
@@ -65,6 +73,7 @@ val open_module: ?cleanup_path:bool -> t -> string list -> t
 (** Same as [open_module], but tries to open even the elements that are not in
     the external interface (this needs a cmt to be present) *)
 val fully_open_module: ?cleanup_path:bool -> t -> string list -> t
+
 
 (** {2 Querying} *)
 

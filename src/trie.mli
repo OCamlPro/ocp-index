@@ -12,7 +12,8 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(** Lazy tries based on lists *)
+(** This module defines a generic data structure:
+    Lazy tries based on lists *)
 
 type ('a, 'b) t
 (** Type of tries mapping from ['a list] to ['b] *)

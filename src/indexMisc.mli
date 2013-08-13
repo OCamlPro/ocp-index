@@ -12,14 +12,18 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(** This module contains definitions for the predefined OCaml elements which are
-    not in Pervasives like base types ([int], [char]...) and exceptions
-    ([Match_failure]...) *)
+val debug_enabled: bool
 
-val types: IndexTypes.info list
+val debug: ('a, out_channel, unit) format -> 'a
 
-val variants: IndexTypes.info list
+val timer: unit -> unit -> float
 
-val exceptions: IndexTypes.info list
+(** Used to get the keys (or paths) in the trie *)
+val string_to_list: string -> char list
 
-val all: IndexTypes.info list
+val list_to_string: char list -> string
+
+val modpath_to_list: string list -> char list
+
+(** Returns the list of directories and all their recursive subdirectories *)
+val unique_subdirs: string list -> string list

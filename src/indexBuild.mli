@@ -12,14 +12,26 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(** This module contains definitions for the predefined OCaml elements which are
-    not in Pervasives like base types ([int], [char]...) and exceptions
-    ([Match_failure]...) *)
 
-val types: IndexTypes.info list
+(** This module contains the function to create our lazy data structure from
+    [cmi], [cmt] and [cmti] files or from whole directories *)
 
-val variants: IndexTypes.info list
+open IndexTypes
 
-val exceptions: IndexTypes.info list
+(** Build the trie from a list of include directories. They will be scanned for
+    [.cmi] and [.cmt] files to complete on module names, and the contents of
+    these files will be lazily read whenever needed. *)
+val load: string list -> t
 
-val all: IndexTypes.info list
+(** Load a single file into a trie *)
+val add_file: t -> string -> t
+
+(** Consider the module at the given path as opened, i.e. rebind its contents at
+    the root of the trie. If [cleanup_path], also change its contents to refer
+    to the new path. *)
+val open_module: ?cleanup_path:bool -> t -> string list -> t
+
+(** Same as [open_module], but tries to open even the elements that are not in
+    the external interface (this needs a cmt to be present) *)
+val fully_open_module: ?cleanup_path:bool -> t -> string list -> t
+

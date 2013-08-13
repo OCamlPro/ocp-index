@@ -12,6 +12,10 @@
 (*                                                                        *)
 (**************************************************************************)
 
+
+(** This module contains the output function for the [info] type bound to nodes
+    in the trie, either through [Format] or directly to strings using [Print] *)
+
 open IndexTypes
 
 module Format: sig

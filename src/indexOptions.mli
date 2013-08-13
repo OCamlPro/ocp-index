@@ -12,6 +12,10 @@
 (*                                                                        *)
 (**************************************************************************)
 
+
+(** This module contains common command-line definitions for ocp-index or other
+    tools using its API. Relies on Cmdliner. *)
+
 (** The type for common command-line options *)
 type t = {
   lib_info: LibIndex.t;

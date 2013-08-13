@@ -12,6 +12,9 @@
 (*                                                                        *)
 (**************************************************************************)
 
+(** This module contains the run-time for the command-line ocp-index tool *)
+
+
 open Cmdliner
 
 let default_cmd =

@@ -12,6 +12,9 @@
 (*                                                                        *)
 (**************************************************************************)
 
+
+(** This module contains the run-time for an ncurses interface to ocp-index *)
+
 open Cmdliner
 
 let string_split char str =

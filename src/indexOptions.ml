@@ -197,7 +197,7 @@ let common_opts : t Term.t =
   let lib_info ocamllib (_root,build) (opens,full_opens) =
     let dirs = match build with
       | None -> ocamllib
-      | Some d -> LibIndex.unique_subdirs (d :: ocamllib)
+      | Some d -> LibIndex.Misc.unique_subdirs (d :: ocamllib)
     in
     if dirs = [] then
       failwith "Failed to guess OCaml / opam lib dirs. Please use `-I'";
