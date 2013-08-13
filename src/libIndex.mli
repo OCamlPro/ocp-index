@@ -12,21 +12,22 @@
 (*                                                                        *)
 (**************************************************************************)
 
+
+(** {2 Main types} *)
+
 (** Lazy trie structure holding the info on all identifiers *)
 type t
 
-(** Internal representation of types *)
-type ty
-
 (** The type of files we get our data from *)
-type orig_file = private Cmt of string | Cmti of string | Cmi of string
+type orig_file = IndexTypes.orig_file = private
+    Cmt of string | Cmti of string | Cmi of string
 
 (** Contains the information on a given identifier *)
-type info = private {
+type info = IndexTypes.info = private {
   path: string list;
   kind: kind;
   name: string;
-  ty: ty option;
+  ty: IndexTypes.ty option;
   loc_sig: Location.t;
   loc_impl: Location.t Lazy.t;
   doc: string option Lazy.t;
@@ -34,7 +35,7 @@ type info = private {
   (* library: string option *) }
 
 (** The kind of elements that can be stored in the trie *)
-and kind = private
+and kind = IndexTypes.kind = private
   | Type | Value | Exception
   | Field of info | Variant of info
   | Method of info
@@ -78,42 +79,6 @@ val get: t -> string -> info
 val complete: t -> ?filter:(info -> bool) -> string -> info list
 
 
-(** {2 Printing} *)
+(** {2 Output} *)
 
-module Format: sig
-  type coloriser =
-    { f: 'a. kind ->
-        ('a, Format.formatter, unit) format -> Format.formatter
-        -> 'a }
-
-  val color: coloriser
-  val no_color: coloriser
-
-  (** short name of the identifier *)
-  val name: ?colorise:coloriser -> Format.formatter -> info -> unit
-
-  (** fully qualified name *)
-  val path: ?colorise:coloriser -> Format.formatter -> info -> unit
-
-  val kind: ?colorise:coloriser -> Format.formatter -> info -> unit
-
-  val ty: ?colorise:coloriser -> Format.formatter -> info -> unit
-
-  val doc: ?colorise:coloriser -> Format.formatter -> info -> unit
-
-  val loc:
-    ?root:string -> ?intf:bool ->
-    ?colorise:coloriser -> Format.formatter -> info -> unit
-
-  val info: ?colorise:coloriser -> Format.formatter -> info -> unit
-end
-
-module Print: sig
-  val name: ?color:bool -> info -> string
-  val path: ?color:bool -> info -> string
-  val kind: ?color:bool -> info -> string
-  val ty: ?color:bool -> info -> string
-  val doc: ?color:bool -> info -> string
-  val loc: ?root:string -> ?intf:bool -> ?color:bool -> info -> string
-  val info: ?color:bool -> info -> string
-end
+include module type of IndexOut

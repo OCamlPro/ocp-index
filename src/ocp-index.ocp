@@ -2,7 +2,9 @@ comp += [ "-g" "-w" "+1..39-4-9-37" ]
 
 begin library "ocp-index-lib"
   sort = false
-  files = [ "trie.ml" "libIndex.ml" ]
+  files = [ "trie.ml"
+            "indexTypes.ml" "indexOut.ml" "indexPredefined"
+            "libIndex.ml" ]
   requires = [ "compiler-libs" "compiler-libs.common" ]
 end
 
