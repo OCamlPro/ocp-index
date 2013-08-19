@@ -52,8 +52,13 @@ Will give you:
   your own binding)
 - `C-c t` to print the type of the identifier under cursor
 - `C-c ;` to jump to the definition of the identifier under cursor
+- `C-c :` to jump to the interface of the identifier under cursor
 
 See `M-x customize ocp-index` for more options.
+
+### Sublime Text
+
+There is a binding written by Peter Zotov at https://github.com/whitequark/sublime-ocp-index
 
 ### ocp-browser
 
