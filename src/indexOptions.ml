@@ -24,7 +24,7 @@ type t = {
 
 let cmd_input_line cmd =
   try
-    let ic = Unix.open_process_in cmd in
+    let ic = Unix.open_process_in (cmd ^ " 2>/dev/null") in
     let r = input_line ic in
     let r =
       let len = String.length r in
@@ -144,8 +144,8 @@ let common_opts : t Term.t =
     let show =
       Arg.(value & opt (list (enum opts)) [] & info ["s";"show"]
              ~doc:"Kinds of elements to show in answers: $(docv) is a \
-    comma-separated list of `$(i,types)', `$(i,values)' and \
-  methods, `$(i,exceptions)', `$(i,constructs)' (record \
+                   comma-separated list of `$(i,types)', `$(i,values)' and \
+                   methods, `$(i,exceptions)', `$(i,constructs)' (record \
                    fields and sum type constructors), `$(i,modules)' and \
                    classes, `$(i,sigs)' (module and class types). The default \
                    is $(b,v,e,c,m)"
