@@ -54,13 +54,18 @@
 (defun ac-prefix-symbol ()
   (ocp-index-completion-prefix-start))
 
+(defun ocp-index-column-offset ()
+  (save-excursion (let ((pt (point))) (forward-line 0) (- pt (point)))))
+
 (defun ocp-index-cmd (cmd arg)
   (let ((current-module (upcase-initials
                          (file-name-nondirectory
                           (file-name-sans-extension
                            (buffer-file-name))))))
-    (format "%s %s %s --full-open %s %s"
-            ocp-index-path cmd ocp-index-options current-module arg)))
+    (format "%s %s %s --ctx %s:%d,%d %s"
+            ocp-index-path cmd ocp-index-options
+            (buffer-file-name) (line-number-at-pos) (ocp-index-column-offset)
+            arg)))
 
 (defun ac-ocp-index-candidates ()
   (let* ((command (ocp-index-cmd "complete --sexp" ac-prefix))
