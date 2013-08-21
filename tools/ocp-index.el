@@ -57,15 +57,28 @@
 (defun ocp-index-column-offset ()
   (save-excursion (let ((pt (point))) (forward-line 0) (- pt (point)))))
 
+(defvar ocp-index-debug nil)
+
+(defun ocp-index-debug-mode ()
+  "Display command sent to ocp-index in the *Message* buffer"
+  (interactive nil)
+  (if ocp-index-debug
+      (progn (message "ocp-index debug mode disabled")
+	     (setq ocp-index-debug nil))
+    (progn (message "ocp-index debug mode enabled")
+	   (setq ocp-index-debug t))))
+
 (defun ocp-index-cmd (cmd arg)
   (let ((current-module (upcase-initials
                          (file-name-nondirectory
                           (file-name-sans-extension
                            (buffer-file-name))))))
-    (format "%s %s %s --ctx %s:%d,%d %s"
-            ocp-index-path cmd ocp-index-options
-            (buffer-file-name) (line-number-at-pos) (ocp-index-column-offset)
-            arg)))
+    (let ((cmd (format "%s %s %s --ctx %s:%d,%d %s"
+		       ocp-index-path cmd ocp-index-options
+		       (buffer-file-name) (line-number-at-pos) (ocp-index-column-offset)
+		       arg)))
+      (if ocp-index-debug (message cmd))
+      cmd)))
 
 (defun ac-ocp-index-candidates ()
   (let* ((command (ocp-index-cmd "complete --sexp" ac-prefix))
