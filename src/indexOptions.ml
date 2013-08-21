@@ -194,11 +194,40 @@ let common_opts : t Term.t =
     in
     Term.(pure default $ root $ build)
   in
-  let context : (string * (int * int)) option Term.t =
-    let doc = "Will analyse the context at given FILE:line,col and position to \
-               give appropriate answers w.r.t open modules, etc." in
-    Arg.(value & opt (some (pair ~sep:':' non_dir_file (pair int int))) None
-         & info ["ctx"] ~docv:"FILE" ~doc)
+  let context : (string option * int option * int option) option Term.t =
+    let doc = "Will analyse the context at given FILE[:LINE,COL] to \
+               give appropriate answers w.r.t open modules, etc. \
+               You can specify just `:' to read from stdin" in
+    let filepos_converter =
+      (fun str -> match fst (Arg.(pair ~sep:':' string string)) str with
+         | `Ok ("","") -> `Ok (None, None, None)
+         | `Ok (file,"") ->
+             (match (fst Arg.non_dir_file) file with
+              | `Ok file -> `Ok (Some file, None, None)
+              | `Error e -> `Error e)
+         | `Ok (file,pos) ->
+             (match (fst Arg.non_dir_file) file,
+                    (fst (Arg.list Arg.int)) pos with
+              | `Ok file, `Ok [line; col] ->
+                  `Ok (Some file, Some line, Some col)
+              | `Ok file, `Ok [line] ->
+                  `Ok (Some file, Some line, None)
+              | `Error e, _ | _, `Error e -> `Error e
+              | _ ->
+                  `Error
+                    (Printf.sprintf "Wrong file position %S, should be \
+                                     <line> or <line>,<col>" pos))
+         | `Error e -> `Error e),
+      (fun fmt (file,line,col) ->
+         let opt f fmt = function None -> () | Some x -> f fmt x in
+         Format.fprintf fmt "%a%s%a%a"
+           (opt Format.pp_print_string) file
+           (if file = None || line <> None then ":" else "")
+           (opt Format.pp_print_int) line
+           (opt Format.pp_print_int) col)
+    in
+    Arg.(value & opt (some filepos_converter) None
+         & info ["context"] ~docv:"FILE" ~doc)
   in
   let lib_info ocamllib (_root,build) (opens,full_opens) context =
     let dirs = match build with
@@ -217,15 +246,11 @@ let common_opts : t Term.t =
     in
     let info = match context with
       | None -> info
-      | Some (file,(line,col)) ->
-          let info =
-            LibIndex.fully_open_module ~cleanup_path:true info
-              [String.capitalize
-                 (Filename.basename (Filename.chop_extension file))]
-          in
-          let chan = open_in file in
-          let scope = IndexScope.to_point chan line col in
-          let () = close_in chan in
+      | Some (file,line,col) ->
+          let dft = function None -> max_int | Some n -> n in
+          let chan = match file with Some f -> open_in f | None -> stdin in
+          let scope = IndexScope.to_point chan (dft line) (dft col) in
+          let () = match file with Some _ -> close_in chan | None -> () in
           let info =
             List.fold_left (LibIndex.open_module ~cleanup_path:true) info
               (IndexScope.opens scope)

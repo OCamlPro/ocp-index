@@ -75,7 +75,7 @@
                          (file-name-sans-extension (buffer-file-name)))))
        (cmd (list* cmd ocp-index-options
                    "--full-open" current-module
-                   "--ctx" "/dev/stdin:10000,0"
+                   "--context" ":"
                    args)))
     (if ocp-index-debug (message (mapconcat 'identity (list* ocp-index-path cmd) " ")))
     cmd))
