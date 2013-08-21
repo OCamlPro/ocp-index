@@ -542,11 +542,7 @@ let load_cmt root t modul orig_file =
                   sign
               in
               t
-          | _ ->
-              Printf.eprintf
-                "\027[33mWarning: %S: unhandled cmt format.\027[m\n%!"
-                (orig_file_name orig_file);
-              t
+          | _ -> Trie.empty
         in
         debug " %.3fs ; done\n%!" (chrono());
         t
