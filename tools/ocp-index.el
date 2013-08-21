@@ -65,24 +65,30 @@
   (if ocp-index-debug
       (progn (message "ocp-index debug mode disabled")
 	     (setq ocp-index-debug nil))
-    (progn (message "ocp-index debug mode enabled")
-	   (setq ocp-index-debug t))))
+    (message "ocp-index debug mode enabled")
+    (setq ocp-index-debug t)))
 
-(defun ocp-index-cmd (cmd arg)
-  (let ((current-module (upcase-initials
-                         (file-name-nondirectory
-                          (file-name-sans-extension
-                           (buffer-file-name))))))
-    (format "%s %s %s --ctx %s:%d,%d %s"
-            ocp-index-path cmd ocp-index-options
-            (buffer-file-name) (line-number-at-pos) (ocp-index-column-offset)
-            arg)))
-      cmd))
+(defun ocp-index-args (cmd &rest args)
+  (let*
+      ((current-module (upcase-initials
+                        (file-name-nondirectory
+                         (file-name-sans-extension (buffer-file-name)))))
+       (cmd (list* cmd ocp-index-options
+                   "--full-open" current-module
+                   "--ctx" "/dev/stdin:10000,0"
+                   args)))
+    (if ocp-index-debug (message (mapconcat 'identity (list* ocp-index-path cmd) " ")))
+    cmd))
+
+(defun ocp-index-run (cmd &rest args)
+  (let ((args (apply 'ocp-index-args cmd args)))
+    (with-output-to-string
+      (apply 'call-process-region (point-min) (point) ocp-index-path
+             nil standard-output nil args))))
 
 (defun ac-ocp-index-candidates ()
-  (let* ((command (ocp-index-cmd "complete --sexp" ac-prefix))
-         (output  (shell-command-to-string command))
-         (defs    (car-safe (read-from-string output))))
+  (let* ((output (ocp-index-run "complete" "--sexp" ac-prefix))
+         (defs   (car-safe (read-from-string output))))
     (setq ac-ocp-index-current-doc defs)
     (mapcar 'car-safe defs)))
 
@@ -118,8 +124,7 @@
                  (list
                   (read-string
                    (format "type ident (%s): " default) nil nil default))))
-  (let* ((command (ocp-index-cmd "type" ident))
-         (output  (shell-command-to-string command))
+  (let* ((output  (ocp-index-run "type" ident))
          (output  (if (string= output "") "No definition found" output))
          (type    (replace-regexp-in-string "\n\+$" "" output)))
     (message type)))
@@ -131,9 +136,8 @@
                   (read-string
                    (format "lookup ident (%s): " default) nil nil default)
                   nil)))
-  (let* ((cmd     (if sig "locate -i" "locate"))
-         (command (ocp-index-cmd cmd ident))
-         (output  (shell-command-to-string command))
+  (let* ((output  (if sig (ocp-index-run "locate" "-i" ident)
+                    (ocp-index-run "locate" ident)))
          (match   (string-match "^\\([^:]*\\):\\([0-9]\+\\):\\([0-9]\+\\)"
                                 output)))
     (if match
