@@ -10,8 +10,8 @@ end
 
 begin program "ocp-index"
   sort = false
-  files = [ "indexOptions.ml" "indexMain.ml" ]
-  requires = [ "ocp-index-lib" "unix" "cmdliner" ]
+  files = [ "indexScope.ml" "indexOptions.ml" "indexMain.ml" ]
+  requires = [ "ocp-index-lib" "unix" "cmdliner" "ocp-indent-lexer" "ocp-indent-utils" ]
   data_files = [ "../tools/ocp-index.el" ]
 end
 

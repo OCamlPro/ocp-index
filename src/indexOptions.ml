@@ -194,7 +194,13 @@ let common_opts : t Term.t =
     in
     Term.(pure default $ root $ build)
   in
-  let lib_info ocamllib (_root,build) (opens,full_opens) =
+  let context : (string * (int * int)) option Term.t =
+    let doc = "Will analyse the context at given FILE:line,col and position to \
+               give appropriate answers w.r.t open modules, etc." in
+    Arg.(value & opt (some (pair ~sep:':' non_dir_file (pair int int))) None
+         & info ["ctx"] ~docv:"FILE" ~doc)
+  in
+  let lib_info ocamllib (_root,build) (opens,full_opens) context =
     let dirs = match build with
       | None -> ocamllib
       | Some d -> LibIndex.Misc.unique_subdirs (d :: ocamllib)
@@ -209,12 +215,35 @@ let common_opts : t Term.t =
       List.fold_left (LibIndex.fully_open_module ~cleanup_path:true)
         info full_opens
     in
+    let info = match context with
+      | None -> info
+      | Some (file,(line,col)) ->
+          let info =
+            LibIndex.fully_open_module ~cleanup_path:true info
+              [String.capitalize
+                 (Filename.basename (Filename.chop_extension file))]
+          in
+          let chan = open_in file in
+          let scope = IndexScope.to_point chan line col in
+          let () = close_in chan in
+          let info =
+            List.fold_left (LibIndex.open_module ~cleanup_path:true) info
+              (IndexScope.opens scope)
+          in
+          (*
+          let info =
+            List.fold_left (LibIndex.open_module ~cleanup_path:true) info
+              (IndexScope.opens scope)
+          in
+          TODO *)
+          info
+    in
     info
   in
   Term.(
     pure
-      (fun ocamllib project_dirs opens color filter ->
-         { lib_info = lib_info ocamllib project_dirs opens;
+      (fun ocamllib project_dirs opens color filter context ->
+         { lib_info = lib_info ocamllib project_dirs opens context;
            color; filter; project_root = fst project_dirs })
-    $ ocamllib $ project_dirs $ open_modules $ color $ filter
+    $ ocamllib $ project_dirs $ open_modules $ color $ filter $ context
   )
