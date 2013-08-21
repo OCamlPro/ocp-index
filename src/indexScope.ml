@@ -9,6 +9,10 @@ module Stream = struct
                                before_last = COMMENT;
                                stop; }
 
+  let of_string chan = { nstream = Nstream.of_string chan;
+                         last = COMMENT;
+                         before_last = COMMENT;
+                         stop = (max_int, max_int); }
   let next stream =
     let shift stream tok =
       { stream with
@@ -116,11 +120,19 @@ let parse t stream0 =
        | _ -> t, stream)
   | _ -> t, stream
 
-let to_point chan line col =
+let to_point chan =
   let rec parse_all (t,stream) =
     if Stream.previous stream = EOF then t else parse_all (parse t stream)
   in
-  parse_all ([Block,[]], Stream.of_channel chan (line, col))
+  let stream, close = match chan with
+    | `File (f, stop)  ->
+        let ic = open_in f in
+        Stream.of_channel ic stop, (fun () -> close_in ic)
+    | `String str      -> Stream.of_string str, (fun () -> ())
+  in
+  let result = parse_all ([Block,[]], stream) in
+  close ();
+  result
 
 let rec rev_map_acc f acc = function
   | [] -> acc

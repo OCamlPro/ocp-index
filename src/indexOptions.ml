@@ -194,13 +194,16 @@ let common_opts : t Term.t =
     in
     Term.(pure default $ root $ build)
   in
+  let buffer =
+    let doc = "Will analyse the context in the given input string" in
+    Arg.(value & opt (some string) None & info ["str"] ~docv:"STRING" ~doc) in
   let context : (string * (int * int)) option Term.t =
     let doc = "Will analyse the context at given FILE:line,col and position to \
                give appropriate answers w.r.t open modules, etc." in
     Arg.(value & opt (some (pair ~sep:':' non_dir_file (pair int int))) None
          & info ["ctx"] ~docv:"FILE" ~doc)
   in
-  let lib_info ocamllib (_root,build) (opens,full_opens) context =
+  let lib_info ocamllib (_root,build) (opens,full_opens) context buffer =
     let dirs = match build with
       | None -> ocamllib
       | Some d -> LibIndex.Misc.unique_subdirs (d :: ocamllib)
@@ -215,17 +218,24 @@ let common_opts : t Term.t =
       List.fold_left (LibIndex.fully_open_module ~cleanup_path:true)
         info full_opens
     in
-    let info = match context with
-      | None -> info
-      | Some (file,(line,col)) ->
-          let info =
-            LibIndex.fully_open_module ~cleanup_path:true info
-              [String.capitalize
-                 (Filename.basename (Filename.chop_extension file))]
-          in
-          let chan = open_in file in
-          let scope = IndexScope.to_point chan line col in
-          let () = close_in chan in
+    let chan = match buffer, context with
+      | Some str, None      -> `String str
+      | None    , Some file -> `File file
+      | None    , None      -> `None
+      | _                   -> failwith "Too many inputs"
+    in
+    (* open modules *)
+    let info = match chan with
+      | `File (f,_) ->
+          LibIndex.fully_open_module ~cleanup_path:true info
+            [String.capitalize
+               (Filename.basename (Filename.chop_extension f))]
+      | _ -> info
+    in
+    let info = match chan with
+      | `None -> info
+      | (`File _ | `String _) as chan ->
+          let scope = IndexScope.to_point chan in
           let info =
             List.fold_left (LibIndex.open_module ~cleanup_path:true) info
               (IndexScope.opens scope)
@@ -242,8 +252,8 @@ let common_opts : t Term.t =
   in
   Term.(
     pure
-      (fun ocamllib project_dirs opens color filter context ->
-         { lib_info = lib_info ocamllib project_dirs opens context;
+      (fun ocamllib project_dirs opens color filter context buffer ->
+         { lib_info = lib_info ocamllib project_dirs opens context buffer;
            color; filter; project_root = fst project_dirs })
-    $ ocamllib $ project_dirs $ open_modules $ color $ filter $ context
+    $ ocamllib $ project_dirs $ open_modules $ color $ filter $ context $ buffer
   )
