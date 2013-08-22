@@ -46,6 +46,19 @@ let fix_path_prefix strip new_pfx =
   let rev_pfx = List.rev new_pfx in
   fun id -> {id with path = List.rev_append rev_pfx (tln strip id.path)}
 
+let overriding_merge t1 t2 =
+  Trie.fold0
+    (fun t path values ->
+       let t =
+         List.fold_left (fun t v -> Trie.add t path v)
+           (Trie.unset t path) values
+       in
+       let sub = Trie.sub t2 (path @ ['.']) in
+       if sub <> Trie.empty then Trie.graft t (path @ ['.']) sub
+       else t)
+    (Trie.filter_keys ((<>) '.') t2)
+    t1
+
 let open_module ?(cleanup_path=false) t path =
   let strip_path = fix_path_prefix (List.length path) [] in
   let submodule = Trie.sub t (modpath_to_list path) in
@@ -53,7 +66,8 @@ let open_module ?(cleanup_path=false) t path =
     if cleanup_path then Trie.map (fun _key -> strip_path) submodule
     else submodule
   in
-  Trie.merge t submodule
+  (* Trie.merge ~values:(fun _ v -> v) t submodule -- keeps hidden values in subtrees *)
+  overriding_merge t submodule
 
 (* Pops comments from a list of comments (string * loc) to find the ones that
    are associated to a given location. Also returns the remaining comments after
@@ -670,7 +684,7 @@ let fully_open_module ?(cleanup_path=false) t path =
       Trie.map (fun _key -> fix_path_prefix pathlen []) mod_trie
     else mod_trie
   in
-  Trie.merge t mod_trie
+  overriding_merge t mod_trie
 
 let add_file t file =
   let dir, file = Filename.dirname file, Filename.basename file in
