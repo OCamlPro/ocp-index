@@ -42,9 +42,9 @@ let find_build_dir path =
   let len = Array.length files in
   let rec look i =
     if i >= len then None
-    else match files.(i) with
+    else match String.lowercase files.(i) with
       | "_obuild" | "_build" -> Some (path / files.(i))
-      | "OMakeroot" -> Some (path)
+      | "omakeroot" -> Some (path)
       | _ -> look (i+1)
   in
   look 0
