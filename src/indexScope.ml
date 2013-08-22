@@ -108,7 +108,7 @@ let parse t stream0 =
         | _ -> [], [], stream (* todo *)
       in
       let t = if top_def <> [] then push t (Alias (ident, top_def)) else t in
-      (Def, aliases) :: t, stream
+      (Def, Open [ident]::aliases) :: t, stream
   | UIDENT _ -> (* Module.( ... ) *)
       let path, stream = parse_path stream0 in
       (match Stream.next_two stream with
