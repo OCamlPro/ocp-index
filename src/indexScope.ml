@@ -89,6 +89,7 @@ let parse t stream0 =
   | LBRACE -> (Brace, []) :: t, stream
   | RBRACE -> close t Brace, stream
   | OPEN ->
+      let t = maybe_close t Def in
       let path, stream = parse_path stream in
       push t (Open path), stream
   | LET when close_def stream -> (Def, []) :: maybe_close t Def, stream

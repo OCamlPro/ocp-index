@@ -84,7 +84,8 @@
   (let ((args (apply 'ocp-index-args cmd args)))
     (with-output-to-string
       (apply 'call-process-region (point-min) (point) ocp-index-path
-             nil standard-output nil args))))
+             nil (list standard-output nil) nil
+             args))))
 
 (defun ac-ocp-index-candidates ()
   (let* ((output (ocp-index-run "complete" "--sexp" ac-prefix))

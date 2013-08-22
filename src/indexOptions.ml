@@ -217,7 +217,10 @@ let common_opts : t Term.t =
                   `Error
                     (Printf.sprintf "Wrong file position %S, should be \
                                      <line> or <line>,<col>" pos))
-         | `Error e -> `Error e),
+         | `Error _ ->
+             (match (fst Arg.non_dir_file) str with
+              | `Ok file -> `Ok (Some file, None, None)
+              | `Error e -> `Error e)),
       (fun fmt (file,line,col) ->
          let opt f fmt = function None -> () | Some x -> f fmt x in
          Format.fprintf fmt "%a%s%a%a"
