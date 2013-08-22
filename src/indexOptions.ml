@@ -42,9 +42,9 @@ let find_build_dir path =
   let len = Array.length files in
   let rec look i =
     if i >= len then None
-    else match files.(i) with
+    else match String.lowercase files.(i) with
       | "_obuild" | "_build" -> Some (path / files.(i))
-      | "OMakeroot" -> Some (path)
+      | "omakeroot" -> Some (path)
       | _ -> look (i+1)
   in
   look 0
@@ -217,7 +217,10 @@ let common_opts : t Term.t =
                   `Error
                     (Printf.sprintf "Wrong file position %S, should be \
                                      <line> or <line>,<col>" pos))
-         | `Error e -> `Error e),
+         | `Error _ ->
+             (match (fst Arg.non_dir_file) str with
+              | `Ok file -> `Ok (Some file, None, None)
+              | `Error e -> `Error e)),
       (fun fmt (file,line,col) ->
          let opt f fmt = function None -> () | Some x -> f fmt x in
          Format.fprintf fmt "%a%s%a%a"

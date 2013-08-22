@@ -17,6 +17,6 @@ end
 
 begin program "ocp-browser"
   sort = false
-  files = [ "indexOptions.ml" "browserMain.ml" ]
-  requires = [ "ocp-index-lib" "unix" "cmdliner" "curses" ]
+  files = [ "indexScope.ml" "indexOptions.ml" "browserMain.ml" ]
+  requires = [ "ocp-index-lib" "unix" "cmdliner" "curses" "ocp-indent-lexer" "ocp-indent-utils" ]
 end
