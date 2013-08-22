@@ -51,8 +51,8 @@ val add_lazy : ('a, 'b) t -> 'a list -> 'b Lazy.t -> ('a, 'b) t
 (** The same but taking a lazy value *)
 
 val unset : ('a, 'b) t -> 'a list -> ('a, 'b) t
-(** Removes an association from the trie. Warning: doesn't cleanup branches that
-    don't point to anything anymore *)
+(** Removes all associations to a given key from the trie. Warning: doesn't
+    cleanup branches that don't point to anything anymore *)
 
 val map_subtree :
   ('a, 'b) t -> 'a list ->
