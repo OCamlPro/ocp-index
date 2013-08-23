@@ -35,3 +35,7 @@ val open_module: ?cleanup_path:bool -> t -> string list -> t
     the external interface (this needs a cmt to be present) *)
 val fully_open_module: ?cleanup_path:bool -> t -> string list -> t
 
+(** [alias t origin alias] binds at [alias] the contents found at [origin]. If
+    [~cleanup_path] is set, also change its contents to refer to the new
+    path. *)
+val alias: ?cleanup_path:bool -> t -> string list -> string list -> t
