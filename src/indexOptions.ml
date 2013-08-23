@@ -258,12 +258,11 @@ let common_opts : t Term.t =
             List.fold_left (LibIndex.open_module ~cleanup_path:true) info
               (IndexScope.opens scope)
           in
-          (*
           let info =
-            List.fold_left (LibIndex.open_module ~cleanup_path:true) info
-              (IndexScope.opens scope)
+            List.fold_left (fun info (name,contents) ->
+                LibIndex.alias ~cleanup_path:true info contents [name])
+              info (IndexScope.aliases scope)
           in
-          TODO *)
           info
     in
     info

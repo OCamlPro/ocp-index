@@ -69,6 +69,15 @@ let open_module ?(cleanup_path=false) t path =
   (* Trie.merge ~values:(fun _ v -> v) t submodule -- keeps hidden values in subtrees *)
   overriding_merge t submodule
 
+let alias ?(cleanup_path=false) t origin alias =
+  let subtree = Trie.sub t (modpath_to_list origin) in
+  let subtree =
+    let strip_path = fix_path_prefix (List.length origin) alias in
+    if cleanup_path then Trie.map (fun _key -> strip_path) subtree
+    else subtree
+  in
+  Trie.graft t (modpath_to_list alias) subtree
+
 (* Pops comments from a list of comments (string * loc) to find the ones that
    are associated to a given location. Also returns the remaining comments after
    the location. *)
