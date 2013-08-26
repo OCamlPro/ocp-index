@@ -142,5 +142,5 @@ let read ?(line=max_int) ?(column=max_int) chan =
   in
   parse_all ([Block,[]], Stream.of_channel chan (line, column))
 
-let to_list =
-  List.fold_left (fun acc (_, ctx) -> List.rev_append ctx acc) []
+let to_list t =
+  List.fold_left (fun acc (_, ctx) -> List.rev_append ctx acc) [] t
