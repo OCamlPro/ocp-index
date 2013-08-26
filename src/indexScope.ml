@@ -48,6 +48,12 @@ module Stream = struct
     let tok2, stream = next stream in
     tok1, tok2, stream
 
+  let next_three stream =
+    let tok1, stream = next stream in
+    let tok2, stream = next stream in
+    let tok3, stream = next stream in
+    tok1, tok2, tok3, stream
+
   let previous stream = stream.before_last
 end
 
@@ -73,6 +79,11 @@ let parse_path stream =
       i::path, stream
   | _ -> [], stream
 
+let rec skip_to_next_paren stream =
+  let tok, stream = Stream.next stream in
+  match tok with
+  | RPAREN -> stream
+  | _      -> skip_to_next_paren stream
 
 (* - Now for the interesting stuff - *)
 
@@ -94,6 +105,39 @@ let maybe_close t scope = match t with
 let push t info = match t with
   | (scope, infos)::r -> (scope, info::infos) :: r
   | [] -> [Block, [info]] (* print error ? *)
+
+(* [ (X : S) ]* *)
+let parse_functor_args stream =
+  let rec aux stream =
+    let parse_error = [], stream in
+    match Stream.next_three stream with
+    | LPAREN, UIDENT x, COLON, stream ->
+        begin match parse_path stream with
+          | [], _       -> parse_error
+          | s , stream ->
+              (* XXX: convert module constraints into module aliases ?*)
+              let stream = skip_to_next_paren stream in
+              let args, stream = aux stream in
+              Alias (x,s) :: args, stream
+        end
+    | _ -> parse_error in
+  aux stream
+
+(* functor (X: S) -> *)
+let parse_functor stream =
+  let rec aux stream =
+    let parse_error = [], stream in
+    match Stream.next stream with
+    | FUNCTOR, stream ->
+        let args, stream = parse_functor_args stream in
+        begin match Stream.next stream with
+          | MINUSGREATER, stream ->
+              let rest, stream = aux stream in
+              args @ rest, stream
+          | _ -> parse_error
+        end
+    | _ -> parse_error in
+  aux stream
 
 let parse t stream0 =
   let tok, stream = Stream.next stream0 in
@@ -120,15 +164,23 @@ let parse t stream0 =
             | UIDENT u, stream -> u, stream
             | _ -> "", stream)
         | _ -> "", stream in
-      let top_def, aliases, stream =
+      let functor_pre_args, stream = parse_functor_args stream in
+      let top_def, stream =
         match Stream.next stream with
-        | EQUAL, stream ->
-            let path, stream = parse_path stream in
-            path, [], stream
-        | _ -> [], [], stream (* todo *)
+        | EQUAL, stream1 ->
+            begin match parse_path stream1 with
+              | []  , _      -> [],   stream
+              | path, stream -> path, stream
+            end
+        | _ -> [], stream (* todo *)
       in
+      let functor_post_args, stream =
+        match Stream.next stream with
+        | EQUAL, stream -> parse_functor stream
+        | _ -> [], stream in
+      let aliases = functor_pre_args @ functor_post_args in
       let t = if top_def <> [] then push t (Alias (ident, top_def)) else t in
-      (Def, Open [ident]::aliases) :: t, stream
+      (Def, Open [ident] :: aliases) :: t, stream
   | UIDENT _ -> (* Module.( ... ) *)
       let path, stream = parse_path stream0 in
       (match Stream.next_two stream with
