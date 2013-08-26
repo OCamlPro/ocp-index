@@ -106,7 +106,7 @@ module IndexFormat = struct
   let rec tydecl fmt =
     let open Outcometree in
     function
-    | Otyp_abstract -> ()
+    | Otyp_abstract -> Format.fprintf fmt "<abstract>"
     | Otyp_manifest (ty,_) -> tydecl fmt ty
     | Otyp_record fields ->
         let print_field fmt (name, mut, arg) =
