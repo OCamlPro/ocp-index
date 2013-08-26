@@ -249,19 +249,17 @@ let common_opts : t Term.t =
     in
     let info = match context with
       | None -> info
-      | Some (file,line,col) ->
-          let dft = function None -> max_int | Some n -> n in
+      | Some (file,line,column) ->
           let chan = match file with Some f -> open_in f | None -> stdin in
-          let scope = IndexScope.to_point chan (dft line) (dft col) in
+          let scope = IndexScope.read ?line ?column chan in
           let () = match file with Some _ -> close_in chan | None -> () in
           let info =
-            List.fold_left (LibIndex.open_module ~cleanup_path:true) info
-              (IndexScope.opens scope)
-          in
-          let info =
-            List.fold_left (fun info (name,contents) ->
-                LibIndex.alias ~cleanup_path:true info contents [name])
-              info (IndexScope.aliases scope)
+            List.fold_left (fun info -> function
+                | IndexScope.Open path ->
+                    LibIndex.open_module ~cleanup_path:true info path
+                | IndexScope.Alias (name,path) ->
+                    LibIndex.alias ~cleanup_path:true info path [name])
+              info (IndexScope.to_list scope)
           in
           info
     in

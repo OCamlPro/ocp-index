@@ -1,3 +1,19 @@
+(**************************************************************************)
+(*                                                                        *)
+(*  Copyright 2013 OCamlPro                                               *)
+(*                                                                        *)
+(*  All rights reserved.  This file is distributed under the terms of     *)
+(*  the Lesser GNU Public License version 3.0.                            *)
+(*                                                                        *)
+(*  This software is distributed in the hope that it will be useful,      *)
+(*  but WITHOUT ANY WARRANTY; without even the implied warranty of        *)
+(*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *)
+(*  Lesser GNU General Public License for more details.                   *)
+(*                                                                        *)
+(**************************************************************************)
+
+(* - Input stream handling - *)
+
 open Approx_lexer
 
 module Stream = struct
@@ -120,28 +136,11 @@ let parse t stream0 =
        | _ -> t, stream)
   | _ -> t, stream
 
-let to_point chan line col =
+let read ?(line=max_int) ?(column=max_int) chan =
   let rec parse_all (t,stream) =
     if Stream.previous stream = EOF then t else parse_all (parse t stream)
   in
-  parse_all ([Block,[]], Stream.of_channel chan (line, col))
+  parse_all ([Block,[]], Stream.of_channel chan (line, column))
 
-let rec rev_map_acc f acc = function
-  | [] -> acc
-  | x::r -> rev_map_acc f (f x :: acc) r
-
-let opens t =
-  List.fold_left (fun acc (_, ctx) ->
-      List.fold_left (fun acc -> function
-          | Open s -> s::acc
-          | _ -> acc)
-        acc ctx)
-    [] t
-
-let aliases t =
-  List.fold_left (fun acc (_, ctx) ->
-      List.fold_left (fun acc -> function
-          | Alias (name,modl) -> (name,modl)::acc
-          | _ -> acc)
-        acc ctx)
-    [] t
+let to_list =
+  List.fold_left (fun acc (_, ctx) -> List.rev_append ctx acc) []
