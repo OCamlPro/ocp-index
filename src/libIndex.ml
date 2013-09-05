@@ -54,6 +54,8 @@ let filter t f =
 
 let get t query = Trie.find t (Misc.string_to_list query)
 
+let get_all t query = Trie.find_all t (Misc.string_to_list query)
+
 let complete t ?filter:(f = fun _ -> true) query =
   filter
     (Trie.filter_keys ((<>) '.')

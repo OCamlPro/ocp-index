@@ -88,6 +88,11 @@ val all: t -> info list
 (** Lookup an identifier in a trie (eg. [option] or [List.map]) *)
 val get: t -> string -> info
 
+(** Same as [get], but returns all existing bindings instead of only one. There
+    can consistently be several if they are of different kinds (eg. a type
+    and a value...) *)
+val get_all: t -> string -> info list
+
 (** Lookup identifiers starting with the given string. Completion stops at
     module boundaries (it wont unfold contents of modules) *)
 val complete: t -> ?filter:(info -> bool) -> string -> info list

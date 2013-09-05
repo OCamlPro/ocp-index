@@ -130,21 +130,11 @@
          (type    (replace-regexp-in-string "\n\+$" "" output)))
     (message type)))
 
-(defun ocp-index-jump-to-definition (ident sig)
-  "Jump to the definition of an ocaml identifier using ocp-index"
-  (interactive (let ((default (ocp-index-completion-prefix)))
-                 (list
-                  (read-string
-                   (format "lookup ident (%s): " default) nil nil default)
-                  nil)))
-  (let* ((output  (if sig (ocp-index-run "locate" "-i" ident)
-                    (ocp-index-run "locate" ident)))
-         (match   (string-match "^\\([^:]*\\):\\([0-9]\+\\):\\([0-9]\+\\)"
-                                output)))
-    (if match
-      (let ((file   (match-string 1 output))
-            (line   (string-to-number (match-string 2 output)))
-            (column (string-to-number (match-string 3 output)))
+(defun ocp-index-jump-to-loc (loc)
+  (if (string-match "^\\([^:]*\\):\\([0-9]\+\\):\\([0-9]\+\\)$" loc)
+      (let ((file   (match-string 1 loc))
+            (line   (string-to-number (match-string 2 loc)))
+            (column (string-to-number (match-string 3 loc)))
             (last-buffer (current-buffer)))
         (when file
           (find-file-other-window file)
@@ -152,8 +142,23 @@
           (forward-line (1- line))
           (forward-char column)
           (switch-to-buffer-other-window last-buffer)))
-      (if (string= output "") (message "No definition found")
-        (message (replace-regexp-in-string "\n\+$" "" output))))))
+    (message (replace-regexp-in-string "\n\+$" "" loc))))
+
+(defun ocp-index-jump-to-definition (ident sig)
+  "Jump to the definition of an ocaml identifier using ocp-index"
+  (interactive (let ((default (ocp-index-completion-prefix)))
+                 (list
+                  (read-string
+                   (format "lookup ident (%s): " default) nil nil default)
+                  nil)))
+  (let* ((output (if sig (ocp-index-run "locate" "-i" ident)
+                   (ocp-index-run "locate" ident)))
+         (locs (split-string output "\n")))
+    (if locs
+        (progn
+          (ocp-index-jump-to-loc (car locs))
+          (cdr locs))
+      (message "No definition found"))))
 
 (defun ocp-index-print-type-at-point ()
   (interactive nil)
@@ -161,11 +166,27 @@
 
 (defun ocp-index-jump-to-definition-at-point ()
   (interactive nil)
-  (ocp-index-jump-to-definition (ocp-index-completion-prefix) nil))
+  (if (and (eq (car-safe last-command) 'ocp-index-jump-to-definition-at-point)
+           (cdr last-command))
+      (let* ((locs (cdr last-command)))
+        (if locs
+            (progn
+              (ocp-index-jump-to-loc (car locs))
+              (cdr locs))))
+    (let ((next (ocp-index-jump-to-definition (ocp-index-completion-prefix) nil)))
+      (setq this-command (list* 'ocp-index-jump-to-definition-at-point next)))))
 
 (defun ocp-index-jump-to-sig-at-point ()
   (interactive nil)
-  (ocp-index-jump-to-definition (ocp-index-completion-prefix) t))
+  (if (and (eq (car-safe last-command) 'ocp-index-jump-to-sig-at-point)
+           (cdr last-command))
+      (let* ((locs (cdr last-command)))
+        (if locs
+            (progn
+              (ocp-index-jump-to-loc (car locs))
+              (cdr locs))))
+    (let ((next (ocp-index-jump-to-definition (ocp-index-completion-prefix) t)))
+      (setq this-command (list* 'ocp-index-jump-to-sig-at-point next)))))
 
 (defun ocp-index-setup-keymap ()
   (interactive nil)
