@@ -82,7 +82,7 @@ let parse_path stream =
 let rec skip_to_next_paren stream =
   let tok, stream = Stream.next stream in
   match tok with
-  | RPAREN -> stream
+  | RPAREN | EOF -> stream
   | _      -> skip_to_next_paren stream
 
 (* - Now for the interesting stuff - *)
