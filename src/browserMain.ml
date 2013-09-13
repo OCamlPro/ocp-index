@@ -157,6 +157,7 @@ let interactive opts () =
             | LibIndex.Method _ -> Curses.WA.bold
             | LibIndex.Module | LibIndex.ModuleType -> Curses.WA.color_pair 1
             | LibIndex.Class | LibIndex.ClassType -> Curses.WA.color_pair 5
+            | LibIndex.Keyword -> Curses.WA.color_pair 7
           in
           let _set_tags =
             Format.set_tags true;
