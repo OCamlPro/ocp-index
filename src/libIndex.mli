@@ -44,6 +44,7 @@ and kind = IndexTypes.kind = private
   | Method of info
   | Module | ModuleType
   | Class | ClassType
+  | Keyword
 
 
 (** {2 Utility functions} *)

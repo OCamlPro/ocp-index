@@ -64,6 +64,7 @@ module IndexFormat = struct
         | Method _ -> "\027[1m"
         | Module | ModuleType -> "\027[31m"
         | Class | ClassType -> "\027[35m"
+        | Keyword -> "\027[32m"
       in
       Format.pp_print_as fmt 0 colorcode;
       Format.kfprintf (fun fmt -> Format.pp_print_as fmt 0 "\027[m") fmt fstr
@@ -100,6 +101,7 @@ module IndexFormat = struct
     | ModuleType -> Format.pp_print_string fmt "modtype"
     | Class -> Format.pp_print_string fmt "class"
     | ClassType -> Format.pp_print_string fmt "classtype"
+    | Keyword -> Format.pp_print_string fmt "keyword"
 
   let rec tydecl fmt =
     let open Outcometree in
