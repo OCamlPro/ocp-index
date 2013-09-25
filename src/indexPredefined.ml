@@ -57,6 +57,17 @@ let mkexn name params doc = {
   file = Cmi "*built-in*";
 }
 
+let mkkwd name = {
+  path = [];
+  kind = Keyword;
+  name = name;
+  ty = None;
+  loc_sig = Location.none;
+  loc_impl = lazy Location.none;
+  doc = lazy None;
+  file = Cmi "*built-in*";
+}
+
 let var name = Otyp_var (false, name)
 
 let constr ?(params=[]) name =
@@ -164,4 +175,14 @@ let exceptions = [
      source code (file name, line number, column number).";
 ]
 
-let all = types @ variants @ exceptions
+let keywords = List.map mkkwd [
+    "and"; "as"; "assert"; "begin"; "class"; "constraint"; "do"; "done";
+    "downto"; "else"; "end"; "exception"; "external"; "false"; "for"; "fun";
+    "function"; "functor"; "if"; "in"; "include"; "inherit"; "inherit!";
+    "initializer"; "lazy"; "let"; "match"; "method"; "method!"; "module";
+    "mutable"; "new"; "object"; "of"; "open"; "open!"; "private"; "rec";
+    "sig"; "struct"; "then"; "to"; "true"; "try"; "type"; "val"; "val!";
+    "virtual"; "when"; "while"; "with";
+  ]
+
+let all = types @ variants @ exceptions @ keywords

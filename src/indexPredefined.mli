@@ -22,4 +22,6 @@ val variants: IndexTypes.info list
 
 val exceptions: IndexTypes.info list
 
+val keywords: IndexTypes.info list
+
 val all: IndexTypes.info list

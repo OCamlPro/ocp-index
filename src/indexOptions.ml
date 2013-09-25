@@ -140,6 +140,7 @@ let common_opts : t Term.t =
       "c", `Constructs; "constructs", `Constructs;
       "m", `Modules; "modules", `Modules;
       "s", `Sigs; "sigs", `Sigs;
+      "k", `Keywords; "keywords", `Keywords;
     ] in
     let show =
       Arg.(value & opt (list (enum opts)) [] & info ["s";"show"]
@@ -147,8 +148,9 @@ let common_opts : t Term.t =
                    comma-separated list of `$(i,types)', `$(i,values)' and \
                    methods, `$(i,exceptions)', `$(i,constructs)' (record \
                    fields and sum type constructors), `$(i,modules)' and \
-                   classes, `$(i,sigs)' (module and class types). The default \
-                   is $(b,v,e,c,m)"
+                   classes, `$(i,sigs)' (module and class types), \
+                   `$(i,keywords)'. The default \
+                   is $(v,e,c,m,k)"
              ~docv:"LIST")
     in
     let hide =
@@ -162,9 +164,10 @@ let common_opts : t Term.t =
           let f key default = List.mem key show ||
                               default && not (List.mem key hide)
           in
-          let t,v,e,c,m,s =
+          let t,v,e,c,m,s,k =
             f `Types false, f `Values true, f `Exceptions true,
-            f `Constructs true, f `Modules true, f `Sigs false
+            f `Constructs true, f `Modules true, f `Sigs false,
+            f `Keyword true
           in
           LibIndex.(fun info -> match info.kind with
               | Type -> t
@@ -172,7 +175,8 @@ let common_opts : t Term.t =
               | Exception -> e
               | Field _ | Variant _ -> c
               | Module | Class -> m
-              | ModuleType | ClassType -> s))
+              | ModuleType | ClassType -> s
+              | Keyword -> k))
       $ show $ hide
     )
   in

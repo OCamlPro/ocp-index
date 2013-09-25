@@ -39,6 +39,7 @@ and kind =
   | Method of info
   | Module | ModuleType
   | Class | ClassType
+  | Keyword
 
 (** Lazy trie structure holding the info on all identifiers *)
 type t = (char, info) Trie.t
