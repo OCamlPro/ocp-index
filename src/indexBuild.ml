@@ -57,8 +57,13 @@ let overriding_merge t1 t2 =
          List.fold_left (fun t v -> Trie.add t path v)
            (Trie.unset t path) values
        in
-       let sub = Trie.sub t2 (path @ ['.']) in
-       if sub <> Trie.empty then Trie.graft t (path @ ['.']) sub
+       if List.exists (function
+           | {kind=Module|ModuleType|Class|ClassType} -> true
+           | _ -> false)
+           values
+       then
+         let subpath = path @ [dot] in
+         Trie.graft_lazy t subpath (lazy (Trie.sub t2 subpath))
        else t)
     f
     t1
