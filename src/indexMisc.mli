@@ -18,12 +18,20 @@ val debug: ('a, out_channel, unit) format -> 'a
 
 val timer: unit -> unit -> float
 
+type key = char list
+val dot: char
+val dots: string
+
 (** Used to get the keys (or paths) in the trie *)
-val string_to_list: string -> char list
+val string_to_key: string -> key
 
-val list_to_string: char list -> string
+val key_to_string: key -> string
 
-val modpath_to_list: string list -> char list
+val modpath_to_key: string list -> key
+
+val key_to_modpath: key -> string list
+
+val modpath_to_string: string list -> string
 
 (** Returns the list of directories and all their recursive subdirectories *)
 val unique_subdirs: string list -> string list

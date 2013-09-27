@@ -30,19 +30,50 @@ let timer () =
   else
     fun () -> 0.
 
-let string_to_list s =
-  let rec aux acc i = if i >= 0 then aux (s.[i]::acc) (i - 1) else acc in
+type key = char list
+
+(* Used as path separator in keys *)
+let dot = char_of_int 0
+let dots = String.make 1 dot
+
+let string_to_key s =
+  let rec aux acc i =
+    if i >= 0 then
+      let c = match s.[i] with
+        | '.' | '#' as c when i > 0 ->
+            (match s.[i-1] with 'a'..'z' | 'A'..'Z' | '0'..'9' -> dot
+                              | _ -> c)
+        | c -> c
+      in
+      aux (c::acc) (i - 1)
+    else acc
+  in
   aux [] (String.length s - 1)
 
-let modpath_to_list path =
-  List.fold_right (fun p acc -> string_to_list p @ '.' :: acc) path []
-
-let list_to_string l =
+let key_to_string l =
   let rec aux n = function
     | [] -> String.create n
-    | c::r -> let s = aux (n+1) r in s.[n] <- c; s
+    | c::r ->
+        let s = aux (n+1) r in
+        s.[n] <- if c = dot then '.' else c; s
   in
   aux 0 l
+
+let modpath_to_key path =
+  List.fold_right (fun p acc -> string_to_key p @ dot :: acc) path []
+
+let key_to_modpath l =
+  let rec aux n = function
+    | [] -> if n > 0 then [String.create n] else []
+    | '\000'::r -> String.create n :: aux 0 r
+    | c::r ->
+        match aux (n+1) r with
+        | s::_ as p -> s.[n] <- c; p
+        | [] -> assert false
+  in
+  aux 0 l
+
+let modpath_to_string path = String.concat "." path
 
 let unique_subdirs dir_list =
   let rec subdirs acc path =
