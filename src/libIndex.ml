@@ -52,14 +52,14 @@ let filter t f =
        List.rev_append (filter_visible (List.filter f values)) acc)
     t []
 
-let get t query = Trie.find t (Misc.string_to_list query)
+let get t query = Trie.find t (Misc.string_to_key query)
 
-let get_all t query = Trie.find_all t (Misc.string_to_list query)
+let get_all t query = Trie.find_all t (Misc.string_to_key query)
 
 let complete t ?filter:(f = fun _ -> true) query =
   filter
-    (Trie.filter_keys ((<>) '.')
-       (Trie.sub t (Misc.string_to_list query)))
+    (Trie.filter_keys ((<>) Misc.dot)
+       (Trie.sub t (Misc.string_to_key query)))
     f
 
 (* - Output functions - *)

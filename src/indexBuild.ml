@@ -38,6 +38,9 @@ let orig_file_name = function
 
 (* - Trie loading and manipulation functions - *)
 
+(* Used as path separator *)
+let dot = char_of_int 0
+
 let fix_path_prefix strip new_pfx =
   let rec tln n = function
     | [] -> []
@@ -47,6 +50,7 @@ let fix_path_prefix strip new_pfx =
   fun id -> {id with path = List.rev_append rev_pfx (tln strip id.path)}
 
 let overriding_merge t1 t2 =
+  let f = (Trie.filter_keys ((<>) dot) t2) in
   Trie.fold0
     (fun t path values ->
        let t =
@@ -56,12 +60,12 @@ let overriding_merge t1 t2 =
        let sub = Trie.sub t2 (path @ ['.']) in
        if sub <> Trie.empty then Trie.graft t (path @ ['.']) sub
        else t)
-    (Trie.filter_keys ((<>) '.') t2)
+    f
     t1
 
 let open_module ?(cleanup_path=false) t path =
   let strip_path = fix_path_prefix (List.length path) [] in
-  let submodule = Trie.sub t (modpath_to_list path) in
+  let submodule = Trie.sub t (modpath_to_key path) in
   let submodule =
     if cleanup_path then Trie.map (fun _key -> strip_path) submodule
     else submodule
@@ -70,13 +74,13 @@ let open_module ?(cleanup_path=false) t path =
   overriding_merge t submodule
 
 let alias ?(cleanup_path=false) t origin alias =
-  let subtree = Trie.sub t (modpath_to_list origin) in
+  let subtree = Trie.sub t (modpath_to_key origin) in
   let subtree =
     let strip_path = fix_path_prefix (List.length origin) alias in
     if cleanup_path then Trie.map (fun _key -> strip_path) subtree
     else subtree
   in
-  Trie.graft t (modpath_to_list alias) subtree
+  Trie.graft t (modpath_to_key alias) subtree
 
 (* Pops comments from a list of comments (string * loc) to find the ones that
    are associated to a given location. Also returns the remaining comments after
@@ -133,7 +137,7 @@ let qualify_ty (parents:parents) ty =
       in
       get_path ident
     in
-    let key = string_to_list (String.concat "." path) in
+    let key = modpath_to_key path in
     let rec lookup = function
       | [] | ([],_) :: _ -> ident
       | ((path1::pathn), lazy t) :: parents ->
@@ -242,7 +246,7 @@ let trie_of_type_decl ?comments info ty_decl =
             Outcometree.Osig_type
               (("", [], ty, Asttypes.Public, []), Outcometree.Orec_not)
           in
-          string_to_list id.Ident.name,
+          string_to_key id.Ident.name,
           Trie.create ~value:{
             path = info.path;
             kind = Field info;
@@ -270,7 +274,7 @@ let trie_of_type_decl ?comments info ty_decl =
             Outcometree.Osig_type
               (("", [], params, Asttypes.Public, []), Outcometree.Orec_not)
           in
-          string_to_list id.Ident.name,
+          string_to_key id.Ident.name,
           Trie.create ~value:{
             path = info.path;
             kind = Variant info;
@@ -390,7 +394,7 @@ let rec trie_of_sig_item
           in
           get_path sig_ident
         in
-        let sig_key = modpath_to_list sig_path in
+        let sig_key = modpath_to_key sig_path in
         let rec lookup = function
           | [] -> Trie.empty
           | (parentpath, lazy t) :: parents ->
@@ -425,7 +429,7 @@ let rec trie_of_sig_item
                 Outcometree.Osig_type
                   (("", [], ty, Asttypes.Public, []), Outcometree.Orec_not)
               in
-              Trie.add t (string_to_list lbl)
+              Trie.add t (string_to_key lbl)
                 { path = path;
                   kind = Method info;
                   name = lbl;
@@ -443,10 +447,10 @@ let rec trie_of_sig_item
   let name = id.Ident.name in
   if String.length name > 0 && name.[0] = '#' then [], comments
   else
-    (string_to_list id.Ident.name,
+    (string_to_key id.Ident.name,
      Trie.create
        ~value:info
-       ~children:(lazy ['.', Lazy.force children])
+       ~children:(lazy [dot, Lazy.force children])
        ())
     :: siblings,
     comments
@@ -467,7 +471,7 @@ let qualify_type_idents parents t =
         let rec aux acc path = match acc,path with
           | ((pfx, parent) :: _), modl::r ->
               let t = lazy (
-                Trie.sub (Lazy.force parent) (string_to_list (modl ^ "."))
+                Trie.sub (Lazy.force parent) (string_to_key (modl) @ [dot])
               ) in
               aux ((pfx @ [modl], t) :: acc) r
           | _ -> acc
@@ -482,7 +486,7 @@ let qualify_type_idents parents t =
   Trie.map qualify t
 
 let load_cmi root t modul orig_file =
-  Trie.map_subtree t (string_to_list modul)
+  Trie.map_subtree t (string_to_key modul)
     (fun t ->
       let t =
         Trie.add t [] {
@@ -522,10 +526,10 @@ let load_cmi root t modul orig_file =
           (Lazy.force children)
       )
       in
-      Trie.graft_lazy t ['.'] children)
+      Trie.graft_lazy t [dot] children)
 
 let load_cmt root t modul orig_file =
-  Trie.map_subtree t (string_to_list modul)
+  Trie.map_subtree t (string_to_key modul)
     (fun t ->
       let t =
         Trie.add t [] {
@@ -576,7 +580,7 @@ let load_cmt root t modul orig_file =
           (Lazy.force children)
       )
       in
-      Trie.graft_lazy t ['.'] children)
+      Trie.graft_lazy t [dot] children)
 
 let debug_file_counter = ref 0
 let debug_dir_counter = ref 0
@@ -598,7 +602,7 @@ let load_files t dir files =
     with Not_found -> file, ""
   in
   let sort_modules acc file =
-    let reg base = Trie.add acc (string_to_list base) in
+    let reg base = Trie.add acc (string_to_key base) in
     match split_filename file with
     | base, "cmi" -> reg base (Cmi (Filename.concat dir file))
     | base, "cmt" -> reg base (Cmt (Filename.concat dir file))
@@ -624,7 +628,7 @@ let load_files t dir files =
               | (Cmi _ as f), _ -> f
             in
             let file = List.fold_left choose_file f1 fs in
-            let modul = list_to_string modul in
+            let modul = key_to_string modul in
             load_file root t modul file)
       modules
       t
@@ -641,7 +645,7 @@ let load paths =
   let t =
     List.fold_left
       (fun t info ->
-         Trie.add t (string_to_list info.name) info)
+         Trie.add t (string_to_key info.name) info)
       t
       IndexPredefined.all
   in
@@ -653,7 +657,7 @@ let load paths =
 
 let fully_open_module ?(cleanup_path=false) t path =
   let base_path = match path with
-    | m::_ -> string_to_list m
+    | m::_ -> string_to_key m
     | [] -> []
   in
   (* Merge trying to keep the documentation if the new trie has none *)
@@ -671,7 +675,7 @@ let fully_open_module ?(cleanup_path=false) t path =
     in
     List.map keep_intf impls
   in
-  let tpath = modpath_to_list path in
+  let tpath = modpath_to_key path in
   let mod_trie = Trie.sub t tpath in
   let mod_trie =
     try match (Trie.find t base_path).file with
