@@ -180,8 +180,7 @@ module IndexFormat = struct
 
   let loc ?root ?(intf=false) ?colorise:(_ = no_color) fmt id =
     let loc =
-      if intf then id.loc_sig
-      else Lazy.force id.loc_impl
+      Lazy.force (if intf then id.loc_sig else id.loc_impl)
     in
     if loc = Location.none then
       Format.fprintf fmt "@[<h><no location information>@]"

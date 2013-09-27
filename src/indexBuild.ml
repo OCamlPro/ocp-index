@@ -209,17 +209,18 @@ let qualify_ty_in_sig_item (parents:parents) =
   | Osig_exception (str, tylist) -> Osig_exception (str, List.map qual tylist)
   | out_sig -> out_sig (* don't get down in modules, classes and their types *)
 
-let loc_of_sig_item = function
+let loc_of_sig_item ?(default=lazy Location.none) = function
   | Types.Sig_value (_,descr) -> descr.Types.val_loc
   | Types.Sig_type (_,descr,_) -> descr.Types.type_loc
   | Types.Sig_exception (_,descr) -> descr.Types.exn_loc
   (* Sadly the Types tree doesn't contain locations for those. This means we
-     won't associate comments easily either (todo...) *)
+     won't associate comments easily either (we could search the Typedtree when
+     available though) *)
   | Types.Sig_module _
   | Types.Sig_modtype _
   | Types.Sig_class _
   | Types.Sig_class_type _
-    -> Location.none
+    -> Lazy.force default
 
 let id_of_sig_item = function
   | Types.Sig_value (id,_)
@@ -332,10 +333,15 @@ let locate_impl cmt path name kind =
   | Not_found -> Location.none
 
 let rec trie_of_sig_item
-    ?comments (parents:parents) (orig_file:orig_file) path sig_item
+    ?comments ?cmt (parents:parents) (orig_file:orig_file) path sig_item
   =
   let id = id_of_sig_item sig_item in
-  let loc = loc_of_sig_item sig_item in
+  let loc =
+    loc_of_sig_item
+      ~default:(lazy (match cmt with
+          | Some {Cmt_format.cmt_sourcefile = Some f} -> Location.in_file f
+          | _ -> Location.none))
+      sig_item in
   let doc, comments =
     match comments with
     | None -> lazy None, None
@@ -348,13 +354,12 @@ let rec trie_of_sig_item
   let kind = kind_of_sig_item sig_item in
   let loc_sig, loc_impl = match orig_file with
     | Cmi f | Cmti f ->
-        loc, lazy (
+        Lazy.from_val loc, lazy (
           let cmt = Filename.chop_extension f ^ ".cmt" in
           locate_impl cmt (List.tl path) id.Ident.name kind
         )
     | Cmt _ ->
-        (* we assume there is no mli, so point the intf to the implementation *)
-        loc, Lazy.from_val loc
+        Lazy.from_val loc, Lazy.from_val Location.none
   in
   let info = {path; kind; name = id.Ident.name; ty;
               loc_sig; loc_impl; doc; file = orig_file}
@@ -377,7 +382,7 @@ let rec trie_of_sig_item
             (fun (t,comments) sign ->
                let chlds,comments =
                  let siblings = lazy (fst (Lazy.force children_comments)) in
-                 trie_of_sig_item ?comments ((path,siblings) :: parents)
+                 trie_of_sig_item ?comments ?cmt ((path,siblings) :: parents)
                    orig_file path sign
                in
                List.fold_left Trie.append t chlds, comments)
@@ -493,23 +498,29 @@ let qualify_type_idents parents t =
 let load_cmi root t modul orig_file =
   Trie.map_subtree t (string_to_key modul)
     (fun t ->
+      let info = lazy (
+        debug "Loading %s..." (orig_file_name orig_file);
+        let chrono = timer () in
+        let info = Cmi_format.read_cmi (orig_file_name orig_file) in
+        debug " %.3fs\n%!" (chrono());
+        info
+      )
+      in
       let t =
         Trie.add t [] {
           path = [];
           kind = Module;
           name = modul;
           ty = None;
-          loc_sig = Location.none;
+          loc_sig = Lazy.from_val Location.none;
           loc_impl = Lazy.from_val Location.none;
           doc = lazy None;
           file = orig_file;
         }
       in
       let rec children = lazy (
-        debug "Loading %s..." (orig_file_name orig_file);
-        let chrono = timer () in
-        let info = Cmi_format.read_cmi (orig_file_name orig_file) in
-        debug " %.3fs ; now registering..." (chrono());
+        let info = Lazy.force info in
+        debug "Registering %s..." (orig_file_name orig_file);
         let chrono = timer () in
         let t =
           List.fold_left
@@ -522,7 +533,7 @@ let load_cmi root t modul orig_file =
             Trie.empty
             info.Cmi_format.cmi_sign
         in
-        debug " %.3fs ; done\n%!" (chrono());
+        debug " %.3fs\n%!" (chrono());
         t
       )
       in
@@ -533,26 +544,63 @@ let load_cmi root t modul orig_file =
       in
       Trie.graft_lazy t [dot] children)
 
+let empty_cmt =
+  { Cmt_format.
+    cmt_modname = "";
+    cmt_annots = Cmt_format.Implementation
+        { Typedtree.
+          str_items = [];
+          str_type = [];
+          str_final_env = Env.empty };
+    cmt_comments = [];
+    cmt_args = [||];
+    cmt_sourcefile = None;
+    cmt_builddir = "";
+    cmt_loadpath = [];
+    cmt_source_digest = None;
+    cmt_initial_env = Env.empty;
+    cmt_imports = [];
+    cmt_interface_digest = None;
+    cmt_use_summaries = false;
+  }
+
 let load_cmt root t modul orig_file =
   Trie.map_subtree t (string_to_key modul)
     (fun t ->
+      let info = lazy (
+        debug "Loading %s..." (orig_file_name orig_file);
+        let chrono = timer () in
+        let info =
+          try Cmt_format.read_cmt (orig_file_name orig_file)
+          with e ->
+            debug " error: raised %s ;" (Printexc.to_string e);
+            empty_cmt
+        in
+        debug " %.3fs\n%!" (chrono());
+        info
+      )
+      in
+      let loc =
+        lazy (match (Lazy.force info).Cmt_format.cmt_sourcefile with
+            | Some f -> Location.in_file f
+            | _ -> Location.none)
+      in
+      let is_sig = match orig_file with Cmti _ | Cmi _ -> true | _ -> false in
       let t =
         Trie.add t [] {
           path = [];
           kind = Module;
           name = modul;
           ty = None;
-          loc_sig = Location.none;
-          loc_impl = Lazy.from_val Location.none;
+          loc_sig = lazy (if is_sig then Lazy.force loc else Location.none);
+          loc_impl = lazy (if is_sig then Location.none else Lazy.force loc);
           doc = lazy None;
           file = orig_file;
         }
       in
       let rec children = lazy (
-        debug "Loading %s..." (orig_file_name orig_file);
-        let chrono = timer () in
-        let info = Cmt_format.read_cmt (orig_file_name orig_file) in
-        debug " %.3fs ; now registering..." (chrono());
+        let info = Lazy.force info in
+        debug "Registering %s..." (orig_file_name orig_file);
         let chrono = timer () in
         let comments = Some (Lazy.from_val info.Cmt_format.cmt_comments) in
         let parents = [[modul], children; [], root] in
@@ -566,7 +614,7 @@ let load_cmt root t modul orig_file =
                 List.fold_left
                   (fun (t,comments) sig_item ->
                      let chld, comments =
-                       trie_of_sig_item ?comments parents orig_file
+                       trie_of_sig_item ?comments ~cmt:info parents orig_file
                          [modul] sig_item
                      in
                      List.fold_left Trie.append t chld, comments)
@@ -576,7 +624,7 @@ let load_cmt root t modul orig_file =
               t
           | _ -> Trie.empty
         in
-        debug " %.3fs ; done\n%!" (chrono());
+        debug " %.3fs\n%!" (chrono());
         t
       )
       in

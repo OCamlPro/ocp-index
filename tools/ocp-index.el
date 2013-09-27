@@ -131,7 +131,7 @@
     (message type)))
 
 (defun ocp-index-jump-to-loc (loc other-window)
-  (if (string-match "^\\([^:]*\\):\\([0-9]\+\\):\\([0-9]\+\\)$" loc)
+  (if (string-match "^\\([^:]*\\):\\([0-9-]\+\\):\\([0-9-]\+\\)$" loc)
       (let ((file   (match-string 1 loc))
             (line   (string-to-number (match-string 2 loc)))
             (column (string-to-number (match-string 3 loc)))
@@ -139,8 +139,8 @@
         (when file
           (if other-window (find-file-other-window file) (find-file file))
           (goto-char (point-min))
-          (forward-line (1- line))
-          (forward-char column)
+          (when (>= line 0) (forward-line (1- line)))
+          (when (>= column 0) (forward-char column))
           (when other-window (switch-to-buffer-other-window last-buffer))))
     (message (replace-regexp-in-string "\n\+$" "" loc))))
 

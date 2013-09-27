@@ -26,7 +26,7 @@ type info = { path: string list;
               kind: kind;
               name: string;
               ty: ty option;
-              loc_sig: Location.t;
+              loc_sig: Location.t Lazy.t;
               loc_impl: Location.t Lazy.t;
               doc: string option Lazy.t;
               file: orig_file;

@@ -94,19 +94,23 @@ let locate_cmd =
     Arg.(value & flag & info ["i";"interface"] ~doc)
   in
   let print_loc opts intf query =
-    match LibIndex.get_all opts.IndexOptions.lib_info query with
-    | [] -> exit 2
-    | ids ->
-        let ids =
-          List.filter (fun id ->
-              intf && id.LibIndex.loc_sig <> Location.none ||
-              not intf && (Lazy.force id.LibIndex.loc_impl) <> Location.none)
-            ids
-        in
-        let loc_as_string id =
-          LibIndex.Print.loc ?root:opts.IndexOptions.project_root ~intf id
-        in
-        List.iter (fun id -> print_endline (loc_as_string id)) ids
+    let ids0 = LibIndex.get_all opts.IndexOptions.lib_info query in
+    let filter_ids intf =
+      List.filter (fun id ->
+          intf && Lazy.force id.LibIndex.loc_sig <> Location.none
+          || not intf && Lazy.force id.LibIndex.loc_impl <> Location.none)
+        ids0
+    in
+    let ids, intf = match filter_ids intf with
+      | [] -> filter_ids (not intf), not intf
+      | ids -> ids, intf
+    in
+    let loc_as_string id =
+      LibIndex.Print.loc ?root:opts.IndexOptions.project_root ~intf id
+    in
+    match ids with
+    | [] -> prerr_endline ""; exit 2
+    | _ -> List.iter (fun id -> print_endline (loc_as_string id)) ids
   in
   let doc = "Get the location where an identifier was defined." in
   Term.(pure print_loc $ IndexOptions.common_opts $ interface $ t),
