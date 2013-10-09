@@ -130,33 +130,33 @@
          (type    (replace-regexp-in-string "\n\+$" "" output)))
     (message type)))
 
-(defun ocp-index-jump-to-loc (loc)
+(defun ocp-index-jump-to-loc (loc other-window)
   (if (string-match "^\\([^:]*\\):\\([0-9]\+\\):\\([0-9]\+\\)$" loc)
       (let ((file   (match-string 1 loc))
             (line   (string-to-number (match-string 2 loc)))
             (column (string-to-number (match-string 3 loc)))
             (last-buffer (current-buffer)))
         (when file
-          (find-file-other-window file)
+          (if other-window (find-file-other-window file) (find-file file))
           (goto-char (point-min))
           (forward-line (1- line))
           (forward-char column)
-          (switch-to-buffer-other-window last-buffer)))
+          (when other-window (switch-to-buffer-other-window last-buffer))))
     (message (replace-regexp-in-string "\n\+$" "" loc))))
 
-(defun ocp-index-jump-to-definition (ident sig)
+(defun ocp-index-jump-to-definition (ident sig other-window)
   "Jump to the definition of an ocaml identifier using ocp-index"
   (interactive (let ((default (ocp-index-completion-prefix)))
                  (list
                   (read-string
                    (format "lookup ident (%s): " default) nil nil default)
-                  nil)))
+                  nil t)))
   (let* ((output (if sig (ocp-index-run "locate" "-i" ident)
                    (ocp-index-run "locate" ident)))
          (locs (split-string output "\n")))
     (if locs
         (progn
-          (ocp-index-jump-to-loc (car locs))
+          (ocp-index-jump-to-loc (car locs) other-window)
           (cdr locs))
       (message "No definition found"))))
 
@@ -164,35 +164,33 @@
   (interactive nil)
   (ocp-index-print-type (ocp-index-completion-prefix)))
 
-(defun ocp-index-jump-to-definition-at-point ()
-  (interactive nil)
-  (if (and (eq (car-safe last-command) 'ocp-index-jump-to-definition-at-point)
+(defun ocp-index-jump (name sig other-window)
+  (if (and (eq (car-safe last-command) name)
            (cdr last-command))
       (let* ((locs (cdr last-command)))
         (if locs
             (progn
-              (ocp-index-jump-to-loc (car locs))
+              (ocp-index-jump-to-loc (car locs) other-window)
               (cdr locs))))
-    (let ((next (ocp-index-jump-to-definition (ocp-index-completion-prefix) nil)))
-      (setq this-command (list* 'ocp-index-jump-to-definition-at-point next)))))
+    (let ((next (ocp-index-jump-to-definition (ocp-index-completion-prefix) nil other-window)))
+      (setq this-command (list* name next)))))
 
+(defun ocp-index-jump-to-definition-at-point ()
+  (interactive nil) (ocp-index-jump 'ocp-index-jump-to-definition-at-point nil nil))
+(defun ocp-index-jump-to-definition-at-point-other-window ()
+  (interactive nil) (ocp-index-jump 'ocp-index-jump-to-definition-at-point nil t))
 (defun ocp-index-jump-to-sig-at-point ()
-  (interactive nil)
-  (if (and (eq (car-safe last-command) 'ocp-index-jump-to-sig-at-point)
-           (cdr last-command))
-      (let* ((locs (cdr last-command)))
-        (if locs
-            (progn
-              (ocp-index-jump-to-loc (car locs))
-              (cdr locs))))
-    (let ((next (ocp-index-jump-to-definition (ocp-index-completion-prefix) t)))
-      (setq this-command (list* 'ocp-index-jump-to-sig-at-point next)))))
+  (interactive nil) (ocp-index-jump 'ocp-index-jump-to-sig-at-point t nil))
+(defun ocp-index-jump-to-sig-at-point-other-window ()
+  (interactive nil) (ocp-index-jump 'ocp-index-jump-to-sig-at-point t t))
 
 (defun ocp-index-setup-keymap ()
   (interactive nil)
   (local-set-key (kbd "C-c t") 'ocp-index-print-type-at-point)
-  (local-set-key (kbd "C-c ;") 'ocp-index-jump-to-definition-at-point)
-  (local-set-key (kbd "C-c :") 'ocp-index-jump-to-sig-at-point)
+  (local-set-key (kbd "C-c ;") 'ocp-index-jump-to-definition-at-point-other-window)
+  (local-set-key (kbd "C-c :") 'ocp-index-jump-to-sig-at-point-other-window)
+  (local-set-key (kbd "C-c C-;") 'ocp-index-jump-to-definition-at-point)
+  (local-set-key (kbd "C-c C-:") 'ocp-index-jump-to-sig-at-point)
   (local-set-key (kbd "C-c TAB") 'auto-complete))
 
 (defun ocp-index-setup-completion ()
