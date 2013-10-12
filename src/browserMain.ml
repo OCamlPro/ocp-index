@@ -184,7 +184,7 @@ let interactive opts () =
       let response =
         LibIndex.complete
           opts.IndexOptions.lib_info
-          ~filter:opts.IndexOptions.filter
+          ~filter:(IndexOptions.filter opts)
           query
       in
       let _ =

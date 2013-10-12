@@ -36,7 +36,7 @@ let complete_cmd =
     let results =
       LibIndex.complete
         opts.IndexOptions.lib_info
-        ~filter:opts.IndexOptions.filter
+        ~filter:(IndexOptions.filter opts)
         query
     in
     if sexpr then (
