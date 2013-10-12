@@ -129,6 +129,33 @@ let interactive opts () =
           { nst with scroll = st.scroll + 1 }
         else if ch = Curses.Key.up then
           { nst with scroll = max 0 (st.scroll - 1) }
+        else if ch = 27 then (* The ESC and ALT key, not sure if portable. *)
+          (* There is no really sane way to differentiate ESC and ALT and it's not really important anyway, so we don't. *)
+          let ch = Curses.wgetch w.input in
+          IndexOptions.(
+            if ch = (int_of_char 't') then (
+              opts.filter <- { opts.filter with t = not opts.filter.t } ;
+              st )
+            else if ch = (int_of_char 'e') then (
+              opts.filter <- { opts.filter with e = not opts.filter.e } ;
+              st )
+            else if ch = (int_of_char 'c') then (
+              opts.filter <- { opts.filter with c = not opts.filter.c } ;
+              st )
+           else  if ch = (int_of_char 'm') then (
+              opts.filter <- { opts.filter with m = not opts.filter.m } ;
+              st )
+            else if ch = (int_of_char 's') then (
+              opts.filter <- { opts.filter with s = not opts.filter.s } ;
+              st )
+            else if ch = (int_of_char 'k') then (
+              opts.filter <- { opts.filter with k = not opts.filter.k } ;
+              st )
+            else if ch = (int_of_char 'v') then (
+              opts.filter <- { opts.filter with v = not opts.filter.v } ;
+              st )
+            else st
+          )
         else
           (query_buf.[st.query_len] <- char_of_int ch;
            { nst with query_len = st.query_len + 1 });
