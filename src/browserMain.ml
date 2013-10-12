@@ -61,9 +61,22 @@ let curses_init color =
   in
   { root; input; output; width; height; acs }
 
-let clear_input w =
+let kinds_to_string kinds =
+  let (@+) (c,b) s = if b then c :: s else s in
+  let open IndexOptions in match kinds with
+    { t ; v ; e ; c ; m ; s ; k } ->
+      let l =
+        ("t",t) @+ ("v",v) @+ ("e",e) @+ ("c",c) @+
+        ("m",m) @+ ("s",s) @+ ("k",k) @+ []
+      in "{ kinds : " ^ String.concat "," l ^ " }"
+
+
+let clear_input w kinds =
   Curses.werase w.input;
   Curses.box w.input w.acs.Curses.Acs.vline w.acs.Curses.Acs.hline;
+  let kindstring = kinds_to_string kinds in
+  let _ = Curses.wmove w.input 0 (w.width - (String.length kindstring) - 2) in
+  let _ = Curses.waddstr w.input kindstring in
   let _ = Curses.wmove w.input 1 2 in
   ()
 
@@ -81,7 +94,7 @@ let interactive opts () =
   let query_buf = String.create query_buf_max in
   let rec loop (st:state) =
     let query = String.sub query_buf 0 st.query_len in
-    clear_input w;
+    clear_input w opts.IndexOptions.filter ;
     let _ = Curses.waddstr w.input query in
     let ch = Curses.wgetch w.input in
     if st.query_len >= query_buf_max
