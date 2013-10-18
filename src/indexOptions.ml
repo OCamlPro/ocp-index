@@ -15,12 +15,35 @@
 open Cmdliner
 
 (* -- common options -- *)
+
+type filter_kind = {
+    t : bool ;
+    v : bool ;
+    e : bool ;
+    c : bool ;
+    m : bool ;
+    s : bool ;
+    k : bool ;
+  }
+
 type t = {
   lib_info: LibIndex.t;
   color: bool;
-  filter: LibIndex.info -> bool;
+  mutable filter: filter_kind ;
   project_root: string option;
 }
+
+let filter opt info =
+  let open LibIndex in
+  let kinds = opt.filter in
+  match info.kind with
+  | Type -> kinds.t
+  | Value | Method _ -> kinds.v
+  | Exception -> kinds.e
+  | Field _ | Variant _ -> kinds.c
+  | Module | Class -> kinds.m
+  | ModuleType | ClassType -> kinds.s
+  | Keyword -> kinds.k
 
 let cmd_input_line cmd =
   try
@@ -132,7 +155,7 @@ let common_opts : t Term.t =
     Term.(pure (fun o fo -> List.flatten o, List.flatten fo)
           $ arg_open $ arg_full_open)
   in
-  let filter : (LibIndex.info -> bool) Term.t =
+  let filter : filter_kind Term.t =
     let opts = [
       "t", `Types; "types", `Types;
       "v", `Values; "values", `Values;
@@ -169,14 +192,7 @@ let common_opts : t Term.t =
             f `Constructs true, f `Modules true, f `Sigs false,
             f `Keyword true
           in
-          LibIndex.(fun info -> match info.kind with
-              | Type -> t
-              | Value | Method _ -> v
-              | Exception -> e
-              | Field _ | Variant _ -> c
-              | Module | Class -> m
-              | ModuleType | ClassType -> s
-              | Keyword -> k))
+          { t ; v ; e ; c ; m ; s ; k })
       $ show $ hide
     )
   in

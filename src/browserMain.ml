@@ -61,9 +61,22 @@ let curses_init color =
   in
   { root; input; output; width; height; acs }
 
-let clear_input w =
+let kinds_to_string kinds =
+  let (@+) (c,b) s = if b then c :: s else s in
+  let open IndexOptions in match kinds with
+    { t ; v ; e ; c ; m ; s ; k } ->
+      let l =
+        ("t",t) @+ ("v",v) @+ ("e",e) @+ ("c",c) @+
+        ("m",m) @+ ("s",s) @+ ("k",k) @+ []
+      in "{ kinds : " ^ String.concat "," l ^ " }"
+
+
+let clear_input w kinds =
   Curses.werase w.input;
   Curses.box w.input w.acs.Curses.Acs.vline w.acs.Curses.Acs.hline;
+  let kindstring = kinds_to_string kinds in
+  let _ = Curses.wmove w.input 0 (w.width - (String.length kindstring) - 2) in
+  let _ = Curses.waddstr w.input kindstring in
   let _ = Curses.wmove w.input 1 2 in
   ()
 
@@ -81,7 +94,7 @@ let interactive opts () =
   let query_buf = String.create query_buf_max in
   let rec loop (st:state) =
     let query = String.sub query_buf 0 st.query_len in
-    clear_input w;
+    clear_input w opts.IndexOptions.filter ;
     let _ = Curses.waddstr w.input query in
     let ch = Curses.wgetch w.input in
     if st.query_len >= query_buf_max
@@ -116,6 +129,33 @@ let interactive opts () =
           { nst with scroll = st.scroll + 1 }
         else if ch = Curses.Key.up then
           { nst with scroll = max 0 (st.scroll - 1) }
+        else if ch = 27 then (* The ESC and ALT key, not sure if portable. *)
+          (* There is no really sane way to differentiate ESC and ALT and it's not really important anyway, so we don't. *)
+          let ch = Curses.wgetch w.input in
+          IndexOptions.(
+            if ch = (int_of_char 't') then (
+              opts.filter <- { opts.filter with t = not opts.filter.t } ;
+              st )
+            else if ch = (int_of_char 'e') then (
+              opts.filter <- { opts.filter with e = not opts.filter.e } ;
+              st )
+            else if ch = (int_of_char 'c') then (
+              opts.filter <- { opts.filter with c = not opts.filter.c } ;
+              st )
+           else  if ch = (int_of_char 'm') then (
+              opts.filter <- { opts.filter with m = not opts.filter.m } ;
+              st )
+            else if ch = (int_of_char 's') then (
+              opts.filter <- { opts.filter with s = not opts.filter.s } ;
+              st )
+            else if ch = (int_of_char 'k') then (
+              opts.filter <- { opts.filter with k = not opts.filter.k } ;
+              st )
+            else if ch = (int_of_char 'v') then (
+              opts.filter <- { opts.filter with v = not opts.filter.v } ;
+              st )
+            else st
+          )
         else
           (query_buf.[st.query_len] <- char_of_int ch;
            { nst with query_len = st.query_len + 1 });
@@ -184,7 +224,7 @@ let interactive opts () =
       let response =
         LibIndex.complete
           opts.IndexOptions.lib_info
-          ~filter:opts.IndexOptions.filter
+          ~filter:(IndexOptions.filter opts)
           query
       in
       let _ =
