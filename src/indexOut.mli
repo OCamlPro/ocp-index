@@ -18,6 +18,8 @@
 
 open IndexTypes
 
+val toto: string
+
 module Format: sig
   type coloriser =
     { f: 'a. kind ->

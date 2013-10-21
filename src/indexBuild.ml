@@ -294,17 +294,73 @@ let trie_of_type_decl ?comments info ty_decl =
         variants,
       comments
 
+let find_loc_through_includes (parents:parents) cmt_contents id =
+  debug "A %s" id.Ident.name;
+  match cmt_contents with
+  | {Cmt_format.cmt_annots = Cmt_format.Implementation str} ->
+      let info =
+        List.fold_left
+          Typedtree.(fun acc -> function
+              (* XXX on 4.01 it's sig_item list instead of ident list *)
+              | {Typedtree.str_desc = Tstr_include (mod_expr, idlist)}
+                when List.mem id idlist ->
+                  debug "X";
+                  let rec get_path = function
+                    | Path.Pident id -> [id.Ident.name]
+                    | Path.Pdot (path, s, _) -> get_path path @ [s]
+                    | Path.Papply (p1, _p2) -> get_path p1
+                  in
+                  let rec get_modpath = function
+                    | {mod_desc = Tmod_ident (path,_)} -> Some (get_path path)
+                    | {mod_desc = Tmod_apply (f,_,_)} -> get_modpath f
+                    | {mod_desc = Tmod_constraint (e,_,_,_)} -> get_modpath e
+                    | _ -> None
+                  in
+                  (match get_modpath mod_expr with
+                   | Some modpath ->
+                       debug "\n> include %s found\n" (modpath_to_string modpath);
+                       let sig_key = modpath_to_key modpath in
+                       let rec lookup = function
+                         | [] -> None
+                         | (_, lazy t) :: parents ->
+                             try Some (Trie.find t sig_key)
+                             with Not_found -> lookup parents
+                       in
+                       lookup parents
+                   | None -> None)
+              | _ -> acc)
+          None str.Typedtree.str_items
+      in
+      (match info with
+       | None -> Location.none (* XXX in_file *)
+       | Some i -> Lazy.force i.loc_impl)
+  | {Cmt_format.cmt_sourcefile = Some f} -> Location.in_file f
+  | _ -> Location.none
+
 (* We usually load the info from the cmti file ; however, that doesn't give
    the implementation location. This function loads the cmt to get it. *)
-let locate_impl cmt path name kind =
+let locate_impl (parents:parents) cmt path name kind =
   try
     if not (Sys.file_exists cmt) then raise Not_found;
+    debug "Loading %s (looking up %s.%s)..." cmt (String.concat "." path) name;
+    let chrono = timer () in
+    let cmt_contents = Cmt_format.read_cmt cmt in
+    debug " %.3fs ; now registering..." (chrono());
+    let chrono = timer () in
     let rec find_item path sign =
       match path with
       | [] ->
-          List.find (fun item -> kind = kind_of_sig_item item &&
-                                 name = (id_of_sig_item item).Ident.name)
-            sign
+          let item =
+            List.find (fun item -> kind = kind_of_sig_item item &&
+                                   name = (id_of_sig_item item).Ident.name)
+              sign
+          in
+          let loc = loc_of_sig_item item in
+          if loc = Location.none then
+            find_loc_through_includes parents cmt_contents (id_of_sig_item item)
+              (* XXX get back up for modules within included modules *)
+              (* XXX find_loc doesn't check kind of item *)
+          else loc
       | modul::path ->
           let modul =
             List.find (fun item -> kind_of_sig_item item = Module &&
@@ -316,19 +372,13 @@ let locate_impl cmt path name kind =
               find_item path sign
           | _ -> raise Not_found
     in
-    debug "Loading %s (looking up %s.%s)..." cmt (String.concat "." path) name;
-    let chrono = timer () in
-    let cmt_contents = Cmt_format.read_cmt cmt in
-    debug " %.3fs ; now registering..." (chrono());
-    let chrono = timer () in
     let sign =
       match cmt_contents.Cmt_format.cmt_annots with
       | Cmt_format.Implementation impl -> List.rev impl.Typedtree.str_type
       | _ -> raise Not_found
     in
     debug " %.3fs ; done\n%!" (chrono());
-    let item = find_item path sign in
-    loc_of_sig_item item
+    find_item path sign
   with
   | Not_found -> Location.none
 
@@ -338,9 +388,43 @@ let rec trie_of_sig_item
   let id = id_of_sig_item sig_item in
   let loc =
     loc_of_sig_item
-      ~default:(lazy (match cmt with
+      ~default:(lazy Location.none)(*lazy (match cmt with
+          | Some {Cmt_format.cmt_annots = Cmt_format.Implementation str} ->
+              let info =
+                List.fold_left
+                  Typedtree.(fun acc -> function
+                      | {Typedtree.str_desc = Tstr_include (mod_expr, idlist)}
+                        when List.mem id idlist ->
+                          let rec get_path = function
+                            | Path.Pident id -> [id.Ident.name]
+                            | Path.Pdot (path, s, _) -> get_path path @ [s]
+                            | Path.Papply (p1, _p2) -> get_path p1
+                          in
+                          let rec get_modpath = function
+                            | {mod_desc = Tmod_ident (path,_)} -> Some (get_path path)
+                            | {mod_desc = Tmod_apply (f,_,_)} -> get_modpath f
+                            | {mod_desc = Tmod_constraint (e,_,_,_)} -> get_modpath e
+                            | _ -> None
+                          in
+                          (match get_modpath mod_expr with
+                           | Some modpath ->
+                               let sig_key = modpath_to_key modpath in
+                               let rec lookup = function
+                                 | [] -> None
+                                 | (_, lazy t) :: parents ->
+                                     try Some (Trie.find t sig_key)
+                                     with Not_found -> lookup parents
+                               in
+                               lookup parents
+                           | None -> None)
+                      | _ -> acc)
+                  None str.Typedtree.str_items
+              in
+              (match info with
+               | None -> Location.none (* XXX in_file *)
+               | Some i -> Lazy.force i.loc_sig)
           | Some {Cmt_format.cmt_sourcefile = Some f} -> Location.in_file f
-          | _ -> Location.none))
+          | _ -> Location.none)*)
       sig_item in
   let doc, comments =
     match comments with
@@ -356,10 +440,10 @@ let rec trie_of_sig_item
     | Cmi f | Cmti f ->
         Lazy.from_val loc, lazy (
           let cmt = Filename.chop_extension f ^ ".cmt" in
-          locate_impl cmt (List.tl path) id.Ident.name kind
+          locate_impl parents cmt (List.tl path) id.Ident.name kind
         )
     | Cmt _ ->
-        Lazy.from_val loc, Lazy.from_val Location.none
+        Lazy.from_val Location.none, Lazy.from_val loc
   in
   let info = {path; kind; name = id.Ident.name; ty;
               loc_sig; loc_impl; doc; file = orig_file}
@@ -404,6 +488,7 @@ let rec trie_of_sig_item
           in
           get_path sig_ident
         in
+        debug "look up: %s\n" (modpath_to_string sig_path);
         let sig_key = modpath_to_key sig_path in
         let rec lookup = function
           | [] -> Trie.empty
@@ -592,8 +677,8 @@ let load_cmt root t modul orig_file =
           kind = Module;
           name = modul;
           ty = None;
-          loc_sig = lazy (if is_sig then Lazy.force loc else Location.none);
-          loc_impl = lazy (if is_sig then Location.none else Lazy.force loc);
+          loc_sig = if is_sig then loc else lazy Location.none;
+          loc_impl = if is_sig then lazy Location.none else loc;
           doc = lazy None;
           file = orig_file;
         }

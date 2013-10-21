@@ -14,6 +14,8 @@
 
 open IndexTypes
 
+let toto = "toto"
+
 let option_iter opt f = match opt with
   | Some x -> f x
   | None -> ()

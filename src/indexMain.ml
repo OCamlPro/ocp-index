@@ -94,6 +94,8 @@ let locate_cmd =
     Arg.(value & flag & info ["i";"interface"] ~doc)
   in
   let print_loc opts intf query =
+    let intf_to_string = function true -> "interface" | false -> "implementation" in
+    Printf.printf "print loc %s %s\n" query (intf_to_string intf);
     let ids0 = LibIndex.get_all opts.IndexOptions.lib_info query in
     let filter_ids intf =
       List.filter (fun id ->
@@ -102,7 +104,10 @@ let locate_cmd =
         ids0
     in
     let ids, intf = match filter_ids intf with
-      | [] -> filter_ids (not intf), not intf
+      | [] ->
+          (* Printf.printf "location not found for %s of %s, looking for %s\n" *)
+          (*   (intf_to_string intf) query (intf_to_string (not intf)); *)
+          filter_ids (not intf), not intf
       | ids -> ids, intf
     in
     let loc_as_string id =
