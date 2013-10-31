@@ -21,5 +21,8 @@ type env = Alias of string * string list | Open of string list
     EOF *)
 val read: ?line:int -> ?column:int -> in_channel -> t
 
+(** Compute the environment from a string *)
+val read_string: string -> t
+
 (** Returns the [env] declarations in scope [t], in source file order *)
 val to_list: t -> env list

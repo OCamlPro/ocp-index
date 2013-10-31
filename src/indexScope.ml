@@ -20,10 +20,12 @@ module Stream = struct
   type stream =
     { nstream: Nstream.t; last: token; before_last: token; stop: int * int }
 
-  let of_channel chan stop = { nstream = Nstream.of_channel chan;
-                               last = COMMENT;
-                               before_last = COMMENT;
-                               stop; }
+  let of_nstream nstream stop = {
+    nstream;
+    last = COMMENT;
+    before_last = COMMENT;
+    stop;
+  }
 
   let next stream =
     let shift stream tok =
@@ -188,11 +190,17 @@ let parse t stream0 =
        | _ -> t, stream)
   | _ -> t, stream
 
-let read ?(line=max_int) ?(column=max_int) chan =
+let read_aux ?(line=max_int) ?(column=max_int) nstream =
   let rec parse_all (t,stream) =
     if Stream.previous stream = EOF then t else parse_all (parse t stream)
   in
-  parse_all ([Block,[]], Stream.of_channel chan (line, column))
+  parse_all ([Block,[]], Stream.of_nstream nstream (line, column))
+
+let read ?line ?column chan =
+  read_aux ?line ?column (Nstream.of_channel chan)
+
+let read_string string =
+  read_aux (Nstream.of_string string)
 
 let to_list t =
   List.fold_left (fun acc (_, ctx) -> List.rev_append ctx acc) [] t
