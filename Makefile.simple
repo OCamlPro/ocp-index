@@ -3,7 +3,7 @@ LIB = ocp-index-lib
 
 VERSION := $(shell awk -F'[(,)]' '/AC_INIT/ { print $$3 }' configure.ac)
 
-OCAMLBUILD = ocamlbuild -pkg compiler-libs.common -use-ocamlfind
+OCAMLBUILD = ocamlbuild -pkg compiler-libs.common -pkg ocp-indent-lib -use-ocamlfind
 
 UNAME := $(shell uname)
 ifeq (WIN,$(findstring WIN,$(UNAME)))
@@ -48,10 +48,11 @@ _build/src/META:
 	echo 'archive(native) = "'$(LIB)'.cmxa"' >> $@
 	echo 'requires = "compiler-libs compiler-libs.common"' >> $@
 
-INTERFACES = libIndex
+INTERFACES = libIndex indexScope
 
 .PHONY: install
 install: _build/src/META $(LIB).cma $(LIB).cmxa
+	ocamlfind remove ${LIB} || true
 	cd _build/src && ocamlfind install $(LIB) META \
 	  $(INTERFACES:=.cmi) \
 	  $(LIB).cma $(LIB).cmxa $(LIB).a

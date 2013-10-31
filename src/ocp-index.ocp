@@ -4,19 +4,20 @@ begin library "ocp-index-lib"
   sort = false
   files = [ "trie.ml"
             "indexTypes.ml" "indexMisc.ml" "indexOut.ml" "indexPredefined"
-            "indexBuild.ml" "libIndex.ml" ]
-  requires = [ "compiler-libs" "compiler-libs.common" ]
+            "indexBuild.ml" "libIndex.ml" "indexScope.ml" ]
+  requires = [ "compiler-libs" "compiler-libs.common"
+               "ocp-indent-lexer" "ocp-indent-utils" ]
 end
 
 begin program "ocp-index"
   sort = false
-  files = [ "indexScope.ml" "indexOptions.ml" "indexMain.ml" ]
-  requires = [ "ocp-index-lib" "unix" "cmdliner" "ocp-indent-lexer" "ocp-indent-utils" ]
+  files = [ "indexOptions.ml" "indexMain.ml" ]
+  requires = [ "ocp-index-lib" "unix" "cmdliner" ]
   data_files = [ "../tools/ocp-index.el" ]
 end
 
 begin program "ocp-browser"
   sort = false
-  files = [ "indexScope.ml" "indexOptions.ml" "browserMain.ml" ]
-  requires = [ "ocp-index-lib" "unix" "cmdliner" "curses" "ocp-indent-lexer" "ocp-indent-utils" ]
+  files = [ "indexOptions.ml" "browserMain.ml" ]
+  requires = [ "ocp-index-lib" "unix" "cmdliner" "curses" ]
 end

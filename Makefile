@@ -1,6 +1,6 @@
 include Makefile.config
 
-PROJECTS = ocp-index
+PROJECTS = ocp-index-lib ocp-index
 
 byte = _obuild/ocp-index/ocp-index.byte
 native = _obuild/ocp-index/ocp-index.asm
@@ -10,6 +10,8 @@ all: $(PROJECTS)
 
 ocp-index: $(native)
 	cp $^ ocp-index
+
+ocp-index-lib: $(native)
 
 ALWAYS:
 
