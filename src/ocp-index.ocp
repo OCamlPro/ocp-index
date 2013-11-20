@@ -13,7 +13,6 @@ begin program "ocp-index"
   sort = false
   files = [ "indexOptions.ml" "indexMain.ml" ]
   requires = [ "ocp-index-lib" "unix" "cmdliner" ]
-  data_files = [ "../tools/ocp-index.el" ]
 end
 
 begin program "ocp-browser"

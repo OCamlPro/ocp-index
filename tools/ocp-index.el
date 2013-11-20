@@ -1,6 +1,7 @@
 ;; auto-completion for ocaml using auto-complete
 ;; (https://github.com/auto-complete/auto-complete) and ocp-index
 
+(provide 'ocp-index)
 (require 'auto-complete)
 
 ;; Customize defs

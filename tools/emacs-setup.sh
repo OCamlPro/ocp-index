@@ -10,11 +10,11 @@ check_eldir () ( [ -e "$eldir/ocp-index.el" ] )
 if [ $# -ge 1 ]; then
     eldir=$1; shift
 else
-    eldir=/usr/local/share/typerex/ocp-index
-    check_eldir || eldir=/usr/share/typerex/ocp-index
+    eldir=/usr/local/share/emacs/site-lisp
+    check_eldir || eldir=/usr/share/emacs/site-lisp
     check_eldir || {
         $(which opam >/dev/null) &&
-        eldir=$(opam config var prefix)/share/typerex/ocp-index
+        eldir=$(opam config var share)/emacs/site-lisp
     }
 fi
 
@@ -27,9 +27,12 @@ if ! check_eldir; then
 fi
 
 echo "To setup tuareg-mode (or ocaml-mode) to use ocp-index for completion,"
-echo "please add the following line to your .emacs :"
+echo "please add the following to your .emacs :"
 echo
-echo '  (load-file "'$eldir/ocp-index.el'")'
+if [ "${eldir#/usr/}" = "$eldir" ]; then
+    echo "  (add-to-list 'load-path \"$eldir\")"
+fi
+echo "  (require 'ocp-index)"
 if ! emacs --batch --eval "(require 'auto-complete)" 2>/dev/null; then
     echo
     echo "WARNING: you do not appear to have 'auto-complete.el' installed,"

@@ -42,16 +42,17 @@ install: $(PROJECTS) $(manpage)
 	ocp-build install \
 	  -install-lib $(prefix)/lib/ocp-index \
 	  -install-bin $(prefix)/bin \
-	  -install-data $(prefix)/share/typerex \
 	  $(PROJECTS)
 	mkdir -p $(mandir)/man1
 	install -m 644 $(manpage) $(mandir)/man1/
+	mkdir -p $(datarootdir)/emacs/site-lisp
+	install -m 644 tools/ocp-index.el $(datarootdir)/emacs/site-lisp/
 	@echo
 	@echo
 	@echo "=== ocp-index installed ==="
 	@echo
 	@if $$(which emacs >/dev/null); then \
-	  tools/emacs-setup.sh $(prefix)/share/typerex/ocp-index; \
+	  tools/emacs-setup.sh $(datarootdir)/emacs/site-lisp; \
 	  echo; \
 	fi
 
@@ -65,6 +66,10 @@ uninstall:
 configure: configure.ac
 	aclocal -I m4
 	autoconf
+
+version.ocp: configure.ac
+	@echo "version.ocp not up-to-date, please rerun ./configure"
+	@exit 1
 
 ocp-build.root:
 	@if (ocp-build -version 2>/dev/null |\
