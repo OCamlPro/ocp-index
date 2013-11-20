@@ -6,6 +6,8 @@ byte = _obuild/ocp-index/ocp-index.byte
 native = _obuild/ocp-index/ocp-index.asm
 manpage = man/man1/ocp-index.1
 
+OCPBUILD_ARGS = -install-lib $(prefix)/lib/ocp-index
+
 all: $(PROJECTS)
 
 ocp-index: $(native)
@@ -16,10 +18,10 @@ ocp-index-lib: $(native)
 ALWAYS:
 
 $(byte) byte: ocp-build.root ALWAYS
-	ocp-build -byte $(PROJECTS)
+	ocp-build -byte $(OCPBUILD_ARGS) $(PROJECTS)
 
 $(native) native asm: ocp-build.root ALWAYS
-	ocp-build -asm $(PROJECTS)
+	ocp-build -asm $(OCPBUILD_ARGS) $(PROJECTS)
 
 $(manpage): ocp-index
 	mkdir -p $(@D)
@@ -27,7 +29,7 @@ $(manpage): ocp-index
 
 .PHONY: clean
 clean: ocp-build.root
-	ocp-build -clean
+	ocp-build -clean $(OCPBUILD_ARGS)
 
 .PHONY: distclean
 distclean:
@@ -39,10 +41,11 @@ distclean:
 
 .PHONY: install
 install: $(PROJECTS) $(manpage)
-	ocp-build install \
-	  -install-lib $(prefix)/lib/ocp-index \
-	  -install-bin $(prefix)/bin \
-	  $(PROJECTS)
+	@if ocp-build -installed $(OCPBUILD_ARGS) \
+	    | grep -q ocp-index; then \
+	  ocp-build uninstall $(OCPBUILD_ARGS) $(PROJECTS); \
+	fi
+	ocp-build install $(OCPBUILD_ARGS) -install-bin $(prefix)/bin $(PROJECTS)
 	mkdir -p $(mandir)/man1
 	install -m 644 $(manpage) $(mandir)/man1/
 	mkdir -p $(datarootdir)/emacs/site-lisp
@@ -58,10 +61,8 @@ install: $(PROJECTS) $(manpage)
 
 .PHONY: uninstall
 uninstall:
-	ocp-build uninstall \
-	  -install-lib $(prefix)/lib/ocp-index \
-	  $(PROJECTS)
 	rm $(mandir)/man1/$(notdir $(manpage))
+	ocp-build uninstall $(OCPBUILD_ARGS) $(PROJECTS)
 
 configure: configure.ac
 	aclocal -I m4
@@ -77,4 +78,4 @@ ocp-build.root:
 	  echo "Error: you need ocp-build >= 1.99." >&2;\
 	  exit 1;\
 	fi
-	ocp-build -init
+	ocp-build -init $(OCPBUILD_ARGS)
