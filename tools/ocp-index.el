@@ -78,7 +78,8 @@
                    "--full-open" current-module
                    "--context" ":"
                    args)))
-    (if ocp-index-debug (message (mapconcat 'identity (list* ocp-index-path cmd) " ")))
+    (when ocp-index-debug
+      message (mapconcat 'identity (list* ocp-index-path cmd) " "))
     cmd))
 
 (defun ocp-index-run (cmd &rest args)
@@ -154,12 +155,13 @@
                   nil t)))
   (let* ((output (if sig (ocp-index-run "locate" "-i" ident)
                    (ocp-index-run "locate" ident)))
-         (locs (split-string output "\n")))
+         (locs (split-string output "\n" t)))
     (if locs
         (progn
           (ocp-index-jump-to-loc (car locs) other-window)
           (cdr locs))
-      (message "No definition found"))))
+      (message "No definition found")
+      nil)))
 
 (defun ocp-index-print-type-at-point ()
   (interactive nil)
@@ -173,7 +175,7 @@
             (progn
               (ocp-index-jump-to-loc (car locs) other-window)
               (cdr locs))))
-    (let ((next (ocp-index-jump-to-definition (ocp-index-completion-prefix) nil other-window)))
+    (let ((next (ocp-index-jump-to-definition (ocp-index-completion-prefix) sig other-window)))
       (setq this-command (list* name next)))))
 
 (defun ocp-index-jump-to-definition-at-point ()
