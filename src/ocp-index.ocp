@@ -26,3 +26,9 @@ begin program "ocp-grep"
   files = [ "grepMain.ml" ]
   requires = [ "unix" "cmdliner" "ocp-index-lib" "re" "re.posix" ]
 end
+
+begin program "ocp-lambda"
+  sort = false
+  files = [ "indexOptions.ml" "lambdaMain.ml" ]
+  requires = [ "ocp-index-lib" "unix" "cmdliner" "lambda-term" ]
+end
