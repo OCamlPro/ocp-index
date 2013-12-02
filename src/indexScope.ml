@@ -18,32 +18,38 @@ open Approx_lexer
 
 module Stream = struct
   type stream =
-    { nstream: Nstream.t; last: token; before_last: token; stop: int * int }
+    { nstream: Nstream.t;
+      last: token;
+      before_last: token;
+      region: Pos.Region.t;
+      stop: Lexing.position -> bool }
 
-  let of_nstream nstream stop = {
+  let of_nstream ?(stop=fun _ -> false) nstream = {
     nstream;
     last = COMMENT;
     before_last = COMMENT;
+    region = Pos.Region.zero;
     stop;
   }
 
   let next stream =
-    let shift stream tok =
+    let shift stream tok region =
       { stream with
+        region;
         last = tok;
         before_last = match stream.last with
           | COMMENT -> stream.before_last
-          | tok -> tok }
+          | tok -> tok; }
     in
     match Nstream.next stream.nstream with
     | Some ({Nstream.token; region}, nstream) ->
-        let pos = Pos.Region.snd region in
-        let line, col = stream.stop in
-        if Lexing.(pos.pos_lnum < line
-                   || pos.pos_lnum = line && pos.pos_cnum - pos.pos_bol < col)
-        then token, shift {stream with nstream} token
-        else EOF, shift stream EOF
-    | _ -> EOF, shift stream EOF
+        if stream.stop (Pos.Region.snd region)
+        then EOF, shift stream EOF region
+        else token, shift {stream with nstream} token region
+    | _ -> EOF, shift stream EOF stream.region
+
+  let equals st1 st2 =
+    st1.nstream == st2.nstream
 
   let next_two stream =
     let tok1, stream = next stream in
@@ -57,6 +63,13 @@ module Stream = struct
     tok1, tok2, tok3, stream
 
   let previous stream = stream.before_last
+
+  let token stream = stream.last
+
+  let pos stream =
+    let pos1 = Pos.Region.fst stream.region in
+    let pos2 = Pos.Region.snd stream.region in
+    Lexing.(pos1.pos_lnum, pos1.pos_cnum - pos1.pos_bol, pos2.pos_cnum - pos1.pos_cnum)
 end
 
 let close_def stream = match Stream.previous stream with
@@ -94,6 +107,8 @@ type scope = Def | Block | Paren | Brace
 type env = Alias of string * string list | Open of string list
 
 type t = (scope * env list) list
+
+let empty = []
 
 let rec close t scope = match t with
   | [] -> []
@@ -190,17 +205,50 @@ let parse t stream0 =
        | _ -> t, stream)
   | _ -> t, stream
 
-let read_aux ?(line=max_int) ?(column=max_int) nstream =
+
+let pos_after line col pos =
+  let open Lexing in
+  pos.pos_lnum > line ||
+  pos.pos_lnum = line && pos.pos_cnum - pos.pos_bol >= col
+
+let read_nstream ?line ?column nstream =
   let rec parse_all (t,stream) =
     if Stream.previous stream = EOF then t else parse_all (parse t stream)
   in
-  parse_all ([Block,[]], Stream.of_nstream nstream (line, column))
+  let stop = match line, column with
+    | Some l, Some c -> Some (pos_after l c)
+    | Some l, None -> Some (pos_after l 0)
+    | _ -> None
+  in
+  parse_all ([Block,[]], Stream.of_nstream ?stop nstream)
 
 let read ?line ?column chan =
-  read_aux ?line ?column (Nstream.of_channel chan)
+  read_nstream ?line ?column (Nstream.of_channel chan)
 
 let read_string string =
-  read_aux (Nstream.of_string string)
+  read_nstream (Nstream.of_string string)
 
 let to_list t =
   List.fold_left (fun acc (_, ctx) -> List.rev_append ctx acc) [] t
+
+let fold_nstream f acc ?(init=[]) ?stop nstream =
+  let rec aux acc t stream =
+    if Stream.previous stream = EOF then acc else
+      let t1, stream1 = parse t stream in
+      let rec catch_up acc stream =
+        let tok, stream = Stream.next stream in
+        if Stream.equals stream stream1 then acc
+        else catch_up (f acc t tok (Stream.pos stream)) stream
+      in
+      let acc = catch_up acc stream in
+      let acc = f acc t1 (Stream.token stream1) (Stream.pos stream1) in
+      aux acc t1 stream1
+  in
+  let stream = Stream.of_nstream ?stop nstream in
+  aux acc [Block,init] stream
+
+let fold f acc ?init ?stop chan =
+  fold_nstream f acc ?init ?stop (Nstream.of_channel chan)
+
+let fold_string f acc ?init ?stop chan =
+  fold_nstream f acc ?init ?stop (Nstream.of_string chan)

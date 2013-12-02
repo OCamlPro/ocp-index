@@ -14,6 +14,9 @@
 
 type t
 
+(** The empty scope *)
+val empty: t
+
 (** The type of gathered information within a scope *)
 type env = Alias of string * string list | Open of string list
 
@@ -23,6 +26,19 @@ val read: ?line:int -> ?column:int -> in_channel -> t
 
 (** Compute the environment from a string *)
 val read_string: string -> t
+
+(** Lower-level function for processing on the environment at every token.
+    The position is given in the form [(line, column, length)] *)
+val fold:
+  ('a -> t -> Approx_lexer.token -> (int * int * int) -> 'a) -> 'a ->
+  ?init:env list -> ?stop:(Lexing.position -> bool) -> in_channel
+  -> 'a
+
+(** The same from a string *)
+val fold_string:
+  ('a -> t -> Approx_lexer.token -> (int * int * int) -> 'a) -> 'a ->
+  ?init:env list -> ?stop:(Lexing.position -> bool) -> string
+  -> 'a
 
 (** Returns the [env] declarations in scope [t], in source file order *)
 val to_list: t -> env list

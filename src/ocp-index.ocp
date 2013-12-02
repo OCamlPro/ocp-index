@@ -20,3 +20,9 @@ begin program "ocp-browser"
   files = [ "indexOptions.ml" "browserMain.ml" ]
   requires = [ "ocp-index-lib" "unix" "cmdliner" "curses" ]
 end
+
+begin program "ocp-grep"
+  sort = false
+  files = [ "grepMain.ml" ]
+  requires = [ "unix" "cmdliner" "ocp-index-lib" ]
+end
