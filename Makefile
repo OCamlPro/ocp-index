@@ -1,31 +1,56 @@
-include Makefile.config
+-include Makefile.config
 
-PROJECTS = ocp-index-lib ocp-index
-
-byte = _obuild/ocp-index/ocp-index.byte
-native = _obuild/ocp-index/ocp-index.asm
-manpage = man/man1/ocp-index.1
+LIBS = ocp-index-lib
+PROJECTS =
+ifneq ($(has_cmdliner),"no")
+  PROJECTS := ocp-index ocp-grep
+  ifneq ($(has_curses),"no")
+    PROJECTS := $(PROJECTS) ocp-browser
+  endif
+endif
 
 OCPBUILD_ARGS = -install-lib $(prefix)/lib/ocp-index
+OCPBUILD_INSTALL_ARGS = $(OCPBUILD_ARGS) -install-bin $(prefix)/bin
 
-all: $(PROJECTS)
-
-ocp-index: $(native)
-	cp $^ ocp-index
-
-ocp-index-lib: $(native)
+all: $(LIBS) $(PROJECTS)
 
 ALWAYS:
 
-$(byte) byte: ocp-build.root ALWAYS
-	ocp-build -byte $(OCPBUILD_ARGS) $(PROJECTS)
+$(LIBS): ALWAYS ocp-build.root
+	ocp-build $@ $(OCPBUILD_ARGS)
 
-$(native) native asm: ocp-build.root ALWAYS
-	ocp-build -asm $(OCPBUILD_ARGS) $(PROJECTS)
+$(LIBS:=.install): ALWAYS
+	ocp-build install $(basename $@) $(OCPBUILD_INSTALL_ARGS)
 
-$(manpage): ocp-index
-	mkdir -p $(@D)
-	./ocp-index --help=groff >$@
+$(PROJECTS): ALWAYS ocp-build.root
+	ocp-build $@ $(OCPBUILD_ARGS)
+	@if [ -x _obuild/$@/$@.asm ]; then cp _obuild/$@/$@.asm ./$@; \
+	else cp _obuild/$@/$@.byte ./$@; fi
+
+man/man1/%.1: %
+	mkdir -p man/man1
+	./$< --help=groff >$@
+
+%.install: ALWAYS man/man1/%.1
+	ocp-build install $* $(OCPBUILD_INSTALL_ARGS)
+	mkdir -p $(mandir)/man1
+	install -m 644 man/man1/$*.1 $(mandir)/man1/
+
+.PHONY: install-lisp
+install-lisp:
+	mkdir -p $(datarootdir)/emacs/site-lisp
+	install -m 644 tools/ocp-index.el $(datarootdir)/emacs/site-lisp/
+
+.PHONY: install
+install: $(LIBS:=.install) $(PROJECTS:=.install) install-lisp
+	@echo
+	@echo
+	@echo "=== ocp-index installed ==="
+	@echo
+	@if $$(which emacs >/dev/null); then \
+	  tools/emacs-setup.sh $(datarootdir)/emacs/site-lisp; \
+	  echo; \
+	fi
 
 .PHONY: clean
 clean: ocp-build.root
@@ -39,30 +64,11 @@ distclean:
 	rm -f ocp-build.root*
 	rm -rf config.* aclocal.m4 *.cache configure
 
-.PHONY: install
-install: $(PROJECTS) $(manpage)
-	@if ocp-build -installed $(OCPBUILD_ARGS) \
-	    | grep -q ocp-index; then \
-	  ocp-build uninstall $(OCPBUILD_ARGS) $(PROJECTS); \
-	fi
-	ocp-build install $(OCPBUILD_ARGS) -install-bin $(prefix)/bin $(PROJECTS)
-	mkdir -p $(mandir)/man1
-	install -m 644 $(manpage) $(mandir)/man1/
-	mkdir -p $(datarootdir)/emacs/site-lisp
-	install -m 644 tools/ocp-index.el $(datarootdir)/emacs/site-lisp/
-	@echo
-	@echo
-	@echo "=== ocp-index installed ==="
-	@echo
-	@if $$(which emacs >/dev/null); then \
-	  tools/emacs-setup.sh $(datarootdir)/emacs/site-lisp; \
-	  echo; \
-	fi
-
 .PHONY: uninstall
 uninstall:
-	rm $(mandir)/man1/$(notdir $(manpage))
-	ocp-build uninstall $(OCPBUILD_ARGS) $(PROJECTS)
+	rm -f $(patsubst %,$(mandir)/man1/%.1,$(PROJECTS))
+	rm -f $(datarootdir)/emacs/site-lisp/ocp-index.el
+	ocp-build uninstall $(OCPBUILD_ARGS) $(LIBS) $(PROJECTS)
 
 configure: configure.ac
 	aclocal -I m4

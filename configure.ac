@@ -9,6 +9,13 @@ if test "$OCAMLC" = "no"; then
    AC_MSG_ERROR([You must install the OCaml compiler])
 fi
 
+AC_CHECK_OCAML_PKG([cmdliner])
+if test "$OCAML_PKG_cmdliner" = "no"; then
+   AC_MSG_ERROR([Please install cmdliner.])
+fi
+
+AC_CHECK_OCAML_PKG([curses])
+
 AC_CONFIG_FILES(
   Makefile.config
 )
