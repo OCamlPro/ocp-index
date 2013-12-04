@@ -2,9 +2,9 @@
 
 LIBS = ocp-index-lib
 PROJECTS =
-ifneq ($(has_cmdliner),"no")
+ifneq ($(has_cmdliner),no)
   PROJECTS := ocp-index ocp-grep
-  ifneq ($(has_curses),"no")
+  ifneq ($(has_curses),no)
     PROJECTS := $(PROJECTS) ocp-browser
   endif
 endif
@@ -54,7 +54,7 @@ install: $(LIBS:=.install) $(PROJECTS:=.install) install-lisp
 
 .PHONY: clean
 clean: ocp-build.root
-	ocp-build -clean $(OCPBUILD_ARGS)
+	ocp-build clean
 
 .PHONY: distclean
 distclean:
