@@ -5,6 +5,10 @@
 let s:jump_history = []
 let s:max_jump_history = 100
 
+function! ocpindex#init()
+    setlocal omnifunc=ocpindex#complete
+endfunction
+
 function! s:env_enter()
     let isk = &l:isk
     setlocal isk+=.,'
@@ -84,9 +88,19 @@ endfunction
 
 function! ocpindex#jump_back()
     if empty(s:jump_history)
-        return ocpindex#jump_error()
+        return s:jump_error()
     endif
     let pos = remove(s:jump_history, -1)
     execute 'buffer' pos[0]
     call setpos('.', pos)
 endfunction
+
+nnoremap <silent> <Plug>(ocpindex-echo-type)
+\       :<C-u>call ocpindex#echo_type()<CR>
+
+nnoremap <silent> <Plug>(ocpindex-jump)
+\       :<C-u>call ocpindex#jump()<CR>
+
+nnoremap <silent> <Plug>(ocpindex-jump-back)
+\       :<C-u>call ocpindex#jump_back()<CR>
+
