@@ -21,7 +21,8 @@ endfunction
 
 function! s:ocp_index(cmd, arg)
     let context = join(getline(1, line('.')), "\n")
-    let cmdline = ['ocp-index', shellescape(a:cmd), '--context', ':', '-F',
+    let cmdline = [g:ocpindex_program, shellescape(a:cmd),
+    \              '--context', ':', '-F',
     \              shellescape(substitute(expand('%:t:r'), '^\w', '\u\0', '')),
     \              shellescape(a:arg)]
     return system(join(cmdline), context)
@@ -104,3 +105,6 @@ nnoremap <silent> <Plug>(ocpindex-jump)
 nnoremap <silent> <Plug>(ocpindex-jump-back)
 \       :<C-u>call ocpindex#jump_back()<CR>
 
+if !exists("g:ocpindex_program")
+    let g:ocpindex_program = "ocp-index"
+endif
