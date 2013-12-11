@@ -39,5 +39,5 @@ K
 
 You can specify ocp-index path explicitly::
 
-    let g:ocpindex_program = /path/to/ocp-index
+    let g:ocpindex_program = "/path/to/ocp-index"
 
