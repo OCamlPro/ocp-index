@@ -28,8 +28,8 @@ K
     Echo type information of the identifier under the cursor.
 
 <C-]>
-    Jump to the definition of the identifier under the cursor and push
-    it to the jump stack.
+    Push the current position to the jump stack and jump to the
+    definition of the identifier under the cursor.
 
 <C-t>
     Pop the previons position from the jump stack and jump back there.
