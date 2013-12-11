@@ -6,11 +6,12 @@ vim-ocp-index
 * type information printing
 * jump to definitions
 
+Add vim-ocp-index directory to runtimepath::
 
-after/ftplugin/ocaml.vim example
-================================
+  :set runtimepath^=/path/to/vim-ocp-index
 
-::
+Then create your own after/ftplugin/ocaml.vim to override vim's
+builtin ocaml settings::
 
   if exists('b:did_ftplugin_after')
       finish
@@ -23,9 +24,20 @@ after/ftplugin/ocaml.vim example
   nmap <buffer> <C-]>     <Plug>(ocpindex-jump)
   nmap <buffer> <C-t>     <Plug>(ocpindex-jump-back)
 
-* When types 'K', echo type information of the identifier under the
-  cursor.
-* When types CTRL-], jump to the definition of the identifier under the
-  cursor and push it to the jump stack.
-* When types CTRL-t, pop the previous position and jump back there.
+K
+    Echo type information of the identifier under the cursor.
+
+<C-]>
+    Jump to the definition of the identifier under the cursor and push
+    it to the jump stack.
+
+<C-t>
+    Pop the previons position from the jump stack and jump back there.
+
+<C-x><C-o>
+    Omni completion.
+
+You can specify ocp-index path explicitly::
+
+    let g:ocpindex_program = /path/to/ocp-index
 
