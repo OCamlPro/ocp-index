@@ -265,10 +265,11 @@ let common_opts : t Term.t =
   let lib_info ocamllib (_root,build) (opens,full_opens) context =
     let dirs = match build with
       | None -> ocamllib
-      | Some d -> LibIndex.Misc.unique_subdirs (d :: ocamllib)
+      | Some d -> d :: ocamllib
     in
     if dirs = [] then
       failwith "Failed to guess OCaml / opam lib dirs. Please use `-I'";
+    let dirs = LibIndex.Misc.unique_subdirs dirs in
     let info = LibIndex.load dirs in
     let info =
       List.fold_left (LibIndex.open_module ~cleanup_path:true) info opens
