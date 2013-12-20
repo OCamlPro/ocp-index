@@ -80,6 +80,10 @@ let clear_input w kinds =
   let _ = Curses.wmove w.input 1 2 in
   ()
 
+let update_margin pp cols =
+  if Format.pp_get_margin pp () <> cols then
+    Format.pp_set_margin pp cols
+
 type state = {
   query_len: int;
   scroll: int; (* for scrolling: how many lines to skip before printing *)
@@ -92,11 +96,14 @@ let interactive opts () =
   let w = curses_init opts.IndexOptions.color in
   let query_buf_max = w.width - 4 in
   let query_buf = String.create query_buf_max in
+  let fmt = Format.std_formatter in
+
   let rec loop (st:state) =
     let query = String.sub query_buf 0 st.query_len in
     clear_input w opts.IndexOptions.filter ;
     let _ = Curses.waddstr w.input query in
     let ch = Curses.wgetch w.input in
+    update_margin fmt w.width ;
     if st.query_len >= query_buf_max
     then loop st
     else
@@ -228,7 +235,6 @@ let interactive opts () =
           query
       in
       let _ =
-        let fmt = Format.std_formatter in
         List.iter
           (fun id ->
              Format.open_vbox 0 ;
