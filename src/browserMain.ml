@@ -231,7 +231,8 @@ let interactive opts () =
         let fmt = Format.std_formatter in
         List.iter
           (fun id ->
-             Format.open_hvbox 4;
+             Format.open_vbox 0 ;
+             Format.open_hovbox 4 ;
              LibIndex.Format.kind ~colorise fmt id;
              Format.print_char ' ';
              LibIndex.Format.path ~colorise fmt id;
@@ -241,13 +242,11 @@ let interactive opts () =
                                   LibIndex.Class | LibIndex.ClassType }
                 -> ()
               | { LibIndex.ty = Some _ } ->
-                  Format.print_char ' ';
-                  Format.open_hbox ();
-                  LibIndex.Format.ty ~colorise fmt id;
-                  Format.close_box ());
+                  Format.print_space () ;
+                  LibIndex.Format.ty ~colorise fmt id );
+             Format.close_box ();
              if Lazy.force id.LibIndex.doc <> None then
-               (Format.force_newline ();
-                Format.print_string "    ";
+               (Format.print_break 1 4 ;
                 LibIndex.Format.doc ~colorise fmt id);
              Format.close_box ();
              Format.force_newline ())
