@@ -79,7 +79,7 @@
                    "--context" ":"
                    args)))
     (when ocp-index-debug
-      message (mapconcat 'identity (list* ocp-index-path cmd) " "))
+      (message (mapconcat 'identity (list* ocp-index-path cmd) " ")))
     cmd))
 
 (defun ocp-index-run (cmd &rest args)
