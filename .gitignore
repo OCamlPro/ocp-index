@@ -1,0 +1,8 @@
+_obuild
+ocp-build.root*
+aclocal.m4
+*.cache
+config.*
+man
+ocp-index
+Makefile.config
