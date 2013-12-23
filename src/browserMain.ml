@@ -80,6 +80,10 @@ let clear_input w kinds =
   let _ = Curses.wmove w.input 1 2 in
   ()
 
+let update_margin pp cols =
+  if Format.pp_get_margin pp () <> cols then
+    Format.pp_set_margin pp cols
+
 type state = {
   query_len: int;
   scroll: int; (* for scrolling: how many lines to skip before printing *)
@@ -92,11 +96,14 @@ let interactive opts () =
   let w = curses_init opts.IndexOptions.color in
   let query_buf_max = w.width - 4 in
   let query_buf = String.create query_buf_max in
+  let fmt = Format.std_formatter in
+
   let rec loop (st:state) =
     let query = String.sub query_buf 0 st.query_len in
     clear_input w opts.IndexOptions.filter ;
     let _ = Curses.waddstr w.input query in
     let ch = Curses.wgetch w.input in
+    update_margin fmt w.width ;
     if st.query_len >= query_buf_max
     then loop st
     else
@@ -228,10 +235,10 @@ let interactive opts () =
           query
       in
       let _ =
-        let fmt = Format.std_formatter in
         List.iter
           (fun id ->
-             Format.open_hvbox 4;
+             Format.open_vbox 0 ;
+             Format.open_hovbox 4 ;
              LibIndex.Format.kind ~colorise fmt id;
              Format.print_char ' ';
              LibIndex.Format.path ~colorise fmt id;
@@ -241,13 +248,11 @@ let interactive opts () =
                                   LibIndex.Class | LibIndex.ClassType }
                 -> ()
               | { LibIndex.ty = Some _ } ->
-                  Format.print_char ' ';
-                  Format.open_hbox ();
-                  LibIndex.Format.ty ~colorise fmt id;
-                  Format.close_box ());
+                  Format.print_space () ;
+                  LibIndex.Format.ty ~colorise fmt id );
+             Format.close_box ();
              if Lazy.force id.LibIndex.doc <> None then
-               (Format.force_newline ();
-                Format.print_string "    ";
+               (Format.print_break 1 4 ;
                 LibIndex.Format.doc ~colorise fmt id);
              Format.close_box ();
              Format.force_newline ())
