@@ -187,22 +187,21 @@
 (defun ocp-index-jump-to-sig-at-point-other-window ()
   (interactive nil) (ocp-index-jump 'ocp-index-jump-to-sig-at-point t t))
 
-(defun ocp-index-setup-keymap ()
-  (interactive nil)
-  (local-set-key (kbd "C-c t") 'ocp-index-print-type-at-point)
-  (local-set-key (kbd "C-c ;") 'ocp-index-jump-to-definition-at-point-other-window)
-  (local-set-key (kbd "C-c :") 'ocp-index-jump-to-sig-at-point-other-window)
-  (local-set-key (kbd "C-c C-;") 'ocp-index-jump-to-definition-at-point)
-  (local-set-key (kbd "C-c C-:") 'ocp-index-jump-to-sig-at-point)
-  (local-set-key (kbd "C-c TAB") 'auto-complete))
+(defvar ocp-index-keymap
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c t") 'ocp-index-print-type-at-point)
+    (define-key map (kbd "C-c ;") 'ocp-index-jump-to-definition-at-point-other-window)
+    (define-key map (kbd "C-c :") 'ocp-index-jump-to-sig-at-point-other-window)
+    (define-key map (kbd "C-c C-;") 'ocp-index-jump-to-definition-at-point)
+    (define-key map (kbd "C-c C-:") 'ocp-index-jump-to-sig-at-point)
+    (define-key map (kbd "C-c TAB") 'auto-complete)
+    map))
 
 (defun ocp-index-setup-completion ()
-  (interactive nil)
   (auto-complete-mode t)
   (setq ac-sources
         (cons 'ac-source-ocp-index
               ocp-index-extra-completion-sources))
-  (ocp-index-setup-keymap)
   (when ocp-index-override-auto-complete-defaults
     (set (make-local-variable 'ac-auto-show-menu) t)
     (set (make-local-variable 'ac-auto-start) nil)
@@ -212,9 +211,17 @@
     (set (make-local-variable 'ac-quick-help-delay) 0.2)
     (set (make-local-variable 'ac-trigger-commands) nil)))
 
+(define-minor-mode ocp-index-mode
+  "OCaml auto-completion, documentation and source browsing using ocp-index"
+  :group 'ocp-index
+  :keymap ocp-index-keymap
+  (if ocp-index-mode
+      (ocp-index-setup-completion)
+    (auto-complete-mode -1))
+  )
 
 (add-to-list 'ac-modes 'tuareg-mode)
 (add-to-list 'ac-modes 'caml-mode)
 
-(add-hook 'tuareg-mode-hook 'ocp-index-setup-completion t)
-(add-hook 'caml-mode-hook 'ocp-index-setup-completion t)
+(add-hook 'tuareg-mode-hook 'ocp-index-mode t)
+(add-hook 'caml-mode-hook 'ocp-index-mode t)
