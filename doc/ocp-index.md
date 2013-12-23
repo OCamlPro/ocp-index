@@ -6,6 +6,16 @@ completion). It gathers information from `.cmi` (à la ocamlbrowser) and
 `.cmt`/`cmti` files, including structure, location, type, and ocamldoc comments
 when available.
 
+<hr/>
+<div class="span12">
+<h3>Ressources</h3>
+<table class="table table-striped">
+  <tr><td><a href="http://www.github.com/OCamlPro/ocp-index">ocp-index on Github</a></td>
+  <td>Latest sources in the official GIT repository</td></tr>
+</table>
+</div>
+<br/><br/>
+
 ## Usage
 
 `ocp-index COMMAND params OPTIONS`
@@ -47,16 +57,54 @@ You can run the script `tools/emacs-setup.sh` to get hints on the configuration
 of emacs for ocp-index (it won't modify any files). Adding the following
 line to your `.emacs`:
 ```lisp
-(load-file "<OPAM_ROOT>/share/typerex/ocp-index/ocp-index.el")
+(add-to-list 'load-path "/path/to/ocp-index.el")
+(require 'ocp-index)
 ```
 Will give you:
 - `C-c TAB` to auto-complete ((global-set-key (kbd "KEY") 'auto-complete) to add
   your own binding)
 - `C-c t` to print the type of the identifier under cursor
-- `C-c ;` to jump to the definition of the identifier under cursor
-- `C-c :` to jump to the interface of the identifier under cursor
+- `C-c ;` to jump to the definition of the identifier under cursor (use `C-c C-;` to do that in the current window)
+- `C-c :` to jump to the interface of the identifier under cursor (use `C-c C-:` to do that in the current window)
 
 See `M-x customize ocp-index` for more options.
+
+### Vim
+
+A script `ocp-index.vim`, contributed by
+[anyakichi](https://github.com/anyakichi/vim-ocp-index), is available under
+`tools`. It supports:
+* omni completion
+* type information printing
+* jump to definitions
+
+To use, add vim-ocp-index directory to runtimepath:
+```
+:set runtimepath^=/path/to/ocp-index.vim
+```
+
+Then create your own `after/ftplugin/ocaml.vim` to override vim's
+builtin ocaml settings::
+```
+if exists('b:did_ftplugin_after')
+    finish
+endif
+let b:did_ftplugin_after = 1
+
+call ocpindex#init()
+
+nmap <buffer> K         <Plug>(ocpindex-echo-type)
+nmap <buffer> <C-]>     <Plug>(ocpindex-jump)
+nmap <buffer> <C-t>     <Plug>(ocpindex-jump-back)
+```
+You get:
+- `K` Echo type information of the identifier under the cursor
+- `C-]` Push the current position to the jump stack and jump to the definition of the identifier under the cursor
+- `C-t` Pop the previons position from the jump stack and jump back there
+- `C-x C-o` Omni completion
+
+If needed, you can specify ocp-index path explicitly: `let g:ocpindex_program = "/path/to/ocp-index"`
+
 
 ### Sublime Text
 
@@ -68,6 +116,6 @@ A small ncurses-based browser based on ocp-index is also included. You will need
 ocaml-curses installed to build it:
 ```
 $ opam install curses
-$ ocp-build ocp-browser
-$ ocp-build install ocp-browser
+$ ./configure
+$ make ocp-browser
 ```
