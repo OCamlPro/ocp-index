@@ -36,13 +36,15 @@ man/man1/%.1: %
 	mkdir -p $(mandir)/man1
 	install -m 644 man/man1/$*.1 $(mandir)/man1/
 
-.PHONY: install-lisp
-install-lisp:
+.PHONY: install-modes
+install-modes:
 	mkdir -p $(datarootdir)/emacs/site-lisp
 	install -m 644 tools/ocp-index.el $(datarootdir)/emacs/site-lisp/
+	mkdir -p $(datarootdir)/vim/syntax
+	install -m 644 tools/ocp-index.vim $(datarootdir)/vim/syntax/
 
 .PHONY: install
-install: $(LIBS:=.install) $(PROJECTS:=.install) install-lisp
+install: $(LIBS:=.install) $(PROJECTS:=.install) install-modes
 	@echo
 	@echo
 	@echo "=== ocp-index installed ==="
@@ -68,6 +70,7 @@ distclean:
 uninstall:
 	rm -f $(patsubst %,$(mandir)/man1/%.1,$(PROJECTS))
 	rm -f $(datarootdir)/emacs/site-lisp/ocp-index.el
+	rm -f $(datarootdir)/vim/syntax/ocp-index.vim
 	ocp-build uninstall $(OCPBUILD_ARGS) $(LIBS) $(PROJECTS)
 
 configure: configure.ac
