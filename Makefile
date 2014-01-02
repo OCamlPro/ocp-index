@@ -19,32 +19,22 @@ ALWAYS:
 $(LIBS): ALWAYS ocp-build.root
 	ocp-build $@ $(OCPBUILD_ARGS)
 
-$(LIBS:=.install): ALWAYS
-	ocp-build install $(basename $@) $(OCPBUILD_INSTALL_ARGS)
-
 $(PROJECTS): ALWAYS ocp-build.root
 	ocp-build $@ $(OCPBUILD_ARGS)
 	@if [ -x _obuild/$@/$@.asm ]; then cp _obuild/$@/$@.asm ./$@; \
 	else cp _obuild/$@/$@.byte ./$@; fi
 
+MANPAGES = $(patsubst %,man/man1/%.1,$(PROJECTS))
+.PHONY:man
+man: $(MANPAGES)
+
 man/man1/%.1: %
 	mkdir -p man/man1
 	./$< --help=groff >$@
 
-%.install: ALWAYS man/man1/%.1
-	ocp-build install $* $(OCPBUILD_INSTALL_ARGS)
-	mkdir -p $(mandir)/man1
-	install -m 644 man/man1/$*.1 $(mandir)/man1/
-
-.PHONY: install-modes
-install-modes:
-	mkdir -p $(datarootdir)/emacs/site-lisp
-	install -m 644 tools/ocp-index.el $(datarootdir)/emacs/site-lisp/
-	mkdir -p $(datarootdir)/vim/syntax
-	install -m 644 tools/ocp-index.vim $(datarootdir)/vim/syntax/
-
 .PHONY: install
-install: $(LIBS:=.install) $(PROJECTS:=.install) install-modes
+install: $(PROJECTS) man
+	opam-installer --prefix $(prefix) ocp-index.install
 	@echo
 	@echo
 	@echo "=== ocp-index installed ==="
@@ -68,10 +58,7 @@ distclean:
 
 .PHONY: uninstall
 uninstall:
-	rm -f $(patsubst %,$(mandir)/man1/%.1,$(PROJECTS))
-	rm -f $(datarootdir)/emacs/site-lisp/ocp-index.el
-	rm -f $(datarootdir)/vim/syntax/ocp-index.vim
-	ocp-build uninstall $(OCPBUILD_ARGS) $(LIBS) $(PROJECTS)
+	opam-installer remove ocp-index.install
 
 configure: configure.ac
 	aclocal -I m4
