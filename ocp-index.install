@@ -5,11 +5,11 @@ bin: [
 ]
 lib: [
   "META"
-  "_obuild/ocp-index-lib/ocp-index-lib.a" {"ocp-index-lib/ocp-index-lib.a"}
-  "_obuild/ocp-index-lib/ocp-index-lib.cma" {"ocp-index-lib/ocp-index-lib.cma"}
-  "_obuild/ocp-index-lib/ocp-index-lib.cmxa" {"ocp-index-lib/ocp-index-lib.cmxa"}
-  "_obuild/ocp-index-lib/libIndex.cmi" {"ocp-index-lib/libIndex.cmi"}
-  "_obuild/ocp-index-lib/libIndex.cmti" {"ocp-index-lib/libIndex.cmti"}
+  "_obuild/ocp-index-lib/ocp-index-lib.a" {"lib/ocp-index-lib.a"}
+  "_obuild/ocp-index-lib/ocp-index-lib.cma" {"lib/ocp-index-lib.cma"}
+  "_obuild/ocp-index-lib/ocp-index-lib.cmxa" {"lib/ocp-index-lib.cmxa"}
+  "_obuild/ocp-index-lib/libIndex.cmi" {"lib/libIndex.cmi"}
+  "_obuild/ocp-index-lib/libIndex.cmti" {"lib/libIndex.cmti"}
   "_obuild/ocp-index-lib/indexScope.cmi" {"lib/indexScope.cmi"}
   "_obuild/ocp-index-lib/indexScope.cmti" {"lib/indexScope.cmti"}
 ]

@@ -6,7 +6,7 @@ begin library "ocp-index-lib"
             "indexTypes.ml" "indexMisc.ml" "indexOut.ml" "indexPredefined"
             "indexBuild.ml" "libIndex.ml" "indexScope.ml" ]
   requires = [ "compiler-libs" "compiler-libs.common"
-               "ocp-indent-lexer" "ocp-indent-utils" ]
+               "ocp-indent.lexer" "ocp-indent.utils" ]
 end
 
 begin program "ocp-index"
