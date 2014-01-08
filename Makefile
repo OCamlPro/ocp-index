@@ -12,7 +12,7 @@ endif
 OCPBUILD_ARGS = -install-lib $(prefix)/lib/ocp-index
 OCPBUILD_INSTALL_ARGS = $(OCPBUILD_ARGS) -install-bin $(prefix)/bin
 
-all: $(LIBS) $(PROJECTS)
+all: $(LIBS) $(PROJECTS) man
 
 ALWAYS:
 
