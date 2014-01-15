@@ -1,0 +1,8 @@
+## 1.0.1
+* add the ocp-grep tool, looking for uses of a given fully-qualified identifier in a source tree
+* better vim mode contributed by Anyakichi
+* fixed default lookup path
+* emacs: better definition of keybindings, cleaner loading, workaround auto-complete bug
+* refactored build system, installing through opam-installer and register as ocamlfind sub-modules
+* emacs: replace `C-c t` by `C-c C-t` to follow emacs minor-mode guidelines
+* emacs: better handling of process environment to work properly with OPAM on OSX
