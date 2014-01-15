@@ -42,8 +42,8 @@ let curpath_update cp tok =
   | (`Uid _ | `Lid _) as c, _ -> [c]
   | _ -> []
 
-let rec path_of_curpath = function
-  | `Dot :: r -> []
+let path_of_curpath = function
+  | `Dot :: _ -> []
   | cp -> List.rev_map (function `Uid s | `Lid s -> s | `Dot -> assert false) cp
 
 let rec list_rm_pfx pfx l = match pfx, l with
