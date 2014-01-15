@@ -95,11 +95,12 @@
     cmd))
 
 (defun ocp-index-run (cmd &rest args)
-  (let ((args (apply 'ocp-index-args cmd args)))
+  (let* ((args (apply 'ocp-index-args cmd args))
+         (shell-cmd (mapconcat 'identity (list* ocp-index-path args) " ")))
     (with-output-to-string
-      (apply 'call-process-region (point-min) (point) ocp-index-path
+      (apply 'call-process-region (point-min) (point) shell-file-name
              nil (list standard-output nil) nil
-             args))))
+             (list shell-command-switch shell-cmd)))))
 
 (defun ac-ocp-index-candidates ()
   (let* ((output (ocp-index-run "complete" "--sexp" ac-prefix))
@@ -201,7 +202,7 @@
 
 (defvar ocp-index-keymap
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c t") 'ocp-index-print-type-at-point)
+    (define-key map (kbd "C-c C-t") 'ocp-index-print-type-at-point)
     (define-key map (kbd "C-c ;") 'ocp-index-jump-to-definition-at-point-other-window)
     (define-key map (kbd "C-c :") 'ocp-index-jump-to-sig-at-point-other-window)
     (define-key map (kbd "C-c C-;") 'ocp-index-jump-to-definition-at-point)
