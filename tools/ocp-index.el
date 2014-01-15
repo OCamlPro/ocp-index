@@ -23,10 +23,22 @@
    buffers. Disable if you prefer to configure auto-complete yourself."
   :group 'ocp-index :type 'boolean)
 
+(defcustom ocp-index-auto-complete-workaround t
+  "*Fix a bug in auto-complete whith quick-help at EOF in text mode."
+  :group 'ocp-index :type 'boolean)
+
 (defcustom ocp-index-extra-completion-sources
   (list 'ac-source-words-in-same-mode-buffers)
   "*Completion sources to enable besides ocp-index completion"
   :group 'ocp-index :type '(repeat symbol))
+
+;; auto-complete bug workaround (complete at EOF in text mode)
+(defun ocp-index-enable-ac-workaround ()
+  (defun ac-menu-delete ()
+    (ac-remove-quick-help)
+    (when ac-menu
+      (popup-delete ac-menu)
+      (setq ac-menu))))
 
 ;; Completion
 
@@ -209,7 +221,9 @@
     (set (make-local-variable 'ac-expand-on-auto-complete) nil)
     (set (make-local-variable 'ac-ignore-case) nil)
     (set (make-local-variable 'ac-quick-help-delay) 0.2)
-    (set (make-local-variable 'ac-trigger-commands) nil)))
+    (set (make-local-variable 'ac-trigger-commands) nil))
+  (when ocp-index-auto-complete-workaround
+    (ocp-index-enable-ac-workaround)))
 
 (define-minor-mode ocp-index-mode
   "OCaml auto-completion, documentation and source browsing using ocp-index"
