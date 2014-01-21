@@ -195,6 +195,10 @@ module IndexFormat = struct
       Format.fprintf fmt "@[<h>%s:%d:%d@]"
         fname pos.Lexing.pos_lnum (pos.Lexing.pos_cnum - pos.Lexing.pos_bol)
 
+  let file ?colorise:(_ = no_color) fmt id =
+    Format.fprintf fmt "@[<h>%s@]"
+      (match id.file with Cmt f | Cmi f | Cmti f -> f)
+
   let info ?(colorise = no_color) fmt id =
     path ~colorise fmt id;
     Format.fprintf fmt " %a" (kind ~colorise) id;
@@ -202,6 +206,34 @@ module IndexFormat = struct
       Format.fprintf fmt " @[<h>%a@]" (ty ~colorise) id;
     if Lazy.force id.doc <> None then
       Format.fprintf fmt "@\n    %a" (doc ~colorise) id
+
+  let format ?root format ?colorise fmt id =
+    let rec aux i =
+      let j =
+        try String.index_from format i '%'
+        with Not_found -> String.length format
+      in
+      if j > i then Format.fprintf fmt "%s" (String.sub format i (j - i));
+      if j < String.length format - 1 then
+        let () = match format.[j+1] with
+          | 'n' -> name ?colorise fmt id
+          | 'p' -> path ?colorise fmt id
+          | 'k' -> kind ?colorise fmt id
+          | 't' -> ty   ?colorise fmt id
+          | 'd' -> doc  ?colorise fmt id
+          | 'l' -> loc  ?root ?colorise fmt id
+          | 's' -> loc  ?root ~intf:true ?colorise fmt id
+          | 'f' -> file ?colorise fmt id
+          | 'i' -> info ?colorise fmt id
+          | '%' -> Format.fprintf fmt "%%"
+          | c   -> Format.fprintf fmt "%%%c" c
+        in
+        aux (j + 2)
+      else if j < String.length format then
+        Format.fprintf fmt "%s"
+          (String.sub format j (String.length format - j))
+    in
+    aux 0
 end
 
 module Print = struct
@@ -224,7 +256,11 @@ module Print = struct
 
   let loc ?root ?intf = make (IndexFormat.loc ?root ?intf)
 
+  let file = make IndexFormat.file
+
   let info = make IndexFormat.info
+
+  let format ?root format = make (IndexFormat.format ?root format)
 end
 
 module Format = IndexFormat

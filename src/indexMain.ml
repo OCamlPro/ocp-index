@@ -117,7 +117,35 @@ let locate_cmd =
   Term.(pure print_loc $ IndexOptions.common_opts $ interface $ t),
   Term.info "locate" ~doc
 
+let print_cmd =
+  let query =
+    let doc = "The identifier to lookup" in
+    Arg.(required & pos 0 (some string) None & info [] ~doc ~docv:"STRING")
+  in
+  let format =
+    let doc = "Format of the output. This string will be printed for each \
+               match with the substrings %n, %p, %k, %t, %d, %l, %s, %f, %i \
+               interpreted respectively as name, fully qualified path, kind, \
+               type, documentation, location, signature location, file where \
+               the definition was found, and information summary."
+    in
+    Arg.(value & pos 1 string "%i" & info [] ~doc ~docv:"FORMAT")
+  in
+  let print opts query format =
+    let ids = LibIndex.get_all opts.IndexOptions.lib_info query in
+    let root = opts.IndexOptions.project_root in
+    if ids = [] then exit 2;
+    List.iter
+      (fun id -> print_endline (LibIndex.Print.format ?root format id))
+      ids
+  in
+  let doc = "Print information about an identifier." in
+  Term.(pure print $ IndexOptions.common_opts $ query $ format),
+  Term.info "print" ~doc
+
 let () =
-  match Term.eval_choice default_cmd [complete_cmd; type_cmd; locate_cmd] with
+  match
+    Term.eval_choice default_cmd [complete_cmd; type_cmd; locate_cmd; print_cmd]
+  with
   | `Error _ -> exit 1
   | _ -> exit 0

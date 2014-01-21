@@ -43,7 +43,16 @@ module Format: sig
     ?root:string -> ?intf:bool ->
     ?colorise:coloriser -> Format.formatter -> info -> unit
 
+  val file: ?colorise:coloriser -> Format.formatter -> info -> unit
+
+  (** summary of the information *)
   val info: ?colorise:coloriser -> Format.formatter -> info -> unit
+
+  (** print following a custom format string (%n,%p,%k,%t,%d,%l,%s,%f,%i are
+      interpreted) *)
+  val format:
+    ?root:string -> string -> ?colorise:coloriser ->
+    Format.formatter -> info -> unit
 end
 
 module Print: sig
@@ -53,5 +62,7 @@ module Print: sig
   val ty: ?color:bool -> info -> string
   val doc: ?color:bool -> info -> string
   val loc: ?root:string -> ?intf:bool -> ?color:bool -> info -> string
+  val file: ?color:bool -> info -> string
   val info: ?color:bool -> info -> string
+  val format: ?root:string -> string -> ?color:bool -> info -> string
 end
