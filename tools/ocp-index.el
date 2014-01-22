@@ -36,6 +36,11 @@
   "*Completion sources to enable besides ocp-index completion"
   :group 'ocp-index :type '(repeat symbol))
 
+(defcustom ocp-index-show-help t
+  "*If set, show the documentation bubble after completion (otherwise,
+   the type is printed in the minibuffer)."
+  :group 'ocp-index :type 'boolean)
+
 ;; auto-complete bug workaround (complete at EOF in text mode)
 (defun ocp-index-enable-ac-workaround ()
   (defun ac-menu-delete ()
@@ -126,12 +131,14 @@
       (format "%s %s: %s" kind path type))))
 
 (defun ac-ocp-index-action ()
-  (let* ((symbol (buffer-substring (ocp-index-completion-prefix-start) (point)))
-         (info   (cdr (assoc symbol ac-ocp-index-current-doc)))
-         (path   (cdr (assoc :path info)))
-         (kind   (cdr (assoc :kind info)))
-         (type   (cdr (assoc :type info))))
-    (message (format "%s %s: %s" kind path type))))
+  (if ocp-index-show-help
+      (ac-last-quick-help)
+    (let* ((symbol (buffer-substring (ocp-index-completion-prefix-start) (point)))
+           (info   (cdr (assoc symbol ac-ocp-index-current-doc)))
+           (path   (cdr (assoc :path info)))
+           (kind   (cdr (assoc :kind info)))
+           (type   (cdr (assoc :type info))))
+      (message (format "%s %s: %s" kind path type)))))
 
 (defun ac-ocp-index-init ()
   (setq ac-ocp-index-current-doc nil))
