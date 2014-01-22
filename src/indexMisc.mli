@@ -35,3 +35,11 @@ val modpath_to_string: string list -> string
 
 (** Returns the list of directories and all their recursive subdirectories *)
 val unique_subdirs: string list -> string list
+
+(** An heuristic to guess where the root directory of the current project.
+    Returns (project_root, build_dir) *)
+val project_root: ?path:string -> unit -> string option * string option
+
+(** Locates a build dir within a given directory, based on name ([_build],
+    [_obuild], etc.) *)
+val find_build_dir: string -> string option

@@ -59,48 +59,6 @@ let cmd_input_line cmd =
   with
   | End_of_file | Unix.Unix_error _ | Sys_error _ -> failwith "cmd_input_line"
 
-let build_roots = (* by increasing order of priority *)
-  [ ".svn"; "_darcs"; ".hg"; ".git";
-    "jengaroot.ml"; "omakeroot"; "_build"; "_obuild" ]
-
-let find_build_dir path =
-  let ( / ) = Filename.concat in
-  let files = Sys.readdir path in
-  let _, root =
-    let rec memsuffix x = function
-      | a::r -> if x = a then Some r else memsuffix x r
-      | [] -> None
-    in
-    Array.fold_left (fun (roots,found) f ->
-        match memsuffix f roots with
-        | None -> roots, found
-        | Some roots -> roots, Some f)
-      (build_roots, None) files
-  in
-  match root with
-  | None -> None
-  | Some ("_obuild" | "_build" as dir) -> Some (path / dir)
-  | Some _ -> Some path
-
-let project_root ?(path=Sys.getcwd()) () =
-  let ( / ) = Filename.concat in
-  let home = try Sys.getenv "HOME" with Not_found -> "" in
-  let path =
-    if Filename.is_relative path then Sys.getcwd () / path
-    else path
-  in
-  let rec find path =
-    match find_build_dir path with
-    | None ->
-        let parent = Filename.dirname path in
-        if path = parent || path = home then None
-        else find parent
-    | Some build -> Some (path, build)
-  in
-  match find path with
-  | None -> None, None
-  | Some (root, build) -> Some root, Some build
-
 let common_opts : t Term.t =
   let ocamllib : string list Term.t =
     let arg =
@@ -217,8 +175,8 @@ let common_opts : t Term.t =
     in
     let default root build =
       match root, build with
-      | None, None -> project_root ()
-      | Some r as root, None -> root, find_build_dir r
+      | None, None -> IndexMisc.project_root ()
+      | Some r as root, None -> root, IndexMisc.find_build_dir r
       | None, (Some b as build) -> Some (Filename.dirname b), build
       | ds -> ds
     in
