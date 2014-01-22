@@ -30,8 +30,9 @@ module Format: sig
   (** short name of the identifier *)
   val name: ?colorise:coloriser -> Format.formatter -> info -> unit
 
-  (** fully qualified name *)
-  val path: ?colorise:coloriser -> Format.formatter -> info -> unit
+  (** fully qualified name (with [short], returns the path the ident was found
+      at, not the path where it was originally created) *)
+  val path: ?short:bool -> ?colorise:coloriser -> Format.formatter -> info -> unit
 
   val kind: ?colorise:coloriser -> Format.formatter -> info -> unit
 
@@ -57,7 +58,7 @@ end
 
 module Print: sig
   val name: ?color:bool -> info -> string
-  val path: ?color:bool -> info -> string
+  val path: ?short:bool -> ?color:bool -> info -> string
   val kind: ?color:bool -> info -> string
   val ty: ?color:bool -> info -> string
   val doc: ?color:bool -> info -> string

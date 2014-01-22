@@ -20,6 +20,7 @@ open Outcometree
 
 let mktype name ?(params=[]) ?(def=Otyp_abstract) doc = {
   path = [];
+  orig_path = [];
   kind = Type;
   name = name;
   ty = Some (Osig_type (
@@ -33,6 +34,7 @@ let mktype name ?(params=[]) ?(def=Otyp_abstract) doc = {
 
 let mkvariant name parent params = {
   path = [];
+  orig_path = [];
   kind = Variant parent;
   name = name;
   ty = Some (Osig_type (("", [],
@@ -48,6 +50,7 @@ let mkvariant name parent params = {
 
 let mkexn name params doc = {
   path = [];
+  orig_path = [];
   kind = Exception;
   name = name;
   ty = Some (Osig_exception (name,params));
@@ -59,6 +62,7 @@ let mkexn name params doc = {
 
 let mkkwd name = {
   path = [];
+  orig_path = [];
   kind = Keyword;
   name = name;
   ty = None;

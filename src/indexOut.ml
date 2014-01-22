@@ -77,10 +77,10 @@ module IndexFormat = struct
   let name ?(colorise = no_color) fmt id =
     colorise.f id.kind "%s" fmt id.name
 
-  let path ?(colorise = no_color) fmt id =
+  let path ?(short = false) ?(colorise = no_color) fmt id =
     List.iter
       (Format.fprintf fmt "%a." (colorise.f Module "%s"))
-      id.path;
+      (if short then id.path else id.orig_path);
     name ~colorise fmt id
 
   let kind ?(colorise = no_color) fmt id =
@@ -246,7 +246,7 @@ module Print = struct
 
   let name = make IndexFormat.name
 
-  let path = make IndexFormat.path
+  let path ?short = make (IndexFormat.path ?short)
 
   let kind = make IndexFormat.kind
 

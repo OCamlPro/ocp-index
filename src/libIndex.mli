@@ -28,6 +28,7 @@ type orig_file = IndexTypes.orig_file = private
 (** Contains the information on a given identifier *)
 type info = IndexTypes.info = private {
   path: string list;
+  orig_path: string list;
   kind: kind;
   name: string;
   ty: IndexTypes.ty option;

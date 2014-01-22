@@ -43,8 +43,10 @@ let complete_cmd =
       Format.pp_print_string fmt "(\n";
       List.iter (fun info ->
           let (!) f x = f ?colorise:None x in
-          Format.fprintf fmt "  (\"%a\"" !LibIndex.Format.path info;
-          Format.fprintf fmt " (:name . \"%a\")" !LibIndex.Format.name info;
+          Format.fprintf fmt "  (\"%a\""
+            !(LibIndex.Format.path ~short:true) info;
+          Format.fprintf fmt " (:path . \"%a\")"
+            !(LibIndex.Format.path ~short:false) info;
           Format.fprintf fmt " (:type . %S)" (LibIndex.Print.ty info);
           Format.fprintf fmt " (:kind . \"%a\")" !LibIndex.Format.kind info;
           (if Lazy.force info.LibIndex.doc <> None

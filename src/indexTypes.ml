@@ -23,6 +23,7 @@ type orig_file = Cmt of string | Cmti of string | Cmi of string
 
 (** Contains the information on a given identifier *)
 type info = { path: string list;
+              orig_path: string list;
               kind: kind;
               name: string;
               ty: ty option;

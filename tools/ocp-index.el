@@ -58,7 +58,7 @@
 (defun ocp-index-completion-prefix-start ()
   (car-safe (ocp-index-bounds-of-symbol-at-point)))
 
-(defun ocp-index-completion-prefix ()
+(defun ocp-index-symbol-at-point ()
   (let ((bounds (ocp-index-bounds-of-symbol-at-point)))
     (when bounds
       (buffer-substring (car bounds) (cdr bounds)))))
@@ -110,18 +110,21 @@
 
 (defun ac-ocp-index-documentation (symbol)
   (let* ((info (cdr (assoc symbol ac-ocp-index-current-doc)))
+         (path (cdr (assoc :path info)))
          (kind (cdr (assoc :kind info)))
          (type (cdr (assoc :type info)))
          (doc  (cdr (assoc :doc info))))
     (if doc
-        (format "<%s> %s\n---\n%s" kind type doc)
-      (format "<%s> %s" kind type))))
+        (format "%s %s: %s\n---\n%s" kind path type doc)
+      (format "%s %s: %s" kind path type))))
 
 (defun ac-ocp-index-action ()
   (let* ((symbol (buffer-substring (ocp-index-completion-prefix-start) (point)))
-         (info (cdr (assoc symbol ac-ocp-index-current-doc)))
+         (info   (cdr (assoc symbol ac-ocp-index-current-doc)))
+         (path   (cdr (assoc :path info)))
+         (kind   (cdr (assoc :kind info)))
          (type   (cdr (assoc :type info))))
-    (message (format "%s: %s" symbol type))))
+    (message (format "%s %s: %s" kind path type))))
 
 (defun ac-ocp-index-init ()
   (setq ac-ocp-index-current-doc nil))
@@ -136,14 +139,15 @@
 
 (defun ocp-index-print-type (ident)
   "Display the type of an ocaml identifier in the mini-buffer using ocp-index"
-  (interactive (let ((default (ocp-index-completion-prefix)))
+  (interactive (let ((default (ocp-index-symbol-at-point)))
                  (list
                   (read-string
                    (format "type ident (%s): " default) nil nil default))))
-  (let* ((output  (ocp-index-run "type" ident))
+  (let* ((ident   (ocp-index-symbol-at-point))
+         (output  (ocp-index-run "print" ident "%k %p: %t"))
          (output  (if (string= output "") "No definition found" output))
          (type    (replace-regexp-in-string "\n\+$" "" output)))
-    (message type)))
+    (message "%s" type)))
 
 (defun ocp-index-jump-to-loc (loc other-window)
   (if (string-match "^\\([^:]*\\):\\([0-9]\+\\):\\([0-9]\+\\)$" loc)
@@ -161,7 +165,7 @@
 
 (defun ocp-index-jump-to-definition (ident sig other-window)
   "Jump to the definition of an ocaml identifier using ocp-index"
-  (interactive (let ((default (ocp-index-completion-prefix)))
+  (interactive (let ((default (ocp-index-symbol-at-point)))
                  (list
                   (read-string
                    (format "lookup ident (%s): " default) nil nil default)
@@ -178,7 +182,7 @@
 
 (defun ocp-index-print-type-at-point ()
   (interactive nil)
-  (ocp-index-print-type (ocp-index-completion-prefix)))
+  (ocp-index-print-type (ocp-index-symbol-at-point)))
 
 (defun ocp-index-jump (name sig other-window)
   (if (and (eq (car-safe last-command) name)
@@ -188,7 +192,7 @@
             (progn
               (ocp-index-jump-to-loc (car locs) other-window)
               (cdr locs))))
-    (let ((next (ocp-index-jump-to-definition (ocp-index-completion-prefix) sig other-window)))
+    (let ((next (ocp-index-jump-to-definition (ocp-index-symbol-at-point) sig other-window)))
       (setq this-command (list* name next)))))
 
 (defun ocp-index-jump-to-definition-at-point ()

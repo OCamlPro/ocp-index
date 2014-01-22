@@ -254,6 +254,7 @@ let trie_of_type_decl ?comments info ty_decl =
           string_to_key id.Ident.name,
           Trie.create ~value:{
             path = info.path;
+            orig_path = info.path;
             kind = Field info;
             name = id.Ident.name;
             ty = Some ty;
@@ -282,6 +283,7 @@ let trie_of_type_decl ?comments info ty_decl =
           string_to_key id.Ident.name,
           Trie.create ~value:{
             path = info.path;
+            orig_path = info.path;
             kind = Variant info;
             name = id.Ident.name;
             ty = Some ty;
@@ -356,7 +358,7 @@ let rec trie_of_sig_item
         (* we assume there is no mli, so point the intf to the implementation *)
         loc, Lazy.from_val loc
   in
-  let info = {path; kind; name = id.Ident.name; ty;
+  let info = {path; orig_path = path; kind; name = id.Ident.name; ty;
               loc_sig; loc_impl; doc; file = orig_file}
   in
   let siblings, comments = (* read fields / variants ... *)
@@ -436,6 +438,7 @@ let rec trie_of_sig_item
               in
               Trie.add t (string_to_key lbl)
                 { path = path;
+                  orig_path = path;
                   kind = Method info;
                   name = lbl;
                   ty = Some ty;
@@ -496,6 +499,7 @@ let load_cmi root t modul orig_file =
       let t =
         Trie.add t [] {
           path = [];
+          orig_path = [];
           kind = Module;
           name = modul;
           ty = None;
@@ -539,6 +543,7 @@ let load_cmt root t modul orig_file =
       let t =
         Trie.add t [] {
           path = [];
+          orig_path = [];
           kind = Module;
           name = modul;
           ty = None;
