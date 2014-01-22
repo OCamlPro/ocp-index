@@ -91,16 +91,19 @@
                    "--context" ":"
                    args)))
     (when ocp-index-debug
-      (message (mapconcat 'identity (list* ocp-index-path cmd) " ")))
+      (message "%s" (mapconcat
+                     (lambda (s) (format "\"%s\"" s))
+                     (list* ocp-index-path cmd) " ")))
     cmd))
 
 (defun ocp-index-run (cmd &rest args)
   (let* ((args (apply 'ocp-index-args cmd args))
-         (shell-cmd (mapconcat 'identity (list* ocp-index-path args) " ")))
+         (shell-command (format "exec %s \"$@\"" ocp-index-path)))
     (with-output-to-string
-      (apply 'call-process-region (point-min) (point) shell-file-name
+      (apply 'call-process-region (point-min) (point)
+             shell-file-name
              nil (list standard-output nil) nil
-             (list shell-command-switch shell-cmd)))))
+             (list* shell-command-switch shell-command ocp-index-path args)))))
 
 (defun ac-ocp-index-candidates ()
   (let* ((output (ocp-index-run "complete" "--sexp" ac-prefix))
