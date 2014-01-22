@@ -14,6 +14,10 @@
   "*Path to access the ocp-index command"
   :group 'ocp-index :type '(file))
 
+(defcustom ocp-grep-path "ocp-grep"
+  "*Path to access the ocp-grep command"
+  :group 'ocp-index :type '(file))
+
 (defcustom ocp-index-options "--show=types"
   "*Command-line parameters to add to ocp-index invocations (ex. --show=sigs)"
   :group 'ocp-index :type 'string)
@@ -160,7 +164,7 @@
          (path  (if (string= path "") ident path))
          (path  (replace-regexp-in-string "\n\+$" "" path))
          (grep-use-null-device nil))
-    (grep (format "ocp-grep %s" path))))
+    (grep (format "%s %s" ocp-grep-path path))))
 
 (defun ocp-index-jump-to-loc (loc other-window)
   (if (string-match "^\\([^:]*\\):\\([0-9]\+\\):\\([0-9]\+\\)$" loc)
