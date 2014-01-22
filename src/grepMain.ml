@@ -153,6 +153,8 @@ module Args = struct
 
   let files_of_dir dirs =
     List.fold_left (fun acc dir ->
+        if let c = dir.[0] in c = '.' || c = '_' then []
+        else
         let files = Array.to_list (Sys.readdir dir) in
         List.map (Filename.concat dir)
           (List.filter (fun f ->
@@ -170,10 +172,15 @@ module Args = struct
     Arg.(required & pos 0 (some string) None & info [] ~docv:"ID" ~doc)
 
   let files =
-    let doc = "Files or directories to search into" in
+    let doc = "Files or directories to search into. By default, searches for \
+               project root" in
     let arg = Arg.(value & pos_right 0 file [] & info [] ~docv:"FILES" ~doc) in
     let get_files = function
-      | [] -> files_of_dir [Filename.current_dir_name]
+      | [] ->
+          let dir = match IndexMisc.project_root () with
+            | Some d, _ -> d
+            | None, _ -> Filename.current_dir_name
+          in files_of_dir [dir]
       | fs ->
           let dirs, files = List.partition Sys.is_directory fs in
           files @ files_of_dir dirs
