@@ -152,6 +152,16 @@
          (type    (replace-regexp-in-string "\n\+$" "" output)))
     (message "%s" type)))
 
+(defun ocp-index-grep ()
+  "Use ocp-index and ocp-grep to find uses of the identifier under point"
+  (interactive nil)
+  (let* ((ident (ocp-index-symbol-at-point))
+         (path  (ocp-index-run "print" ident "%p"))
+         (path  (if (string= path "") ident path))
+         (path  (replace-regexp-in-string "\n\+$" "" path))
+         (grep-use-null-device nil))
+    (grep (format "ocp-grep %s" path))))
+
 (defun ocp-index-jump-to-loc (loc other-window)
   (if (string-match "^\\([^:]*\\):\\([0-9]\+\\):\\([0-9]\+\\)$" loc)
       (let ((file   (match-string 1 loc))
@@ -214,6 +224,7 @@
     (define-key map (kbd "C-c :") 'ocp-index-jump-to-sig-at-point-other-window)
     (define-key map (kbd "C-c C-;") 'ocp-index-jump-to-definition-at-point)
     (define-key map (kbd "C-c C-:") 'ocp-index-jump-to-sig-at-point)
+    (define-key map (kbd "C-c /") 'ocp-index-grep)
     (define-key map (kbd "C-c TAB") 'auto-complete)
     map))
 
