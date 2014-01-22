@@ -43,3 +43,6 @@ val project_root: ?path:string -> unit -> string option * string option
 (** Locates a build dir within a given directory, based on name ([_build],
     [_obuild], etc.) *)
 val find_build_dir: string -> string option
+
+(** Shorten [file] by making it relative to current [path] (default cwd) *)
+val make_relative: ?path:string -> string -> string

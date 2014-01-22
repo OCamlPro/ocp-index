@@ -17,17 +17,6 @@
 
 open Cmdliner
 
-let string_split char str =
-  let rec aux pos =
-    try
-      let i = String.index_from str pos char in
-      String.sub str pos (i - pos) :: aux (succ i)
-    with Not_found | Invalid_argument _ ->
-        let l = String.length str in
-        [ String.sub str pos (l - pos) ]
-  in
-  aux 0
-
 type layout = {
   root: Curses.window;
   input: Curses.window;

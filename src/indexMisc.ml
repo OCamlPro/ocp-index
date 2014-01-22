@@ -121,6 +121,34 @@ let find_build_dir path =
   | Some ("_obuild" | "_build" as dir) -> Some (path / dir)
   | Some _ -> Some path
 
+let string_split char str =
+  let rec aux pos =
+    try
+      let i = String.index_from str pos char in
+      String.sub str pos (i - pos) :: aux (succ i)
+    with Not_found | Invalid_argument _ ->
+        let l = String.length str in
+        [ String.sub str pos (l - pos) ]
+  in
+  aux 0
+
+let make_relative ?(path=Sys.getcwd()) file =
+  if Filename.is_relative file then file
+  else
+  let rec aux cwd file = match cwd, file with
+    | d1::cwd, d2::file when d1 = d2 -> aux cwd file
+    | cwd, file ->
+        List.fold_left
+          (fun file _ -> Filename.parent_dir_name :: file)
+          file cwd
+  in
+  let sep = Filename.dir_sep.[0] in
+  let d =
+    aux (string_split sep path) (string_split sep file)
+  in
+  if d = [] then Filename.current_dir_name
+  else String.concat Filename.dir_sep d
+
 let project_root ?(path=Sys.getcwd()) () =
   let ( / ) = Filename.concat in
   let home = try Sys.getenv "HOME" with Not_found -> "" in

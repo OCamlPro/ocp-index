@@ -153,8 +153,14 @@ module Args = struct
 
   let files_of_dir dirs =
     List.fold_left (fun acc dir ->
-        if let c = dir.[0] in c = '.' || c = '_' then []
-        else
+        let hidden_dir =
+          let base = Filename.basename dir in
+          let c = base.[0] in
+          (c = '.' || c = '_') &&
+          base <> Filename.current_dir_name &&
+          base <> Filename.parent_dir_name
+        in
+        if hidden_dir then acc else
         let files = Array.to_list (Sys.readdir dir) in
         List.map (Filename.concat dir)
           (List.filter (fun f ->
@@ -242,7 +248,8 @@ let print_line color =
     fun file _ (l,txt) -> Printf.printf "%s:%d:%s\n" file l txt
   else
     fun file matches (l,txt) ->
-      Printf.printf "%s\027[36m:\027[m%d\027[36m:\027[m" file l;
+      let shortfile = IndexMisc.make_relative file in
+      Printf.printf "%s\027[36m:\027[m%d\027[36m:\027[m" shortfile l;
       let m = List.rev (List.filter (fun (l1,_,_) -> l = l1) matches) in
       let len = String.length txt in
       let offs =
