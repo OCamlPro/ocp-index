@@ -53,7 +53,7 @@ and kind = IndexTypes.kind = private
 module Misc: sig
   (** Helper function, useful to lookup all subdirs of a given path before
       calling [load] *)
-  val unique_subdirs: string list -> string list
+  val unique_subdirs: ?skip:(string -> bool) -> string list -> string list
 end
 
 

@@ -152,24 +152,24 @@ module Args = struct
   open Cmdliner
 
   let files_of_dir dirs =
+    let skip d = match d.[0] with
+      | '_' -> true
+      | '.' -> d <> Filename.current_dir_name &&
+               d <> Filename.parent_dir_name
+      | _ -> false
+    in
     List.fold_left (fun acc dir ->
-        let hidden_dir =
-          let base = Filename.basename dir in
-          let c = base.[0] in
-          (c = '.' || c = '_') &&
-          base <> Filename.current_dir_name &&
-          base <> Filename.parent_dir_name
-        in
-        if hidden_dir then acc else
         let files = Array.to_list (Sys.readdir dir) in
         List.map (Filename.concat dir)
           (List.filter (fun f ->
                (Filename.check_suffix f ".ml" ||
-                Filename.check_suffix f ".mli") &&
+                Filename.check_suffix f ".mli" ||
+                Filename.check_suffix f ".mll" ||
+                Filename.check_suffix f ".mly") &&
                let c = f.[0] in c <> '.' && c <> '#')
               files)
         @ acc)
-      [] (IndexMisc.unique_subdirs dirs)
+      [] (IndexMisc.unique_subdirs ~skip dirs)
 
   let pattern =
     let doc = "Fully qualified ident to search for \

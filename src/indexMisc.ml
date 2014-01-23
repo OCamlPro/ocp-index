@@ -75,10 +75,11 @@ let key_to_modpath l =
 
 let modpath_to_string path = String.concat "." path
 
-let unique_subdirs dir_list =
+let unique_subdirs ?(skip = fun _ -> false) dir_list =
   let rec subdirs acc path =
     Array.fold_left
       (fun acc p ->
+        if skip p then acc else
         let path = Filename.concat path p in
         if try Sys.is_directory path with Sys_error _ -> false
         then subdirs acc path else acc)

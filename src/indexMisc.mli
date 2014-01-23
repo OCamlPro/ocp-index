@@ -33,8 +33,9 @@ val key_to_modpath: key -> string list
 
 val modpath_to_string: string list -> string
 
-(** Returns the list of directories and all their recursive subdirectories *)
-val unique_subdirs: string list -> string list
+(** Returns the list of directories and all their recursive subdirectories.
+    If directory basename verifies [skip], it is not descended nor returned. *)
+val unique_subdirs: ?skip:(string -> bool) -> string list -> string list
 
 (** An heuristic to guess where the root directory of the current project.
     Returns (project_root, build_dir) *)
