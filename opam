@@ -10,6 +10,7 @@ build: [
 depends: [
   "ocp-build" {>= "1.99.4-beta"}
   "ocp-indent" {>= "1.4.1"}
+  "re"
   "cmdliner"
 ]
 depopts: ["curses"]
