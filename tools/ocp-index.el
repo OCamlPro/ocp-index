@@ -109,10 +109,14 @@
   (let* ((args (apply 'ocp-index-args cmd args))
          (shell-command (format "exec %s \"$@\"" ocp-index-path)))
     (with-output-to-string
-      (apply 'call-process-region (point-min) (point)
-             shell-file-name
-             nil (list standard-output nil) nil
-             (list* shell-command-switch shell-command ocp-index-path args)))))
+      (let ((ret
+             (apply 'call-process-region (point-min) (point)
+                    shell-file-name
+                    nil (list standard-output nil) nil
+                    (list* shell-command-switch shell-command
+                           ocp-index-path args))))
+        (when (= 127 ret)
+          (error "Could not find the Ocp-index program %S" ocp-index-path))))))
 
 (defun ac-ocp-index-candidates ()
   (let* ((output (ocp-index-run "complete" "--sexp" ac-prefix))
