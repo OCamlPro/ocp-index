@@ -332,9 +332,8 @@
     map))
 
 (defun ocp-index-setup-completion ()
-  (if ocp-index-use-auto-complete
-      (ocp-index-setup-auto-complete)
-    (ocp-index-setup-completion-at-point)))
+  (if ocp-index-use-auto-complete (ocp-index-setup-auto-complete))
+  (ocp-index-setup-completion-at-point))
 
 (define-minor-mode ocp-index-mode
   "OCaml auto-completion, documentation and source browsing using ocp-index"
