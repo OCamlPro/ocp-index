@@ -40,7 +40,10 @@
    the type is printed in the minibuffer)."
   :group 'ocp-index :type 'boolean)
 
-(defcustom ocp-index-use-auto-complete nil
+(defvar ocp-index-has-auto-complete
+  (require 'auto-complete nil t))
+
+(defcustom ocp-index-use-auto-complete ocp-index-has-auto-complete
   "*If set, use `auto-complete' instead of `completion-at-point' for completion."
   :group 'ocp-index :type 'boolean)
 
