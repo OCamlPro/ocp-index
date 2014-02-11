@@ -204,11 +204,14 @@
 
 (defun ocp-index-completion-format-entry (entry)
   "Format the completion entry ENTRY."
-  (cond ((string-equal (cdr (assoc :kind (cdr entry))) "val") (cdr (assoc :type (cdr entry))))
-        ((string-equal (cdr (assoc :kind (cdr entry))) "exception")
-         (format "exception%s"
-                 (replace-regexp-in-string "\n" " " (cdr (assoc :type (cdr entry))))))
-        (t (cdr (assoc :kind (cdr entry))))))
+  (lexical-let* ((type (cdr (assoc :type (cdr entry))))
+                 (kind (cdr (assoc :kind (cdr entry)))))
+    (cond ((string-equal kind "val") (replace-regexp-in-string "\n" " " type))
+          ((string-equal kind "exception")
+           (format "exception%s"
+                   (cond ((string-equal type "-") "")
+                         (t (concat " " (replace-regexp-in-string "\n" " " type))))))
+          (t kind))))
 
 (defun ocp-index-completion-at-point ()
   (lexical-let
