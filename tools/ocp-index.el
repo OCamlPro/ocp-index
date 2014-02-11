@@ -316,6 +316,10 @@
 (defun ocp-index-jump-to-sig-at-point-other-window ()
   (interactive nil) (ocp-index-jump 'ocp-index-jump-to-sig-at-point t t))
 
+(defun ocp-index-complete ()
+  (interactive)
+  (if ocp-index-use-auto-complete (auto-complete) (completion-at-point)))
+
 (defvar ocp-index-keymap
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-t") 'ocp-index-print-type-at-point)
@@ -324,7 +328,7 @@
     (define-key map (kbd "C-c C-;") 'ocp-index-jump-to-definition-at-point)
     (define-key map (kbd "C-c C-:") 'ocp-index-jump-to-sig-at-point)
     (define-key map (kbd "C-c /") 'ocp-index-grep)
-    (define-key map (kbd "C-c TAB") 'auto-complete)
+    (define-key map (kbd "C-c TAB") 'ocp-index-complete)
     map))
 
 (defun ocp-index-setup-completion ()
