@@ -44,7 +44,7 @@
   (require 'auto-complete nil t))
 
 (defcustom ocp-index-use-auto-complete ocp-index-has-auto-complete
-  "*If set, use `auto-complete' instead of `completion-at-point' for completion."
+  "*If set, use `auto-complete' for completion."
   :group 'ocp-index :type 'boolean)
 
 ;; auto-complete bug workaround (complete at EOF in text mode)
