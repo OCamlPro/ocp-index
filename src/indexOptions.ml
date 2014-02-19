@@ -61,22 +61,35 @@ let cmd_input_line cmd =
 
 let common_opts : t Term.t =
   let ocamllib : string list Term.t =
+    let no_stdlib : bool Term.t =
+      let doc = "Don't include the OCaml standard library directory \
+                 (`ocamlc -where`) in lookups." in
+      Arg.(value & flag & info ["no-stdlib"] ~doc);
+    in
+    let opamlib : bool option Term.t =
+      let doc = "nclude the OPAM library directory (`opam config var lib`) \
+                 in lookups. \
+                 Included by default unless '-I' is specified." in
+      Arg.(last & vflag_all [None]
+             [Some true, info ["opamlib"] ~doc:("I"^doc);
+              Some false, info ["no-opamlib"] ~doc:("Don't i"^doc)])
+    in
     let arg =
-      let doc = "OCaml directories to (recursively) load the libraries from, \
-                 in addition to OCaml's stdlib directory. \
-                 By default, will look for opam's main dir."
-      in
+      let doc = "OCaml directories to (recursively) load the libraries from." in
       Arg.(value & opt_all (list string) [] & info ["I"] ~docv:"DIRS" ~doc)
     in
-    let set_default = function
-      | _ :: _ as paths ->
-          (try [cmd_input_line "ocamlc -where"] with Failure _ -> []) @
-          List.flatten paths
-      | [] ->
-          (try [cmd_input_line "ocamlc -where"] with Failure _ -> []) @
-            (try [cmd_input_line "opam config var lib"] with Failure _ -> [])
+    let set_default no_stdlib opamlib includes =
+      let paths = List.flatten includes in
+      let paths =
+        if opamlib = Some true || opamlib = None && includes = [] then
+          try cmd_input_line "opam config var lib" :: paths
+          with Failure _ -> paths
+        else paths
+      in
+      if no_stdlib then paths else
+        try cmd_input_line "ocamlc -where" :: paths with Failure _ -> paths
     in
-    Term.(pure set_default $ arg)
+    Term.(pure set_default $ no_stdlib $ opamlib $ arg)
   in
   let color : bool Term.t =
     let arg =
@@ -183,7 +196,7 @@ let common_opts : t Term.t =
     Term.(pure default $ root $ build)
   in
   let context : (string option * int option * int option) option Term.t =
-    let doc = "Will analyse the context at given FILE[:LINE,COL] to \
+    let doc = "Will analyse the context at given FILE[:LINE[,COL]] to \
                give appropriate answers w.r.t open modules, etc. \
                You can specify just `:' to read from stdin" in
     let filepos_converter =
