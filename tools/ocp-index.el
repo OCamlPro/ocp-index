@@ -2,7 +2,6 @@
 ;; (https://github.com/auto-complete/auto-complete) and ocp-index
 
 (provide 'ocp-index)
-(require 'auto-complete)
 
 ;; Customize defs
 
@@ -39,6 +38,13 @@
 (defcustom ocp-index-show-help t
   "*If set, show the documentation bubble after completion (otherwise,
    the type is printed in the minibuffer)."
+  :group 'ocp-index :type 'boolean)
+
+(defvar ocp-index-has-auto-complete
+  (require 'auto-complete nil t))
+
+(defcustom ocp-index-use-auto-complete ocp-index-has-auto-complete
+  "*If set, use `auto-complete' for completion."
   :group 'ocp-index :type 'boolean)
 
 ;; auto-complete bug workaround (complete at EOF in text mode)
@@ -155,6 +161,87 @@
     (action . ac-ocp-index-action)
     ))
 
+(defun ocp-index-setup-auto-complete ()
+  (require 'auto-complete)
+  (auto-complete-mode t)
+  (setq ac-sources
+        (cons 'ac-source-ocp-index
+              ocp-index-extra-completion-sources))
+  (when ocp-index-override-auto-complete-defaults
+    (set (make-local-variable 'ac-auto-show-menu) t)
+    (set (make-local-variable 'ac-auto-start) nil)
+    (set (make-local-variable 'ac-delay) 0.0)
+    (set (make-local-variable 'ac-expand-on-auto-complete) nil)
+    (set (make-local-variable 'ac-ignore-case) nil)
+    (set (make-local-variable 'ac-quick-help-delay) 0.2)
+    (set (make-local-variable 'ac-trigger-commands) nil))
+  (when ocp-index-auto-complete-workaround
+    (ocp-index-enable-ac-workaround))
+  (add-to-list 'ac-modes 'tuareg-mode)
+  (add-to-list 'ac-modes 'caml-mode))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; completion-at-point support ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun ocp-index-completion-data (ident)
+  "Return the data for completion of IDENT, i.e. a list of pairs (NAME . TYPE)."
+  (let* ((output (ocp-index-run "complete" "--sexp" ident))
+         (data (car-safe (read-from-string output))))
+    (mapcar (lambda (entry)
+              (cons (car entry)
+                    (ocp-index-completion-format-entry entry)))
+            data)))
+
+(defun ocp-index-completion-lookup (string state)
+  "Lookup the entry STRING inside the completion table."
+  (let ((ret (assoc string ocp-index-completion-annotation-table)))
+    (if ret (message "%s%s" (car ret) (cdr ret)))))
+
+(defun ocp-index-completion-annotate (candidate)
+  "Retrieve the annotation for candidate CANDIDATE in `ocp-index-annotatation-table'."
+  (cdr (assoc candidate ocp-index-completion-annotation-table)))
+
+(defun ocp-index-completion-format-entry (entry)
+  "Format the completion entry ENTRY."
+  (lexical-let* ((type (cdr (assoc :type (cdr entry))))
+                 (kind (cdr (assoc :kind (cdr entry)))))
+    (cond ((string-equal kind "val") (replace-regexp-in-string "\n" " " type))
+          ((string-equal kind "exception")
+           (format "exception%s"
+                   (cond ((string-equal type "-") "")
+                         (t (concat " " (replace-regexp-in-string "\n" " " type))))))
+          (t kind))))
+
+(defun ocp-index-completion-at-point ()
+  (lexical-let
+      ((bounds (ocp-index-bounds-of-symbol-at-point)))
+    (when bounds
+      (lexical-let*
+          ((start (car bounds))
+           (end (point))
+           (string (buffer-substring start end)))
+        (let ((data (ocp-index-completion-data string)))
+          (setq ocp-index-completion-annotation-table
+                (mapcar (lambda (a) (cons (car a) (concat ": " (cdr a))))
+                    data))
+          (list start end 'ocp-index-completion-table .
+                (:exit-function 'ocp-index-completion-lookup
+                                :annotation-function 'ocp-index-completion-annotate)))))))
+
+(defun ocp-index-completion-table (string pred action)
+  "Implement completion for ocp-index using `completion-at-point' API."
+  (if (eq 'metadata action)
+      '(metadata ((annotation-function . ocp-index-completion-annotate)
+                  (exit-function . ocp-index-completion-lookup)))
+    (complete-with-action action ocp-index-completion-annotation-table string pred)))
+
+(defun ocp-index-setup-completion-at-point ()
+  (add-hook 'completion-at-point-functions
+            'ocp-index-completion-at-point nil 'local))
+  
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  
 (defun ocp-index-print-type (ident)
   "Display the type of an ocaml identifier in the mini-buffer using ocp-index"
   (interactive (let ((default (ocp-index-symbol-at-point)))
@@ -232,6 +319,10 @@
 (defun ocp-index-jump-to-sig-at-point-other-window ()
   (interactive nil) (ocp-index-jump 'ocp-index-jump-to-sig-at-point t t))
 
+(defun ocp-index-complete ()
+  (interactive)
+  (if ocp-index-use-auto-complete (auto-complete) (completion-at-point)))
+
 (defvar ocp-index-keymap
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-t") 'ocp-index-print-type-at-point)
@@ -240,24 +331,12 @@
     (define-key map (kbd "C-c C-;") 'ocp-index-jump-to-definition-at-point)
     (define-key map (kbd "C-c C-:") 'ocp-index-jump-to-sig-at-point)
     (define-key map (kbd "C-c /") 'ocp-index-grep)
-    (define-key map (kbd "C-c TAB") 'auto-complete)
+    (define-key map (kbd "C-c TAB") 'ocp-index-complete)
     map))
 
 (defun ocp-index-setup-completion ()
-  (auto-complete-mode t)
-  (setq ac-sources
-        (cons 'ac-source-ocp-index
-              ocp-index-extra-completion-sources))
-  (when ocp-index-override-auto-complete-defaults
-    (set (make-local-variable 'ac-auto-show-menu) t)
-    (set (make-local-variable 'ac-auto-start) nil)
-    (set (make-local-variable 'ac-delay) 0.0)
-    (set (make-local-variable 'ac-expand-on-auto-complete) nil)
-    (set (make-local-variable 'ac-ignore-case) nil)
-    (set (make-local-variable 'ac-quick-help-delay) 0.2)
-    (set (make-local-variable 'ac-trigger-commands) nil))
-  (when ocp-index-auto-complete-workaround
-    (ocp-index-enable-ac-workaround)))
+  (if ocp-index-use-auto-complete (ocp-index-setup-auto-complete))
+  (ocp-index-setup-completion-at-point))
 
 (define-minor-mode ocp-index-mode
   "OCaml auto-completion, documentation and source browsing using ocp-index"
@@ -265,11 +344,8 @@
   :keymap ocp-index-keymap
   (if ocp-index-mode
       (ocp-index-setup-completion)
-    (auto-complete-mode -1))
+    (when ocp-index-use-auto-complete (auto-complete-mode -1)))
   )
-
-(add-to-list 'ac-modes 'tuareg-mode)
-(add-to-list 'ac-modes 'caml-mode)
 
 (add-hook 'tuareg-mode-hook 'ocp-index-mode t)
 (add-hook 'caml-mode-hook 'ocp-index-mode t)
