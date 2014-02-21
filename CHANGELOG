@@ -1,3 +1,15 @@
+## 1.0.2
+* much more expressive command-line option "print" to access more known info
+* cleaner command-line include options
+* ocp-grep can now search in program strings (with -s "string" or -e "regex")
+* ocp-grep: display relative paths
+* more reliable printing of ident paths before/after opens
+* better project root lookup
+* emacs: more reliable process call
+* emacs: added `C-c /`, find-uses-of-indent-under-point
+* emacs: completion mode without auto-complete (contribution by Nicolas Ojeda Bar)
+* emacs: show bubble on completed ident for quicker doc access
+
 ## 1.0.1
 * add the ocp-grep tool, looking for uses of a given fully-qualified identifier in a source tree
 * better vim mode contributed by Anyakichi
