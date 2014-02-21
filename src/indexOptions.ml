@@ -66,30 +66,26 @@ let common_opts : t Term.t =
                  (`ocamlc -where`) in lookups." in
       Arg.(value & flag & info ["no-stdlib"] ~doc);
     in
-    let opamlib : bool option Term.t =
-      let doc = "nclude the OPAM library directory (`opam config var lib`) \
-                 in lookups. \
-                 Included by default unless '-I' is specified." in
-      Arg.(last & vflag_all [None]
-             [Some true, info ["opamlib"] ~doc:("I"^doc);
-              Some false, info ["no-opamlib"] ~doc:("Don't i"^doc)])
+    let no_opamlib : bool Term.t =
+      let doc = "Don't include the OPAM library directory (`opam config var lib`) \
+                 in lookups." in
+      Arg.(value & flag & info ["no-opamlib"] ~doc);
     in
     let arg =
       let doc = "OCaml directories to (recursively) load the libraries from." in
       Arg.(value & opt_all (list string) [] & info ["I"] ~docv:"DIRS" ~doc)
     in
-    let set_default no_stdlib opamlib includes =
+    let set_default no_stdlib no_opamlib includes =
       let paths = List.flatten includes in
       let paths =
-        if opamlib = Some true || opamlib = None && includes = [] then
+        if no_opamlib then paths else
           try cmd_input_line "opam config var lib" :: paths
           with Failure _ -> paths
-        else paths
       in
       if no_stdlib then paths else
         try cmd_input_line "ocamlc -where" :: paths with Failure _ -> paths
     in
-    Term.(pure set_default $ no_stdlib $ opamlib $ arg)
+    Term.(pure set_default $ no_stdlib $ no_opamlib $ arg)
   in
   let color : bool Term.t =
     let arg =
