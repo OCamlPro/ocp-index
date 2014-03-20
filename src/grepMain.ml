@@ -269,9 +269,10 @@ let grep_file finder color file =
     (if matches <> [] then
        let lines = lines_of_file ch (List.rev_map (fun (l,_,_) -> l) matches) in
        List.iter (print_line color file matches) lines);
-    close_in ch
+    close_in ch;
+    matches <> []
   with Sys_error _ as e ->
-    Printf.eprintf "%s: %s\n%!" file (Printexc.to_string e)
+    Printf.eprintf "%s: %s\n%!" file (Printexc.to_string e); false
 
 let grep pattern files color strings regexp =
   if strings || regexp then
@@ -279,10 +280,14 @@ let grep pattern files color strings regexp =
       Re_posix.compile
         (if regexp then Re_posix.re pattern else Re.str pattern)
     in
-    List.iter (grep_file (Grep.strings_re re) color) files
+    List.fold_left
+      (fun found f -> grep_file (Grep.strings_re re) color f || found)
+      false files
   else
     let path = IndexMisc.(key_to_modpath (string_to_key pattern)) in
-    List.iter (grep_file (Grep.ident path) color) files
+    List.fold_left
+      (fun found f -> grep_file (Grep.ident path) color f || found)
+      false files
 
 let () =
   let open Cmdliner in
@@ -290,17 +295,23 @@ let () =
              handling (local) opens, module, etc." in
   let man = [
     `S "BUGS";
-    `P "Current version won't handle shadowing and different kinds of idents, \
-        therefore you can get false positive when this happens";
+    `P "Current version doesn't handle shadowing and different kinds of idents, \
+        therefore you can get false positive if a type and a value have the \
+        name.";
+    `P "Field records don't currently respect the distributive `{Module.' \
+        syntax. Also, if you use record disambiguation, you're on your own \
+        for field names since this program doesn't know about typing.";
   ]
   in
   match
     Term.eval
       (Term.(pure grep
              $ Args.pattern $ Args.files $ Args.color $ Args.strings $ Args.regexp),
-       Term.info "ocp-grep" ~version:"0.1" ~doc ~man)
+       Term.info "ocp-grep" ~version:"1.0.3" ~doc ~man)
   with
-  | `Error _ -> exit 1
+  | `Ok true -> exit 0
+  | `Ok false -> exit 1
+  | `Error _ -> exit 2
   | _ -> exit 0
 
 (* idea: single utility to color parts of source with syntactic context:
