@@ -184,57 +184,61 @@
 ;; completion-at-point support ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun ocp-index-completion-data (ident)
-  "Return the data for completion of IDENT, i.e. a list of pairs (NAME . TYPE)."
-  (let* ((output (ocp-index-run "complete" "--sexp" ident))
+(defvar ocp-index-completion-data nil
+  "The completion data for the last completed prefix.")
+
+(defun ocp-index-completion-candidates (prefix)
+  "Return the data for completion of PREFIX."
+  (let* ((output (ocp-index-run "complete" "--sexp" prefix))
          (data (car-safe (read-from-string output))))
-    (mapcar (lambda (entry)
-              (cons (car entry)
-                    (ocp-index-completion-format-entry entry)))
-            data)))
+    (setq ocp-index-completion-data data)))
 
-(defun ocp-index-completion-lookup (string state)
-  "Lookup the entry STRING inside the completion table."
-  (let ((ret (assoc string ocp-index-completion-annotation-table)))
-    (if ret (message "%s%s" (car ret) (cdr ret)))))
+(defun ocp-index-completion-exit-function (candidate state)
+  "Print the type of CANDIDATE in the minibuffer."
+  (let ((ret (cdr (assoc :type (assoc candidate ocp-index-completion-data)))))
+    (if ret (message "%s: %s" candidate ret))))
 
-(defun ocp-index-completion-annotate (candidate)
-  "Retrieve the annotation for candidate CANDIDATE in `ocp-index-annotatation-table'."
-  (cdr (assoc candidate ocp-index-completion-annotation-table)))
+(defun ocp-index-completion-company-doc-buffer (candidate)
+  (let ((doc (cdr-safe (assoc :doc (cdr (assoc candidate ocp-index-completion-data))))))
+    (company-doc-buffer doc)))
+ 
+(defun ocp-index-completion-company-docsig (candidate)
+  (cdr-safe (assoc :type (cdr (assoc candidate ocp-index-completion-data)))))
 
-(defun ocp-index-completion-format-entry (entry)
-  "Format the completion entry ENTRY."
-  (lexical-let* ((type (cdr (assoc :type (cdr entry))))
-                 (kind (cdr (assoc :kind (cdr entry)))))
-    (cond ((string-equal kind "val") (replace-regexp-in-string "\n" " " type))
-          ((string-equal kind "exception")
-           (format "exception%s"
-                   (cond ((string-equal type "-") "")
-                         (t (concat " " (replace-regexp-in-string "\n" " " type))))))
-          (t kind))))
+(defun ocp-index-completion-annotation-function (candidate)
+  (concat " " (cdr (assoc :kind (cdr (assoc candidate ocp-index-completion-data))))))
+
+(defun ocp-index-completion-company-location (candidate)
+  "Return the location of the definition of CANDIDATE as (FILE . LINE)."
+  (let* ((output (ocp-index-run "locate" candidate))
+         (loc (car (split-string output "\n" t))))
+    (when (and loc (string-match "^\\([^:]*\\):\\([0-9]\+\\):\\([0-9]\+\\)$" loc))
+      (let ((file (match-string 1 loc))
+            (line (string-to-number (match-string 2 loc))))
+        (cons file line)))))
+
+(defun ocp-index-completion-table (fun)
+  (if (fboundp 'completion-table-with-cache)
+      (completion-table-with-cache fun)
+    (completion-table-dynamic fun)))
 
 (defun ocp-index-completion-at-point ()
-  (lexical-let
-      ((bounds (ocp-index-bounds-of-symbol-at-point)))
-    (when bounds
-      (lexical-let*
-          ((start (car bounds))
-           (end (point))
-           (string (buffer-substring start end)))
-        (let ((data (ocp-index-completion-data string)))
-          (setq ocp-index-completion-annotation-table
-                (mapcar (lambda (a) (cons (car a) (concat ": " (cdr a))))
-                    data))
-          (list start end 'ocp-index-completion-table .
-                (:exit-function 'ocp-index-completion-lookup
-                                :annotation-function 'ocp-index-completion-annotate)))))))
+  "Function used for `completion-at-point-functions' in `tuareg-mode' or `caml-mode'.
 
-(defun ocp-index-completion-table (string pred action)
-  "Implement completion for ocp-index using `completion-at-point' API."
-  (if (eq 'metadata action)
-      '(metadata ((annotation-function . ocp-index-completion-annotate)
-                  (exit-function . ocp-index-completion-lookup)))
-    (complete-with-action action ocp-index-completion-annotation-table string pred)))
+If `company-mode' has `company-capf' backend enabled (this is the
+default in Emacs 24.4) then `company-mode' will automatically use
+this function to present completions to the user."
+  (let ((bounds (ocp-index-bounds-of-symbol-at-point)))
+    (when bounds
+      (let* ((start (car bounds))
+             (end (point))
+             (prefix (buffer-substring start end)))
+        (list start end (ocp-index-completion-table 'ocp-index-completion-candidates)
+              :exit-function 'ocp-index-completion-exit-function
+              :annotation-function 'ocp-index-completion-annotation-function
+              :company-doc-buffer 'ocp-index-completion-company-doc-buffer
+              :company-location 'ocp-index-completion-company-location
+              :company-docsig 'ocp-index-completion-company-docsig)))))
 
 (defun ocp-index-setup-completion-at-point ()
   (add-hook 'completion-at-point-functions
