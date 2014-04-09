@@ -31,7 +31,12 @@ let complete_cmd =
     let doc = "Output the result as a s-expression." in
     Arg.(value & flag & info ["sexp"] ~doc)
   in
-  let print_compl opts sexpr query =
+  let format: string option Term.t =
+    let doc = "Specify the output format. See section FORMAT STRINGS." in
+    Arg.(value & opt (some string) None &
+         info ["f";"format"] ~doc ~docv:"FORMAT")
+  in
+  let print_compl opts sexpr format query =
     let fmt = Format.std_formatter in
     let results =
       LibIndex.complete
@@ -40,6 +45,8 @@ let complete_cmd =
         query
     in
     if sexpr then (
+      if format <> None then
+        raise (Invalid_argument "options --format and --sexp are incompatible");
       Format.pp_print_string fmt "(\n";
       List.iter (fun info ->
           let (!) f x = f ?colorise:None x in
@@ -56,18 +63,24 @@ let complete_cmd =
         results;
       Format.pp_print_string fmt ")\n"
     ) else
+      let colorise =
+        if opts.IndexOptions.color then LibIndex.Format.color
+        else LibIndex.Format.no_color
+      in
+      let print = match format with
+        | None -> LibIndex.Format.info ~colorise
+        | Some fstring ->
+            LibIndex.Format.format ?root:opts.IndexOptions.project_root
+              fstring ~colorise
+      in
       List.iter (fun info ->
-          LibIndex.Format.info
-            ~colorise:(if opts.IndexOptions.color
-                       then LibIndex.Format.color
-                       else LibIndex.Format.no_color)
-            fmt info;
+          print fmt info;
           Format.pp_print_newline fmt ())
         results;
     Format.pp_print_flush fmt ()
   in
   let doc = "Print completions to stdout." in
-  Term.(pure print_compl $ IndexOptions.common_opts $ sexpr $ t),
+  Term.(pure print_compl $ IndexOptions.common_opts $ sexpr $ format $ t),
   Term.info "complete" ~doc
 
 let type_cmd =
