@@ -227,7 +227,7 @@ let common_opts : t Term.t =
            (opt Format.pp_print_int) col)
     in
     Arg.(value & opt (some filepos_converter) None
-         & info ["context"] ~docv:"FILE" ~doc)
+         & info ["context"] ~docv:"FILEPOS" ~doc)
   in
   let lib_info ocamllib (_root,build) (opens,full_opens) context =
     let dirs = match build with
