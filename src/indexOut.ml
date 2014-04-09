@@ -217,6 +217,7 @@ module IndexFormat = struct
       if j < String.length format - 1 then
         let () = match format.[j+1] with
           | 'n' -> name ?colorise fmt id
+          | 'q' -> path ~short:true ?colorise fmt id
           | 'p' -> path ?colorise fmt id
           | 'k' -> kind ?colorise fmt id
           | 't' -> ty   ?colorise fmt id

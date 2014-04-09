@@ -126,10 +126,11 @@ let print_cmd =
   in
   let format =
     let doc = "Format of the output. This string will be printed for each \
-               match with the substrings %n, %p, %k, %t, %d, %l, %s, %f, %i \
-               interpreted respectively as name, fully qualified path, kind, \
-               type, documentation, location, signature location, file where \
-               the definition was found, and information summary."
+               match with the substrings \
+               %n, %q, %p, %k, %t, %d, %l, %s, %f, %i \
+               interpreted respectively as name, qualified name, full path, \
+               kind, type, documentation, location, signature location, \
+               file where the definition was found, and information summary."
     in
     Arg.(value & pos 1 string "%i" & info [] ~doc ~docv:"FORMAT")
   in
