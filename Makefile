@@ -58,7 +58,7 @@ distclean:
 
 .PHONY: uninstall
 uninstall:
-	opam-installer remove ocp-index.install
+	opam-installer -u --prefix $(prefix) ocp-index.install
 
 configure: configure.ac
 	aclocal -I m4
