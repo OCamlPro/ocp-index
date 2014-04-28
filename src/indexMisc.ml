@@ -158,10 +158,11 @@ let project_root ?(path=Sys.getcwd()) () =
     else path
   in
   let rec find path =
-    match find_build_dir path with
+    if path = home then None
+    else match find_build_dir path with
     | None ->
         let parent = Filename.dirname path in
-        if path = parent || path = home then None
+        if path = parent then None
         else find parent
     | Some build -> Some (path, build)
   in
