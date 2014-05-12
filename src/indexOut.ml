@@ -57,7 +57,7 @@ module IndexFormat = struct
   let color =
     let f kind fstr fmt =
       let colorcode = match kind with
-        | Type -> "\027[36m"
+        | Type | OpenType -> "\027[36m"
         | Value -> "\027[1m"
         | Exception -> "\027[33m"
         | Field _ | Variant _ -> "\027[34m"
@@ -88,6 +88,7 @@ module IndexFormat = struct
     | Type -> Format.pp_print_string fmt "type"
     | Value -> Format.pp_print_string fmt "val"
     | Exception -> Format.pp_print_string fmt "exception"
+    | OpenType -> Format.pp_print_string fmt "opentype"
     | Field parentty ->
         Format.fprintf fmt "field(%a)"
           (colorise.f parentty.kind "%s") parentty.name
@@ -159,20 +160,20 @@ module IndexFormat = struct
     | Osig_class (_,_,_,ctyp,_)
     | Osig_class_type (_,_,_,ctyp,_) ->
         !Oprint.out_class_type fmt ctyp
-    | Osig_exception (_,[]) ->
+    | Osig_typext ({ oext_args = [] }, _) ->
         Format.pp_print_char fmt '-'
-    | Osig_exception (_,tylst) ->
+    | Osig_typext ({ oext_args }, _) ->
         list ~paren:true
           !Oprint.out_type
           (fun fmt () ->
             Format.pp_print_char fmt ','; Format.pp_print_space fmt ())
           fmt
-          tylst
+          oext_args
     | Osig_modtype (_,mtyp)
     | Osig_module (_,mtyp,_) ->
         !Oprint.out_module_type fmt mtyp
-    | Osig_type ((_,_,ty,_,_),_) ->
-        tydecl fmt ty
+    | Osig_type ({ otype_type },_) ->
+        tydecl fmt otype_type
     | Osig_value (_,ty,_) ->
         !Oprint.out_type fmt ty
 
