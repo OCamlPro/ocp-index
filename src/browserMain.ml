@@ -186,7 +186,7 @@ let interactive opts () =
           LibIndex.Format.no_color
         else
           let attr = function
-            | LibIndex.Type -> Curses.WA.color_pair 6
+            | LibIndex.Type | LibIndex.OpenType -> Curses.WA.color_pair 6
             | LibIndex.Value -> Curses.WA.bold
             | LibIndex.Exception -> Curses.WA.color_pair 3
             | LibIndex.Field _ | LibIndex.Variant _ -> Curses.WA.color_pair 4
