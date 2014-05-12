@@ -85,7 +85,7 @@ let modpath_to_string path = String.concat "." path
 let parent_type id =
   match id.IndexTypes.kind with
   | Field parent | Variant parent | Method parent -> Some parent
-  | Type | Value | Exception | Module | ModuleType | Class
+  | Type | Value | Exception | OpenType | Module | ModuleType | Class
   | ClassType | Keyword -> None
 
 
