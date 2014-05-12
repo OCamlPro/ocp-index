@@ -24,8 +24,11 @@ let mktype name ?(params=[]) ?(def=Otyp_abstract) doc = {
   kind = Type;
   name = name;
   ty = Some (Osig_type (
-      (name,List.map (fun v -> v,(true,true)) params,def,Asttypes.Public,[]),
-      Orec_not));
+      { otype_name    = name;
+        otype_params  = List.map (fun v -> v,(true,true)) params;
+        otype_type    = def;
+        otype_private = Asttypes.Public;
+        otype_cstrs   = [] }, Orec_not));
   loc_sig = Lazy.from_val Location.none;
   loc_impl = Lazy.from_val Location.none;
   doc = Lazy.from_val (Some doc);
@@ -37,11 +40,13 @@ let mkvariant name parent params = {
   orig_path = [];
   kind = Variant parent;
   name = name;
-  ty = Some (Osig_type (("", [],
-                         (match params with [] -> Otyp_sum []
-                                          | l -> Otyp_tuple l),
-                         Asttypes.Public, []),
-                        Outcometree.Orec_not));
+  ty = Some (Osig_type (
+      { otype_name    = "";
+        otype_params  = [];
+        otype_type    = (match params with [] -> Otyp_sum []
+                                         | l  -> Otyp_tuple l);
+        otype_private = Asttypes.Public;
+        otype_cstrs   = [] }, Orec_not));
   loc_sig = Lazy.from_val Location.none;
   loc_impl = Lazy.from_val Location.none;
   doc = Lazy.from_val None;
@@ -53,7 +58,13 @@ let mkexn name params doc = {
   orig_path = [];
   kind = Exception;
   name = name;
-  ty = Some (Osig_exception (name,params));
+  ty = Some (Osig_typext ({
+        oext_name        = name;
+        oext_type_name   = "exn";
+        oext_type_params = [];
+        oext_args        = params;
+        oext_ret_type    = None;
+        oext_private     = Asttypes.Public }, Oext_exception));
   loc_sig = Lazy.from_val Location.none;
   loc_impl = Lazy.from_val Location.none;
   doc = Lazy.from_val (Some doc);
