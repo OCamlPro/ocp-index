@@ -14,7 +14,7 @@ let format_answer colorise fmt buf id =
   print "@[<hv 4>" ;
   LibIndex.Format.kind ~colorise fmt id;
   print " ";
-  LibIndex.Format.path ~colorise fmt id;
+  LibIndex.Format.path ~short:true ~colorise fmt id;
   begin match id with
     | { LibIndex.ty = None }
     | { LibIndex.kind = LibIndex.Module | LibIndex.ModuleType |
@@ -65,12 +65,6 @@ let () =
   let open LTerm_read_line in
   let open LTerm_key in
   let edit x = Edit (LTerm_edit.Zed x) in
-  unbind_all [
-    { control = false; meta = false; shift = false; code = Enter } ;
-    { control = true; meta = false; shift = false; code = Enter } ;
-    { control = false; meta = true; shift = false; code = Enter } ;
-    { control = false; meta = false; shift = false; code = Escape } ;
-  ] ;
   bind [{ control = false; meta = false; shift = false; code = Right }]    [edit Next_char];
   bind [{ control = false; meta = false; shift = false; code = Left }]     [edit Prev_char];
   bind [{ control = false; meta = true; shift = false; code = Right }]     [edit Next_word];
@@ -79,6 +73,8 @@ let () =
 
   bind [{ control = false; meta = false; shift = false; code = Up }]   [Complete_bar_prev];
   bind [{ control = false; meta = false; shift = false; code = Down }] [Complete_bar_next];
+
+  bind [{ control = false; meta = false; shift = false; code = Enter }] [Complete_bar];
   ()
 
 
@@ -150,6 +146,10 @@ object(self)
              false)
 
   method key_press = key_press
+
+  method! send_action = function
+    | Edit (Zed Newline) -> ()
+    | action -> super#send_action action
 
   val mutable shift = 0
   val mutable start = 0
@@ -308,13 +308,13 @@ end
 
 
 
-class completion_box options =
+class completion_box options wakener =
 
   let (completion_info : LibIndex.info list React.event), set_completion_info
     = E.create () in
 
   object (self)
-    inherit line_editor
+    inherit line_editor as super
 
     val size_request = { LTerm_geom. rows = 1; cols = 1 }
     method! size_request = size_request
@@ -338,13 +338,20 @@ class completion_box options =
         List.map
           (fun x ->
              let dot = if is_module x then "." else "" in
-             LibIndex.Format.path Format.str_formatter x ;
+             LibIndex.Format.path ~short:true Format.str_formatter x ;
              (Format.flush_str_formatter (), dot) )
           response
       in
       self#set_completion 0 completions
 
     method completion_info = completion_info
+
+
+    method! send_action = function
+      (* Exit the app on Break and Interrupt *)
+      | action ->
+          try super#send_action action
+          with Sys.Break | LTerm_read_line.Interrupt -> wakeup wakener ()
 
 end
 
@@ -361,21 +368,6 @@ class show_box = object (self)
 end
 
 (** Events *)
-
-let handle_key options wake =
-  let open LTerm_key in function
-    | { code = Escape } -> wakeup wake () ; true
-    | { control = true ; meta = false; shift = false ; code = LTerm_key.Char ch }
-      when ch = UChar.of_char 'c'->
-        wakeup wake () ; true
-    | _ -> false
-
-
-let handle_event options wake = function
-  | LTerm_event.Key key ->
-      handle_key options wake key
-  | _ -> false
-
 
 let completion_event options =
   let color = colorise options in
@@ -398,17 +390,14 @@ let completion_event options =
 let main options =
   let waiter, wakener = wait () in
 
-
   let root = new LTerm_widget.vbox in
   let comp = new frame in
-  let completion_box = new completion_box options in
+  let completion_box = new completion_box options wakener in
   comp#set completion_box ;
   root#add ~expand:false comp ;
 
   let show_box = new show_box in
   root#add show_box ;
-
-  root#on_event (handle_event options wakener) ;
 
   (* Express the result as an event mapped on the content of the completion box. *)
   E.(keep (map (completion_event options show_box) completion_box#completion_info)) ;
