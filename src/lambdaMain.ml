@@ -112,8 +112,6 @@ let sprint_answer cols colorise id =
 
 module Bindings = Zed_input.Make (LTerm_key)
 
-let unbind_all seq = LTerm_edit.unbind seq ; LTerm_read_line.unbind seq
-
 let () =
   let open LTerm_read_line in
   let open LTerm_key in
@@ -130,6 +128,9 @@ let () =
   bind [{ control = false; meta = false; shift = false; code = Enter }] [Complete_bar];
   ()
 
+
+(** Line editor *)
+(* Delicate mix between LTerm_read_line.engine and LTerm_edit.edit *)
 
 let regexp_word =
   let set = UCharInfo.load_property_set `Alphabetic in
