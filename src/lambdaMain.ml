@@ -5,10 +5,83 @@ open CamomileLibraryDyn.Camomile
 
 exception Exit
 
-let colorise opts =
-  LibIndex.Format.no_color
+(** This is absolutely horrible, but I don't know how to do better *)
+(* Provide an association LibIndex.kind -> string -> style
+   In order to encode styles in [Format.tag]. *)
+let get_attr, attr_tbl =
+  let bold = LTerm_style.({ none with bold = Some true}) in
+  let colindex i = LTerm_style.({ none with foreground = Some (index i)}) in
+  let h = Hashtbl.create 11 in
+  let attr = function
+    | LibIndex.Type -> "Type"
+    | Value -> "Value"
+    | Exception -> "Exception"
+    | Field _  -> "Field"
+    | Variant _ -> "Variant"
+    | Method _ -> "Method"
+    | Module -> "Module"
+    | ModuleType -> "ModuleType"
+    | Class -> "Class"
+    | ClassType -> "ClassType"
+    | Keyword -> "Keyword"
+  in
+  Hashtbl.add h "Type"       @@ colindex 6 ;
+  Hashtbl.add h "Value"      @@ bold ;
+  Hashtbl.add h "Exception"  @@ colindex 3 ;
+  Hashtbl.add h "Field"      @@ colindex 4 ;
+  Hashtbl.add h "Variant"    @@ colindex 4 ;
+  Hashtbl.add h "Method"     @@ bold ;
+  Hashtbl.add h "Module"     @@ colindex 1 ;
+  Hashtbl.add h "ModuleType" @@ colindex 1 ;
+  Hashtbl.add h "Class"      @@ colindex 5 ;
+  Hashtbl.add h "ClassType"  @@ colindex 5 ;
+  Hashtbl.add h "Keyword"    @@ colindex 7 ;
+  attr, h
 
-let format_answer colorise fmt buf id =
+(** Create a custom styled text formater. *)
+let make_fmt () =
+  let style = ref LTerm_style.none in
+  let content = ref [||] in
+  let get_content () = !content in
+
+  let put s pos len =
+    let s = String.sub s pos len in
+    content := Array.append !content (LTerm_text.stylise s !style)
+  in
+  let flush () = () in
+  let fmt = Format.make_formatter put flush in
+
+  Format.pp_set_tags fmt true;
+  Format.pp_set_formatter_tag_functions fmt {
+    Format.
+    mark_open_tag =
+      (fun a -> style := Hashtbl.find attr_tbl a ; "");
+    mark_close_tag =
+      (fun _ -> style := LTerm_style.none; "");
+    print_open_tag = (fun _ -> ());
+    print_close_tag = (fun _ -> ());
+  } ;
+
+  get_content, fmt
+
+
+let colorise opts =
+  if not opts.IndexOptions.color then
+    LibIndex.Format.no_color
+  else
+    let f kind fstr fmt =
+      let tag = get_attr kind in
+      Format.pp_open_tag fmt tag;
+      Format.kfprintf
+        (fun fmt ->
+           Format.pp_close_tag fmt ())
+        fmt fstr
+    in { LibIndex.Format.f }
+
+(** Format the complete answer and return a styled text. *)
+let sprint_answer cols colorise id =
+  let get_content, fmt = make_fmt () in
+  Format.pp_set_margin fmt cols ;
   let print = Format.fprintf fmt in
 
   print "@[<hv 4>" ;
@@ -32,28 +105,8 @@ let format_answer colorise fmt buf id =
   end ;
   print "@]" ;
   Format.pp_print_flush fmt () ;
-  let s = Buffer.contents buf in
-  Buffer.clear buf ;
-  s
+  get_content ()
 
-let update_margin pp cols =
-  if Format.pp_get_margin pp () <> cols then
-    Format.pp_set_margin pp cols
-
-(** Widgets ! *)
-
-class label s = object (self)
-  inherit LTerm_widget.label s
-
-  val mutable style = LTerm_style.none
-  method! update_resources =
-    style <- LTerm_resources.get_style self#resource_class self#resources
-
-  method! draw ctx focused =
-    LTerm_draw.fill_style ctx style;
-    LTerm_draw.draw_string_aligned ctx 0 LTerm_geom.H_align_left self#text
-
-end
 
 (** Key Bindings *)
 
@@ -353,13 +406,54 @@ class completion_box options wakener =
           try super#send_action action
           with Sys.Break | LTerm_read_line.Interrupt -> wakeup wakener ()
 
+  end
+
+let text_size (str : LTerm_text.t) =
+  let rec loop ofs rows cols max_cols =
+    if ofs = Array.length str then
+      {LTerm_geom. rows; cols = max cols max_cols }
+    else
+      let chr = str.(ofs) in
+      let ofs = ofs + 1 in
+      if fst chr = newline then
+        if ofs = Array.length str then
+          {LTerm_geom. rows; cols = max cols max_cols }
+        else
+          loop ofs (rows + 1) 0 (max cols max_cols)
+      else
+        loop ofs rows (cols + 1) max_cols
+  in
+  loop 0 1 0 0
+
+
+
+(** Widgets ! *)
+
+(** Like label, for styled text *)
+(* should be contributed to lambda-term *)
+class styled_label initial_text = object(self)
+  inherit t "stylized_label"
+  val mutable text = initial_text
+
+  val mutable size_request = text_size initial_text
+  method size_request = size_request
+
+  method text = text
+  method set_text t =
+    text <- t;
+    size_request <- text_size t;
+    self#queue_draw
+
+  method draw ctx focused =
+    let {LTerm_geom. rows } = LTerm_draw.size ctx in
+    LTerm_draw.draw_styled ctx 0 0 text
 end
 
 class show_box = object (self)
   inherit LTerm_widget.vbox
 
   method add_label s =
-    let l = new label s in
+    let l = new styled_label s in
     self#add ~expand:false l
 
   method clean =
@@ -371,18 +465,15 @@ end
 
 let completion_event options =
   let color = colorise options in
-  let buf = Buffer.create 1024 in
-  let fmt = Format.formatter_of_buffer buf in
   fun showbox comp_list ->
-    let cols = LTerm_geom.((size_of_rect showbox#allocation).cols) in
-    update_margin fmt (cols - 1) ;
+    let {LTerm_geom. cols } = LTerm_geom.(size_of_rect showbox#allocation) in
     showbox#clean ;
     List.iter
       (fun id ->
-         let s = format_answer color fmt buf id in
+         let s = sprint_answer cols color id in
          showbox#add_label s)
       comp_list ;
-    showbox#add_label ""
+    showbox#add_label [||]
 
 (** boilerplate *)
 
