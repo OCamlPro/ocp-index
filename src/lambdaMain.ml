@@ -434,10 +434,15 @@ let text_size (str : LTerm_text.t) =
 (* should be contributed to lambda-term *)
 class styled_label initial_text = object(self)
   inherit t "stylized_label"
+  val mutable mark = false
   val mutable text = initial_text
 
   val mutable size_request = text_size initial_text
   method size_request = size_request
+
+  method set_mark b =
+    mark <- b ;
+    self#queue_draw
 
   method text = text
   method set_text t =
@@ -446,15 +451,18 @@ class styled_label initial_text = object(self)
     self#queue_draw
 
   method draw ctx focused =
-    let {LTerm_geom. rows } = LTerm_draw.size ctx in
-    LTerm_draw.draw_styled ctx 0 0 text
+    let {LTerm_geom. cols } = LTerm_draw.size ctx in
+    LTerm_draw.draw_styled ctx 0 2 text ;
+    if mark then LTerm_draw.draw_char ctx 0 0 @@ CamomileLibrary.UChar.of_char '>' ;
+
 end
 
 class show_box = object (self)
   inherit LTerm_widget.vbox
 
-  method add_label s =
+  method add_label ?(marked=false) s =
     let l = new styled_label s in
+    l#set_mark marked ;
     self#add ~expand:false l
 
   method clean =
@@ -464,17 +472,31 @@ end
 
 (** Events *)
 
+let filter_completion_list i l =
+  let rec drop n k = function
+    | _ :: l when n > 0 -> drop (n-1) (k-1) l
+    | l -> l, k
+  in
+  let rec eq l1 l2 = match l1, l2 with
+    | [], [] -> true
+    | [] , _::_  | _::_ , [] -> false
+    | h1 :: t1 , h2 :: t2 ->
+        h1.LibIndex.path = h2.LibIndex.path && eq t1 t2
+  in
+  let l_signal = S.hold ~eq [] l in
+  S.l2 ~eq:(fun (l, i) (l', i') -> i = i' && eq l l') (fun i -> drop (i - 1) i) i l_signal
+
 let completion_event options =
   let color = colorise options in
-  fun showbox comp_list ->
+  fun (showbox : #show_box) (comp_list  , mark) ->
     let {LTerm_geom. cols } = LTerm_geom.(size_of_rect showbox#allocation) in
     showbox#clean ;
-    List.iter
-      (fun id ->
+    List.iteri
+      (fun i id ->
          let s = sprint_answer cols color id in
-         showbox#add_label s)
-      comp_list ;
-    showbox#add_label [||]
+         showbox#add_label ~marked:(i = mark) s
+      )
+      comp_list
 
 (** boilerplate *)
 
@@ -484,15 +506,17 @@ let main options =
 
   let root = new LTerm_widget.vbox in
   let comp = new frame in
-  let completion_box = new completion_box options wakener in
-  comp#set completion_box ;
+  let input = new completion_box options wakener in
+  comp#set input ;
   root#add ~expand:false comp ;
 
   let show_box = new show_box in
   root#add show_box ;
 
   (* Express the result as an event mapped on the content of the completion box. *)
-  E.(keep (map (completion_event options show_box) completion_box#completion_info)) ;
+  let completion_list = filter_completion_list input#completion_index input#completion_info in
+  let show_completion = completion_event options show_box in
+  S.(keep @@ map show_completion completion_list) ;
 
   Lazy.force LTerm.stdout >>=
   fun term -> LTerm_widget.run term root waiter
