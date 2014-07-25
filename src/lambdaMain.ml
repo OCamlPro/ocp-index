@@ -409,97 +409,75 @@ class completion_box options wakener =
 
   end
 
-let text_size (str : LTerm_text.t) =
-  let rec loop ofs rows cols max_cols =
-    if ofs = Array.length str then
-      {LTerm_geom. rows; cols = max cols max_cols }
-    else
-      let chr = str.(ofs) in
-      let ofs = ofs + 1 in
-      if fst chr = newline then
-        if ofs = Array.length str then
-          {LTerm_geom. rows; cols = max cols max_cols }
-        else
-          loop ofs (rows + 1) 0 (max cols max_cols)
-      else
-        loop ofs rows (cols + 1) max_cols
-  in
-  loop 0 1 0 0
-
-
+let height (str : LTerm_text.t) =
+  let last = Array.length str - 1 in
+  let count = ref 0 in
+  for i = 0 to last do
+    if fst str.(i) = newline then incr count
+  done ;
+  (* Don't count a potential last newline twice *)
+  if fst str.(last) <> newline then incr count ;
+  !count
 
 (** Widgets ! *)
 
-(** Like label, for styled text *)
-(* should be contributed to lambda-term *)
-class styled_label initial_text = object(self)
-  inherit t "stylized_label"
-  val mutable mark = false
-  val mutable text = initial_text
+class show_box color = object (self)
+  inherit LTerm_widget.t "show_box"
 
-  val mutable size_request = text_size initial_text
-  method size_request = size_request
+  val mutable content = []
+  val mutable index = 0
 
-  method set_mark b =
-    mark <- b ;
+  method content = content
+  method index = index
+
+  method set_content new_content new_index =
+    content <- new_content ;
+    index <- new_index ;
     self#queue_draw
 
-  method text = text
-  method set_text t =
-    text <- t;
-    size_request <- text_size t;
-    self#queue_draw
-
-  method draw ctx focused =
-    let {LTerm_geom. cols } = LTerm_draw.size ctx in
-    LTerm_draw.draw_styled ctx 0 2 text ;
-    if mark then LTerm_draw.draw_char ctx 0 0 @@ CamomileLibrary.UChar.of_char '>' ;
+  method! draw ctx _focused =
+    let k = ref 0 in
+    List.iteri (fun i info ->
+        let open LTerm_geom in
+        let text = sprint_answer ((size_of_rect self#allocation).cols - 2) color info in
+        let text_height = height text in
+        LTerm_draw.draw_styled ctx !k 2 text ;
+        if i = index then LTerm_draw.draw_char ctx !k 0 @@ CamomileLibrary.UChar.of_char '>' ;
+        k := !k + text_height
+      )
+      content
 
 end
 
-class show_box = object (self)
-  inherit LTerm_widget.vbox
 
-  method add_label ?(marked=false) s =
-    let l = new styled_label s in
-    l#set_mark marked ;
-    self#add ~expand:false l
-
-  method clean =
-    List.iter self#remove self#children
-
-end
-
-(** Events *)
-
-let filter_completion_list i l =
+(** Express the result as an event mapped on the content of the completion box. *)
+let show_completion show_box input =
   let rec drop n k = function
     | _ :: l when n > 0 -> drop (n-1) (k-1) l
     | l -> l, k
   in
+
+  (* For now, we select the line starting from index - 1,
+     we could do something more clever. *)
+  let select i l = drop (i - 1) i l in
+
+  (* LibIndex.info contains lazy values, we need a specialized equality. *)
   let rec eq l1 l2 = match l1, l2 with
     | [], [] -> true
     | [] , _::_  | _::_ , [] -> false
-    | h1 :: t1 , h2 :: t2 ->
-        h1.LibIndex.path = h2.LibIndex.path && eq t1 t2
+    | {LibIndex. path = path1 ; name = name1 } :: t1 ,
+      {LibIndex. path = path2 ; name = name2 } :: t2 ->
+        path1 = path2 && name1 = name2 && eq t1 t2
   in
-  let l_signal = S.hold ~eq [] l in
-  S.l2 ~eq:(fun (l, i) (l', i') -> i = i' && eq l l') (fun i -> drop (i - 1) i) i l_signal
+  let eq_pair (l, i) (l', i') = i = i' && eq l l' in
 
-let completion_event options =
-  let color = colorise options in
-  fun (showbox : #show_box) (comp_list  , mark) ->
-    let {LTerm_geom. cols } = LTerm_geom.(size_of_rect showbox#allocation) in
-    showbox#clean ;
-    List.iteri
-      (fun i id ->
-         let s = sprint_answer cols color id in
-         showbox#add_label ~marked:(i = mark) s
-      )
-      comp_list
+  input#completion_info
+  |> S.hold ~eq []
+  |> S.l2 ~eq:eq_pair select input#completion_index
+  |> S.map (fun (l, index) -> show_box#set_content l index)
 
-(** boilerplate *)
 
+(** Boilerplate *)
 
 let main options =
   let waiter, wakener = wait () in
@@ -510,13 +488,10 @@ let main options =
   comp#set input ;
   root#add ~expand:false comp ;
 
-  let show_box = new show_box in
+  let show_box = new show_box (colorise options) in
   root#add show_box ;
 
-  (* Express the result as an event mapped on the content of the completion box. *)
-  let completion_list = filter_completion_list input#completion_index input#completion_info in
-  let show_completion = completion_event options show_box in
-  S.(keep @@ map show_completion completion_list) ;
+  S.keep @@ show_completion show_box input ;
 
   Lazy.force LTerm.stdout >>=
   fun term -> LTerm_widget.run term root waiter
