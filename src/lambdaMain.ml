@@ -457,6 +457,69 @@ class show_box color = object (self)
 
 end
 
+(** markup styling using styles *)
+(* Should go in lambda-term *)
+
+let begin_style ?(cont=[]) style =
+  let open LTerm_text in
+  let (@+) (x, f) l = match x with
+    | Some v -> f v :: l
+    | None -> l
+  in
+  let {LTerm_style. bold ; underline ; blink ; reverse ; foreground ; background } = style in
+  (bold, fun x -> B_bold x) @+ (underline, fun x -> B_underline x) @+
+  (blink, fun x -> B_blink x) @+ (reverse, fun x -> B_reverse x) @+
+  (foreground, fun x -> B_fg x) @+ (background, fun x -> B_bg x) @+
+  cont
+
+let end_style ?(cont=[]) style =
+  let open LTerm_text in
+  let (@+) (x, t) l = match x with
+    | Some v -> t :: l
+    | None -> l
+  in
+  let {LTerm_style. bold ; underline ; blink ; reverse ; foreground ; background } = style in
+  (bold, E_bold) @+ (underline, E_underline) @+
+  (blink, E_blink) @+ (reverse, E_reverse) @+
+  (foreground, E_fg) @+ (background, E_bg) @+
+  cont
+
+let enclose_style ?(cont=[]) style markup =
+  let end_ = end_style ~cont style in
+  let begin_ = begin_style ~cont:(markup @ end_) style in
+  begin_
+
+(** Create a styled text with the various kinds. *)
+let kinds_to_string options =
+  let open LTerm_text in
+  let (@+) (c,hash,b) s =
+    if b then
+      let cont = if s = [] then [S " "] else S ", " :: s in
+      enclose_style ~cont (Hashtbl.find attr_tbl hash) [S c]
+    else s
+  in
+  let open IndexOptions in
+  let { t ; v ; e ; c ; m ; s ; k } = options.filter in
+  let l =
+    ("t","Type",t) @+ ("v","Value",v) @+ ("e","Exception",e) @+
+    ("c","Variant",c) @+ ("m","Module",m) @+ ("s","ModuleType",s) @+
+    ("k","Keyword",k) @+ [] in
+  eval (S " kinds: " :: l)
+
+(** A frame with extra info on the border. *)
+class frame_info options = object (self)
+  inherit frame as super
+
+  method! draw ctx focused =
+    super#draw ctx focused ;
+    let s = kinds_to_string options in
+    let width = (LTerm_draw.size ctx).cols in
+    let len = Array.length s in
+    if width > len + 2 then
+      LTerm_draw.draw_styled ctx 0 (width - len - 1) s
+end
+
+
 
 (** Express the result as an event mapped on the content of the completion box. *)
 let show_completion show_box input =
@@ -491,7 +554,7 @@ let main options =
   let waiter, wakener = wait () in
 
   let root = new LTerm_widget.vbox in
-  let comp = new frame in
+  let comp = new frame_info options in
   let input = new completion_box options wakener in
   comp#set input ;
   root#add ~expand:false comp ;
