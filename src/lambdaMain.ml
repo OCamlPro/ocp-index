@@ -5,9 +5,9 @@ open CamomileLibraryDyn.Camomile
 
 exception Exit
 
-(** This is absolutely horrible, but I don't know how to do better *)
-(* Provide an association LibIndex.kind -> string -> style
+(** Provide an association LibIndex.kind -> string -> style
    In order to encode styles in [Format.tag]. *)
+(* This is absolutely horrible, but I don't know how to do better *)
 let get_attr, attr_tbl =
   let bold = LTerm_style.({ none with bold = Some true}) in
   let colindex i = LTerm_style.({ none with foreground = Some (index i)}) in
@@ -39,6 +39,7 @@ let get_attr, attr_tbl =
   attr, h
 
 (** Create a custom styled text formater. *)
+(* Should go into lambda-term at some point. *)
 let make_fmt () =
   let style = ref LTerm_style.none in
   let content = ref [||] in
@@ -131,6 +132,7 @@ let () =
 
 (** Line editor *)
 (* Delicate mix between LTerm_read_line.engine and LTerm_edit.edit *)
+(* Should go into lambda-term. *)
 
 let regexp_word =
   let set = UCharInfo.load_property_set `Alphabetic in
@@ -361,7 +363,7 @@ object(self)
 end
 
 
-
+(** Mono line input with completion for a LibIndex.path. *)
 class completion_box options wakener =
 
   let (completion_info : LibIndex.info list React.event), set_completion_info
@@ -409,6 +411,9 @@ class completion_box options wakener =
 
   end
 
+
+(** Count the number of line took by a text. *)
+(* Assume there are now overfills, should be ensured by format. *)
 let height (str : LTerm_text.t) =
   let last = Array.length str - 1 in
   let count = ref 0 in
@@ -419,8 +424,11 @@ let height (str : LTerm_text.t) =
   if fst str.(last) <> newline then incr count ;
   !count
 
-(** Widgets ! *)
+(** The show box shows the result of a research.
+    Contains a list of entry and the index of the "focused" element in this set of entry.
 
+    Drawing is done by iteration on the entry until the box is filled.
+*)
 class show_box color = object (self)
   inherit LTerm_widget.t "show_box"
 
