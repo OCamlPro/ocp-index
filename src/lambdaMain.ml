@@ -392,8 +392,8 @@ class completion_box options wakener =
         List.map
           (fun x ->
              let dot = if is_module x then "." else "" in
-             LibIndex.Format.path ~short:true Format.str_formatter x ;
-             (Format.flush_str_formatter (), dot) )
+             let s = LibIndex.Print.path ~short:true x in
+             (s, dot) )
           response
       in
       self#set_completion 0 completions
