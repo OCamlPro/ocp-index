@@ -3,7 +3,13 @@ open Lwt_react
 open LTerm_widget
 open CamomileLibraryDyn.Camomile
 
-exception Exit
+(* LibIndex.info contains lazy values, we need a specialized equality. *)
+let rec eq l1 l2 = match l1, l2 with
+  | [], [] -> true
+  | [] , _::_  | _::_ , [] -> false
+  | {LibIndex. path = path1 ; name = name1 } :: t1 ,
+    {LibIndex. path = path2 ; name = name2 } :: t2 ->
+      path1 = path2 && name1 = name2 && eq t1 t2
 
 (** Provide an association LibIndex.kind -> string -> style
    In order to encode styles in [Format.tag]. *)
@@ -141,10 +147,7 @@ let regexp_word =
 let newline = UChar.of_char '\n'
 
 
-class virtual line_editor =
-  let key_press, new_key_press = E.create () in
-
-object(self)
+class virtual line_editor = object(self)
   inherit LTerm_widget.t "edit"
   inherit [Zed_rope.t] LTerm_read_line.engine () as super
 
@@ -153,7 +156,7 @@ object(self)
   val mutable style = LTerm_style.none
   val mutable marked_style = LTerm_style.none
   val mutable current_line_style = LTerm_style.none
-  method update_resources =
+  method! update_resources =
     let rc = self#resource_class and resources = self#resources in
     style <- LTerm_resources.get_style rc resources;
     marked_style <- LTerm_resources.get_style (rc ^ ".marked") resources;
@@ -162,7 +165,7 @@ object(self)
   val mutable event = E.never
   val mutable resolver = None
 
-  method can_focus = true
+  method! can_focus = true
 
   initializer
     event <- E.map (fun _ -> self#queue_draw) (Zed_edit.update self#edit [Zed_edit.cursor self#context]);
@@ -189,7 +192,6 @@ object(self)
                      match key with
                        | { control = false; meta = false; shift = false; code = Char ch } ->
                            Zed_edit.insert self#context (Zed_rope.singleton ch);
-                           new_key_press () ;
                            true
                        | _ ->
                            false
@@ -201,8 +203,6 @@ object(self)
          | _ ->
              false)
 
-  method key_press = key_press
-
   method! send_action = function
     | Edit (Zed Newline) -> ()
     | action -> super#send_action action
@@ -210,7 +210,7 @@ object(self)
   val mutable shift = 0
   val mutable start = 0
 
-  method draw ctx focused =
+  method! draw ctx _focused =
     let open LTerm_draw in
 
     let size = LTerm_draw.size ctx in
@@ -294,7 +294,7 @@ object(self)
       end else
         draw_line row 0 zip
 
-    and draw_eoi row =
+    and draw_eoi _row =
       ()
     in
 
@@ -353,7 +353,7 @@ object(self)
       end
     end
 
-  method cursor_position =
+  method! cursor_position =
     let line_set = Zed_edit.lines self#edit in
     let cursor_offset = Zed_cursor.get_position (Zed_edit.cursor self#context) in
     let cursor_line = Zed_lines.line_index line_set cursor_offset in
@@ -366,8 +366,8 @@ end
 (** Mono line input with completion for a LibIndex.path. *)
 class completion_box options wakener =
 
-  let (completion_info : LibIndex.info list React.event), set_completion_info
-    = E.create () in
+  let completion_info, set_completion_info =
+    S.create ~eq ([] : LibIndex.info list) in
 
   object (self)
     inherit line_editor as super
@@ -475,7 +475,7 @@ let begin_style ?(cont=[]) style =
 let end_style ?(cont=[]) style =
   let open LTerm_text in
   let (@+) (x, t) l = match x with
-    | Some v -> t :: l
+    | Some _ -> t :: l
     | None -> l
   in
   let {LTerm_style. bold ; underline ; blink ; reverse ; foreground ; background } = style in
@@ -507,7 +507,7 @@ let kinds_to_string options =
   eval (S " kinds: " :: l)
 
 (** A frame with extra info on the border. *)
-class frame_info options = object (self)
+class frame_info options = object
   inherit frame as super
 
   method! draw ctx focused =
@@ -531,19 +531,9 @@ let show_completion show_box input =
   (* For now, we select the line starting from index - 1,
      we could do something more clever. *)
   let select i l = drop (i - 1) i l in
-
-  (* LibIndex.info contains lazy values, we need a specialized equality. *)
-  let rec eq l1 l2 = match l1, l2 with
-    | [], [] -> true
-    | [] , _::_  | _::_ , [] -> false
-    | {LibIndex. path = path1 ; name = name1 } :: t1 ,
-      {LibIndex. path = path2 ; name = name2 } :: t2 ->
-        path1 = path2 && name1 = name2 && eq t1 t2
-  in
   let eq_pair (l, i) (l', i') = i = i' && eq l l' in
 
   input#completion_info
-  |> S.hold ~eq []
   |> S.l2 ~eq:eq_pair select input#completion_index
   |> S.map (fun (l, index) -> show_box#set_content l index)
 
