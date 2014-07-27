@@ -552,7 +552,23 @@ class frame_info options = object
       LTerm_draw.draw_styled ctx 0 (width - len - 1) s
 end
 
-
+let change_kind completion_box options = function
+  | LTerm_event.Key { control = false; meta = true; shift = false; code = Char ch } ->
+      let open IndexOptions in
+      let fil = options.filter in
+      let new_fil =
+        if ch = UChar.of_char 't'      then { fil with t = not fil.t }
+        else if ch = UChar.of_char 'e' then { fil with e = not fil.e }
+        else if ch = UChar.of_char 'c' then { fil with c = not fil.c }
+        else if ch = UChar.of_char 'm' then { fil with m = not fil.m }
+        else if ch = UChar.of_char 's' then { fil with s = not fil.s }
+        else if ch = UChar.of_char 'k' then { fil with k = not fil.k }
+        else if ch = UChar.of_char 'v' then { fil with v = not fil.v }
+        else fil
+      in options.filter <- new_fil ;
+      completion_box#completion ;
+      true
+  | _ -> false
 
 (** Express the result as an event mapped on the content of the completion box. *)
 let show_completion show_box input =
@@ -584,6 +600,8 @@ let main options =
 
   let show_box = new show_box (colorise options) in
   root#add show_box ;
+
+  root#on_event (change_kind input options) ;
 
   S.keep @@ show_completion show_box input ;
 
