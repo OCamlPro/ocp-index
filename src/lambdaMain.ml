@@ -125,12 +125,18 @@ let () =
   let edit x = Edit (LTerm_edit.Zed x) in
   bind [{ control = false; meta = false; shift = false; code = Right }]    [edit Next_char];
   bind [{ control = false; meta = false; shift = false; code = Left }]     [edit Prev_char];
-  bind [{ control = false; meta = true; shift = false; code = Right }]     [edit Next_word];
-  bind [{ control = false; meta = true; shift = false; code = Left }]      [edit Prev_word];
-  bind [{ control = false; meta = true; shift = false; code = Backspace }] [edit Kill_prev_word];
+  bind [{ control = false; meta = true; shift = false; code = Backspace }] [edit Delete_prev_word];
 
+  bind [{ control = false; meta = false; shift = false; code = Prev_page }] [Complete_bar_first];
+  bind [{ control = false; meta = false; shift = false; code = Next_page }]  [Complete_bar_last];
   bind [{ control = false; meta = false; shift = false; code = Up }]   [Complete_bar_prev];
   bind [{ control = false; meta = false; shift = false; code = Down }] [Complete_bar_next];
+
+  bind [{ control = false; meta = true; shift = false; code = Up }]    [Complete_bar_prev];
+  bind [{ control = false; meta = true; shift = false; code = Down }]  [Complete_bar_next];
+  bind [{ control = false; meta = true; shift = false; code = Right }] [Complete_bar];
+  (* bind [{ control = false; meta = true; shift = false; code = Left }]  [edit Delete_prev_word]; *)
+  (* Not defined here, because what we want is not exactly a command. *)
 
   bind [{ control = false; meta = false; shift = false; code = Enter }] [Complete_bar];
   ()
@@ -139,11 +145,6 @@ let () =
 (** Line editor *)
 (* Delicate mix between LTerm_read_line.engine and LTerm_edit.edit *)
 (* Should go into lambda-term. *)
-
-let regexp_word =
-  let set = UCharInfo.load_property_set `Alphabetic in
-  let set = List.fold_left (fun set ch -> USet.add (UChar.of_char ch) set) set ['0'; '1'; '2'; '3'; '4'; '5'; '6'; '7'; '8'; '9'] in
-  Zed_re.compile (`Repn(`Set set, 1, None))
 let newline = UChar.of_char '\n'
 
 
@@ -363,6 +364,29 @@ class virtual line_editor = object(self)
 end
 
 
+(** Strip one path level.
+
+    Do the following transformation:
+    "Foo.Bar."    -> "Foo."
+    "Foo.Bar.bla" -> "Foo.Bar."
+*)
+(* Currently, it computes where to cut, go to the end of the text, erase the extra text, replace the cursor.
+   It's not atomic and will fire multiple useless events.
+*)
+let strip_path_level text context =
+  let module Z = Zed_rope.Zip in
+  let dot = CamomileLibrary.UChar.of_char '.' in
+  (* If the last char is a dot, we want to skip it, otherwise, we don't care.*)
+  let zip = Z.make_b text 1 in
+  let i = Z.(offset (find_b ( (==) dot) zip)) in
+  let len = Zed_rope.length text in
+  let previous_pos = Zed_edit.position context in
+
+  Zed_edit.goto_eot context ;
+  Zed_edit.remove_prev context (len - i) ;
+  Zed_edit.goto context (min i previous_pos)
+
+
 (** Mono line input with completion for a LibIndex.path. *)
 class completion_box options wakener =
 
@@ -376,6 +400,15 @@ class completion_box options wakener =
     method! size_request = size_request
 
     method eval = Zed_edit.text self#edit
+
+    initializer
+      self#on_event
+      (function
+        | LTerm_event.Key { control = false; meta = true; shift = false; code = Left } ->
+            strip_path_level (Zed_edit.text self#edit) self#context ;
+            true
+        | _ -> false
+      )
 
     method! completion =
       let content = self#eval in
