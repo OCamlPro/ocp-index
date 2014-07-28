@@ -49,7 +49,6 @@ let get_attr, attr_tbl =
 let make_fmt () =
   let style = ref LTerm_style.none in
   let content = ref [||] in
-  let get_content () = !content in
 
   let put s pos len =
     let s = String.sub s pos len in
@@ -57,6 +56,10 @@ let make_fmt () =
   in
   let flush () = () in
   let fmt = Format.make_formatter put flush in
+
+  let get_content () =
+    Format.pp_print_flush fmt () ; !content
+  in
 
   Format.pp_set_tags fmt true;
   Format.pp_set_formatter_tag_functions fmt {
@@ -71,18 +74,20 @@ let make_fmt () =
 
   get_content, fmt
 
+let pp_with_style to_style =
+  fun style fstr fmt ->
+    let tag = to_style style in
+    Format.pp_open_tag fmt tag;
+    Format.kfprintf
+      (fun fmt ->
+         Format.pp_close_tag fmt ())
+      fmt fstr
 
 let colorise opts =
   if not opts.IndexOptions.color then
     LibIndex.Format.no_color
   else
-    let f kind fstr fmt =
-      let tag = get_attr kind in
-      Format.pp_open_tag fmt tag;
-      Format.kfprintf
-        (fun fmt ->
-           Format.pp_close_tag fmt ())
-        fmt fstr
+    let f kind fstr fmt = pp_with_style get_attr kind fstr fmt
     in { LibIndex.Format.f }
 
 (** Format the complete answer and return a styled text. *)
@@ -490,54 +495,29 @@ class show_box color = object (self)
 
 end
 
-(** markup styling using styles *)
-(* Should go in lambda-term *)
 
-let begin_style ?(cont=[]) style =
-  let open LTerm_text in
-  let (@+) (x, f) l = match x with
-    | Some v -> f v :: l
-    | None -> l
+(* Only in ocaml >= 4.02 *)
+let rec pp_print_list ?(pp_sep = Format.pp_print_cut) pp_v ppf = function
+  | [] -> ()
+  | [v] -> pp_v ppf v
+  | v :: vs ->
+    pp_v ppf v;
+    pp_sep ppf ();
+    pp_print_list ~pp_sep pp_v ppf vs
+
+(** Pretty printer for kinds with colors. *)
+let pp_kinds fmt options =
+  let (@+) (c,hash,b) s = if b then (c, hash) :: s else s
   in
-  let {LTerm_style. bold ; underline ; blink ; reverse ; foreground ; background } = style in
-  (bold, fun x -> B_bold x) @+ (underline, fun x -> B_underline x) @+
-  (blink, fun x -> B_blink x) @+ (reverse, fun x -> B_reverse x) @+
-  (foreground, fun x -> B_fg x) @+ (background, fun x -> B_bg x) @+
-  cont
-
-let end_style ?(cont=[]) style =
-  let open LTerm_text in
-  let (@+) (x, t) l = match x with
-    | Some _ -> t :: l
-    | None -> l
-  in
-  let {LTerm_style. bold ; underline ; blink ; reverse ; foreground ; background } = style in
-  (bold, E_bold) @+ (underline, E_underline) @+
-  (blink, E_blink) @+ (reverse, E_reverse) @+
-  (foreground, E_fg) @+ (background, E_bg) @+
-  cont
-
-let enclose_style ?(cont=[]) style markup =
-  let end_ = end_style ~cont style in
-  let begin_ = begin_style ~cont:(markup @ end_) style in
-  begin_
-
-(** Create a styled text with the various kinds. *)
-let kinds_to_string options =
-  let open LTerm_text in
-  let (@+) (c,hash,b) s =
-    if b then
-      let cont = if s = [] then [S " "] else S ", " :: s in
-      enclose_style ~cont (Hashtbl.find attr_tbl hash) [S c]
-    else s
-  in
+  let pp_kind fmt (c, hash) = pp_with_style (fun x -> x) hash "%s" fmt c in
   let open IndexOptions in
   let { t ; v ; e ; c ; m ; s ; k } = options.filter in
   let l =
     ("t","Type",t) @+ ("v","Value",v) @+ ("e","Exception",e) @+
     ("c","Variant",c) @+ ("m","Module",m) @+ ("s","ModuleType",s) @+
     ("k","Keyword",k) @+ [] in
-  eval (S " kinds: " :: l)
+  let pp_sep fmt () = Format.fprintf fmt ", " in
+  Format.fprintf fmt " kinds: %a " (pp_print_list ~pp_sep pp_kind) l
 
 (** A frame with extra info on the border. *)
 class frame_info options = object
@@ -545,7 +525,9 @@ class frame_info options = object
 
   method! draw ctx focused =
     super#draw ctx focused ;
-    let s = kinds_to_string options in
+    let get_content, fmt = make_fmt () in
+    pp_kinds fmt options ;
+    let s = get_content () in
     let width = (LTerm_draw.size ctx).cols in
     let len = Array.length s in
     if width > len + 2 then
