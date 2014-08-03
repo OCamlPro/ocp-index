@@ -443,6 +443,20 @@ let strip_path_level text context =
     Zed_edit.goto context (min i previous_pos)
   end
 
+let index_of_biggest_prefix s l =
+  let len_s = Zed_utf8.length s in
+  let rec loop k len_acc n_acc = function
+    | [] -> n_acc
+    | (h,_)::t -> begin
+        if Zed_utf8.starts_with s h then
+          let len_h = Zed_utf8.length h in
+          if len_h = len_s then Some k (* We won't find bigger. *)
+          else if len_h > len_acc then loop (k + 1) len_h (Some k) t
+          else loop (k + 1) len_acc n_acc t
+        else loop (k + 1) len_acc n_acc t
+      end
+  in loop 0 min_int None l
+
 (** Mono line input with completion for a LibIndex.path. *)
 class completion_box options wakener =
 
@@ -466,6 +480,16 @@ class completion_box options wakener =
         | _ -> false
       )
 
+    (* We maintain the last item under the cursor in order to try to restore a "good" index after completion. *)
+    val mutable previous_completion = S.const ""
+    initializer
+      let r = ref "" in
+      previous_completion <-
+        S.fold (fun _ (x,_) -> let x' = !r in r := x ; x') "" @@
+          S.changes @@ S.l2
+          (fun l i -> try List.nth l i with _ -> ("",""))
+          self#completion_words self#completion_index
+
     method! completion =
       let content = self#eval in
       let response =
@@ -485,7 +509,10 @@ class completion_box options wakener =
           (fun x -> LibIndex.Print.path ~short:true x, suffix x)
           response
       in
-      self#set_completion 0 completions
+
+      let prev_comp = S.value previous_completion in
+      let index = index_of_biggest_prefix prev_comp completions in
+      self#set_completion ?index 0 completions
 
     method completion_info = completion_info
 
