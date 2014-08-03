@@ -470,29 +470,71 @@ let height (str : LTerm_text.t) =
 class show_box color = object (self)
   inherit LTerm_widget.t "show_box"
 
-  val mutable content = []
-  val mutable index = 0
+  val mutable content = [], []
 
   method content = content
-  method index = index
 
-  method set_content new_content new_index =
+  method set_content new_content =
     content <- new_content ;
-    index <- new_index ;
     self#queue_draw
 
   method! draw ctx _focused =
-    let k = ref 0 in
-    let cols = LTerm_geom.((size_of_rect self#allocation).cols - 2) in
-    List.iteri (fun i info ->
-        let doc = i = index in
-        let text = sprint_answer ~doc cols color info in
-        let text_height = height text in
-        LTerm_draw.draw_styled ctx !k 2 text ;
-        if i = index then LTerm_draw.draw_char ctx !k 0 @@ CamomileLibrary.UChar.of_char '>' ;
-        k := !k + text_height
-      )
-      content
+    let {LTerm_geom. rows ; cols } = LTerm_geom.size_of_rect self#allocation in
+    let cols = cols - 2 in
+    match content with
+    | _, [] -> ()
+    | left, focus :: right -> begin
+        (** We want to draw a focused element, as in the middle as possible.
+            We don't want to format more left and right elements than necessary.
+        *)
+        let text_focus = sprint_answer ~doc:true cols color focus in
+        let size_focus = height text_focus in
+        let default_pos = (rows - size_focus) / 2 in
+
+        let formated = ref [], ref [] in
+        let left_size = ref 0 and right_size = ref 0 in
+        let sizes = left_size, right_size in
+        let (&) = function `Left -> fst | `Right -> snd in
+        let rev = function `Left -> `Right | `Right -> `Left in
+        let rep dir t (l, r) = match dir with
+          | `Left -> (t, r)
+          | `Right -> (l, t)
+        in
+
+        let is_done (left, right) =
+          !left_size + !right_size + size_focus > rows  ||  (left = [] && right = [])
+        in
+        let rec go dir accs =
+          if is_done accs then ()
+          else match dir&accs with
+            | [] -> go (rev dir) accs
+            | info :: t ->
+                let text = sprint_answer cols color info in
+                let size = height text in
+                dir&formated := (text, size) :: !(dir&formated) ;
+                dir&sizes := size + !(dir&sizes) ;
+                go (rev dir) (rep dir t accs)
+        in
+        go `Right (left, right) ;
+
+        let rec draw_left k = function
+          | [] -> ()
+          | (text, size) :: t ->
+              LTerm_draw.draw_styled ctx (k-size) 2 text ; draw_left (k-size) t
+        in
+        let rec draw_right k = function
+          | [] -> ()
+          | (text, size) :: t ->
+              LTerm_draw.draw_styled ctx k 2 text ; draw_right (k + size) t
+        in
+        let start =
+          max 0 (min !left_size default_pos)
+        in
+        draw_left start (List.rev !(fst formated)) ;
+        LTerm_draw.draw_styled ctx start 2 text_focus ;
+        LTerm_draw.draw_char ctx start 0 @@ CamomileLibrary.UChar.of_char '>' ;
+        draw_right (start + size_focus) (List.rev !(snd formated))
+      end
 
 end
 
@@ -555,19 +597,17 @@ let change_kind completion_box options = function
 
 (** Express the result as an event mapped on the content of the completion box. *)
 let show_completion show_box input =
-  let rec drop n k = function
-    | _ :: l when n > 0 -> drop (n-1) (k-1) l
-    | l -> l, k
+  let zipper n l =
+    let rec aux k acc = function
+      | h :: l when k > 0 -> aux (k-1) (h::acc) l
+      | l -> acc, l
+    in aux n [] l
   in
-
-  (* For now, we select the line starting from index - 1,
-     we could do something more clever. *)
-  let select i l = drop (i - 1) i l in
-  let eq_pair (l, i) (l', i') = i = i' && eq l l' in
+  let eq_pair (l1, l2) (l1', l2') = eq l1 l1' && eq l2 l2' in
 
   input#completion_info
-  |> S.l2 ~eq:eq_pair select input#completion_index
-  |> S.map (fun (l, index) -> show_box#set_content l index)
+  |> S.l2 ~eq:eq_pair zipper input#completion_index
+  |> S.map show_box#set_content
 
 
 (** Boilerplate *)
