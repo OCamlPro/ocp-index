@@ -91,7 +91,7 @@ let colorise opts =
     in { LibIndex.Format.f }
 
 (** Format the complete answer and return a styled text. *)
-let sprint_answer cols colorise id =
+let sprint_answer ?(doc=false) cols colorise id =
   let get_content, fmt = make_fmt () in
   Format.pp_set_margin fmt cols ;
   let print = Format.fprintf fmt in
@@ -110,7 +110,7 @@ let sprint_answer cols colorise id =
         LibIndex.Format.ty ~colorise fmt id;
         print "@]" ;
   end ;
-  if Lazy.force id.LibIndex.doc <> None
+  if doc && Lazy.force id.LibIndex.doc <> None
   then begin
     print "@\n    " ;
     LibIndex.Format.doc ~colorise fmt id
@@ -483,9 +483,10 @@ class show_box color = object (self)
 
   method! draw ctx _focused =
     let k = ref 0 in
+    let cols = LTerm_geom.((size_of_rect self#allocation).cols - 2) in
     List.iteri (fun i info ->
-        let open LTerm_geom in
-        let text = sprint_answer ((size_of_rect self#allocation).cols - 2) color info in
+        let doc = i = index in
+        let text = sprint_answer ~doc cols color info in
         let text_height = height text in
         LTerm_draw.draw_styled ctx !k 2 text ;
         if i = index then LTerm_draw.draw_char ctx !k 0 @@ CamomileLibrary.UChar.of_char '>' ;
