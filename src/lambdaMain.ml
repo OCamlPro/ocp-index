@@ -391,6 +391,8 @@ end
     Do the following transformation:
     "Foo.Bar."    -> "Foo."
     "Foo.Bar.bla" -> "Foo.Bar."
+
+    Since some library use "_" as namespace marker, we stop at "_" too.
 *)
 (* Currently, it computes where to cut, go to the end of the text, erase the extra text, replace the cursor.
    It's not atomic and will fire multiple useless events.
@@ -399,10 +401,11 @@ let strip_path_level text context =
   if Zed_rope.is_empty text then ()
   else begin
     let module Z = Zed_rope.Zip in
-    let dot = CamomileLibrary.UChar.of_char '.' in
+    let dot = UChar.of_char '.' in
+    let underscore = UChar.of_char '_' in
     (* If the last char is a dot, we want to skip it, otherwise, we don't care.*)
     let zip = Z.make_b text 1 in
-    let i = Z.(offset (find_b ( (==) dot) zip)) in
+    let i = Z.(offset (find_b ( fun x -> x = dot || x = underscore) zip)) in
     let len = Zed_rope.length text in
     let previous_pos = Zed_edit.position context in
 
