@@ -42,17 +42,30 @@ let get_attr, attr_tbl =
   Hashtbl.add h "Class"      @@ colindex 5 ;
   Hashtbl.add h "ClassType"  @@ colindex 5 ;
   Hashtbl.add h "Keyword"    @@ colindex 7 ;
+  Hashtbl.add h "Enabled"    @@ LTerm_style.({ none with underline = Some true}) ;
+  Hashtbl.add h "Disabled"   @@ colindex 8 ;
   attr, h
 
 (** Create a custom styled text formater. *)
 (* Should go into lambda-term at some point. *)
 let make_fmt () =
-  let style = ref LTerm_style.none in
+  let style = Stack.create () in
   let content = ref [||] in
+
+  let get_style () =
+    if Stack.is_empty style then LTerm_style.none
+    else Stack.top style
+  and pop_style () =
+    if Stack.is_empty style then ()
+    else ignore (Stack.pop style)
+  and push_style sty =
+    if Stack.is_empty style then Stack.push sty style
+    else Stack.push (LTerm_style.merge (Stack.top style) sty) style
+  in
 
   let put s pos len =
     let s = String.sub s pos len in
-    content := Array.append !content (LTerm_text.stylise s !style)
+    content := Array.append !content (LTerm_text.stylise s (get_style ()))
   in
   let flush () = () in
   let fmt = Format.make_formatter put flush in
@@ -65,9 +78,9 @@ let make_fmt () =
   Format.pp_set_formatter_tag_functions fmt {
     Format.
     mark_open_tag =
-      (fun a -> style := Hashtbl.find attr_tbl a ; "");
+      (fun a -> push_style (Hashtbl.find attr_tbl a) ; "");
     mark_close_tag =
-      (fun _ -> style := LTerm_style.none; "");
+      (fun _ -> pop_style (); "");
     print_open_tag = (fun _ -> ());
     print_close_tag = (fun _ -> ());
   } ;
@@ -144,6 +157,9 @@ let () =
   (* Not defined here, because what we want is not exactly a command. *)
 
   bind [{ control = false; meta = false; shift = false; code = Enter }] [Complete_bar];
+
+  (* We use Alt+c to toggle constructors. *)
+  LTerm_edit.unbind [{ control = false ; meta = true ; shift = false ; code = Char (UChar.of_char 'c')}] ;
   ()
 
 
@@ -561,15 +577,20 @@ let rec pp_print_list ?(pp_sep = Format.pp_print_cut) pp_v ppf = function
 
 (** Pretty printer for kinds with colors. *)
 let pp_kinds fmt options =
-  let (@+) (c,hash,b) s = if b then (c, hash) :: s else s
+  let pp_kind fmt (c, hash, b) =
+    if b then (
+      Format.pp_open_tag fmt "Enabled" ;
+      pp_with_style (fun x -> x) hash "%s" fmt c ;
+      Format.pp_close_tag fmt ()
+    ) else
+      pp_with_style (fun x -> x) "Disabled" "%s" fmt c ;
   in
-  let pp_kind fmt (c, hash) = pp_with_style (fun x -> x) hash "%s" fmt c in
   let open IndexOptions in
   let { t ; v ; e ; c ; m ; s ; k } = options.filter in
-  let l =
-    ("t","Type",t) @+ ("v","Value",v) @+ ("e","Exception",e) @+
-    ("c","Variant",c) @+ ("m","Module",m) @+ ("s","ModuleType",s) @+
-    ("k","Keyword",k) @+ [] in
+  let l = [
+    ("t","Type",t) ; ("v","Value",v) ; ("e","Exception",e) ;
+    ("c","Variant",c) ; ("m","Module",m) ; ("s","ModuleType",s) ;
+    ("k","Keyword",k) ] in
   let pp_sep fmt () = Format.fprintf fmt ", " in
   Format.fprintf fmt " kinds: %a " (pp_print_list ~pp_sep pp_kind) l
 
@@ -588,7 +609,7 @@ class frame_info options = object
       LTerm_draw.draw_styled ctx 0 (width - len - 1) s
 end
 
-let change_kind completion_box options = function
+let change_kind completion_box shox_box options = function
   | LTerm_event.Key { control = false; meta = true; shift = false; code = Char ch } ->
       let open IndexOptions in
       let fil = options.filter in
@@ -603,6 +624,7 @@ let change_kind completion_box options = function
         else fil
       in options.filter <- new_fil ;
       completion_box#completion ;
+      shox_box#queue_draw ;
       true
   | _ -> false
 
@@ -635,7 +657,7 @@ let main options =
   let show_box = new show_box (colorise options) in
   root#add show_box ;
 
-  root#on_event (change_kind input options) ;
+  root#on_event (change_kind input show_box options) ;
 
   S.keep @@ show_completion show_box input ;
 
