@@ -444,15 +444,13 @@ class completion_box options wakener =
       in
       set_completion_info response ;
       let completions =
-        let is_module = function
-          | {LibIndex. kind = Module | ModuleType | Class | ClassType } -> true
-          | _ -> false
+        let suffix = function
+          | {LibIndex. kind = Module | ModuleType } -> "."
+          | {LibIndex. kind = Class | ClassType } -> "#"
+          | _ -> ""
         in
         List.map
-          (fun x ->
-             let dot = if is_module x then "." else "" in
-             let s = LibIndex.Print.path ~short:true x in
-             (s, dot) )
+          (fun x -> LibIndex.Print.path ~short:true x, suffix x)
           response
       in
       self#set_completion 0 completions
