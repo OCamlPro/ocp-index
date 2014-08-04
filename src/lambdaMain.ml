@@ -463,9 +463,20 @@ let height (str : LTerm_text.t) =
   !count
 
 (** The show box shows the result of a research.
-    Contains a list of entry and the index of the "focused" element in this set of entry.
 
-    Drawing is done by iteration on the entry until the box is filled.
+    [content] is a list zipper positioned at the focused element.
+    left and right lists are elements before and after the focus.
+
+    We want to draw a focused element, as in the middle as possible, at [default_pos].
+    We don't want to format more left and right elements than necessary.
+
+    We first format the left elements, in right-to-left order, until the height of formatted
+    texts is more than [default_pos]. We then format right elements in left-to-right order
+    until the total height of formatted text is longer than the number of rows. We may need to
+    go back to the left elements, if there are not enough right elements.
+
+    We then render everything in the same fashion, with the focused element at
+    [max 0 (min size_left default_pos)].
 *)
 class show_box color = object (self)
   inherit LTerm_widget.t "show_box"
@@ -484,56 +495,56 @@ class show_box color = object (self)
     match content with
     | _, [] -> ()
     | left, focus :: right -> begin
-        (** We want to draw a focused element, as in the middle as possible.
-            We don't want to format more left and right elements than necessary.
-        *)
         let text_focus = sprint_answer ~doc:true cols color focus in
         let size_focus = height text_focus in
         let default_pos = (rows - size_focus) / 2 in
 
-        let formated = ref [], ref [] in
-        let left_size = ref 0 and right_size = ref 0 in
-        let sizes = left_size, right_size in
-        let (&) = function `Left -> fst | `Right -> snd in
-        let rev = function `Left -> `Right | `Right -> `Left in
-        let rep dir t (l, r) = match dir with
-          | `Left -> (t, r)
-          | `Right -> (l, t)
+        (* Can't figure out how to do simpler, bear with me. *)
+        let rec format (dir:[ `L | `R ]) left right size_l size_r format_l format_r =
+          match dir, left, right with
+          (* We are done (no more to draw or too much drawn already). *)
+          | _, [], [] -> size_l, size_r, List.rev format_l, List.rev format_r
+          | _, _ , _ when size_r + size_focus + size_l > rows ->
+              size_l, size_r, List.rev format_l, List.rev format_r
+
+          (* Finished the left part, and stuff to do on the right. *)
+          | `L , [], _::_ -> format `R left right size_l size_r format_l format_r
+          | `L , _ , _::_ when size_l > default_pos ->
+              format `R left right size_l size_r format_l format_r
+
+          (* The right part is too short, go back to the left. *)
+          | `R, _::_, [] ->
+              format `L left right size_l size_r format_l format_r
+
+          | `L, info :: t, _ | `R, _, info :: t ->
+              let text = sprint_answer cols color info in
+              let size = height text in
+              if dir = `L then
+                format dir t right (size + size_l) size_r ((text,size) :: format_l) format_r
+              else
+                format dir left t size_l (size + size_r) format_l ((text,size) :: format_r)
+        in
+        let size_left, right_size, formatted_left, formatted_right =
+          format `L left right 0 0 [] []
         in
 
-        let is_done (left, right) =
-          !left_size + !right_size + size_focus > rows  ||  (left = [] && right = [])
+        let rec draw_left pos = function
+          | [] -> ()
+          | (text, size) :: t ->
+              LTerm_draw.draw_styled ctx (pos-size) 2 text ; draw_left (pos-size) t
         in
-        let rec go dir accs =
-          if is_done accs then ()
-          else match dir&accs with
-            | [] -> go (rev dir) accs
-            | info :: t ->
-                let text = sprint_answer cols color info in
-                let size = height text in
-                dir&formated := (text, size) :: !(dir&formated) ;
-                dir&sizes := size + !(dir&sizes) ;
-                go (rev dir) (rep dir t accs)
+        let rec draw_right pos = function
+          | [] -> ()
+          | (text, size) :: t ->
+              LTerm_draw.draw_styled ctx pos 2 text ; draw_right (pos + size) t
         in
-        go `Right (left, right) ;
 
-        let rec draw_left k = function
-          | [] -> ()
-          | (text, size) :: t ->
-              LTerm_draw.draw_styled ctx (k-size) 2 text ; draw_left (k-size) t
-        in
-        let rec draw_right k = function
-          | [] -> ()
-          | (text, size) :: t ->
-              LTerm_draw.draw_styled ctx k 2 text ; draw_right (k + size) t
-        in
-        let start =
-          max 0 (min !left_size default_pos)
-        in
-        draw_left start (List.rev !(fst formated)) ;
+        let start = max 0 (min size_left (max default_pos (rows - right_size - size_focus))) in
+
+        draw_left start formatted_left ;
         LTerm_draw.draw_styled ctx start 2 text_focus ;
         LTerm_draw.draw_char ctx start 0 @@ CamomileLibrary.UChar.of_char '>' ;
-        draw_right (start + size_focus) (List.rev !(snd formated))
+        draw_right (start + size_focus) formatted_right
       end
 
 end
