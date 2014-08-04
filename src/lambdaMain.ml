@@ -213,7 +213,8 @@ class virtual line_editor = object(self)
                    if resolver = None then
                      match key with
                        | { control = false; meta = false; shift = false; code = Char ch } ->
-                           Zed_edit.insert self#context (Zed_rope.singleton ch);
+                           Zed_macro.add self#macro (Edit (LTerm_edit.Zed (Zed_edit.Insert ch)));
+                           self#insert ch ;
                            true
                        | _ ->
                            false
@@ -458,6 +459,18 @@ class completion_box options wakener =
 
     method completion_info = completion_info
 
+    (** Only insert chars that are valid in OCaml identifiers. *)
+    method! insert ch =
+      let is_valid_char x = try match UChar.char_of x with
+        | 'a'..'z' | 'A'..'Z' | '_' | '\'' | '#'
+        | '!'|'$'|'%'|'&'|'*'|'+'|'-'|'.'|'/'
+        | ':'|'<'|'='|'>'|'?'|'@'|'^'|'|'|'~'
+          -> true
+        | _ -> false
+        with UChar.Out_of_range -> false
+      in
+      if is_valid_char ch then super#insert ch
+      else ()
 
     method! send_action = function
       (* Exit the app on Break and Interrupt *)
