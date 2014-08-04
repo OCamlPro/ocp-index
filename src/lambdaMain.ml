@@ -395,18 +395,20 @@ end
    It's not atomic and will fire multiple useless events.
 *)
 let strip_path_level text context =
-  let module Z = Zed_rope.Zip in
-  let dot = CamomileLibrary.UChar.of_char '.' in
-  (* If the last char is a dot, we want to skip it, otherwise, we don't care.*)
-  let zip = Z.make_b text 1 in
-  let i = Z.(offset (find_b ( (==) dot) zip)) in
-  let len = Zed_rope.length text in
-  let previous_pos = Zed_edit.position context in
+  if Zed_rope.is_empty text then ()
+  else begin
+    let module Z = Zed_rope.Zip in
+    let dot = CamomileLibrary.UChar.of_char '.' in
+    (* If the last char is a dot, we want to skip it, otherwise, we don't care.*)
+    let zip = Z.make_b text 1 in
+    let i = Z.(offset (find_b ( (==) dot) zip)) in
+    let len = Zed_rope.length text in
+    let previous_pos = Zed_edit.position context in
 
-  Zed_edit.goto_eot context ;
-  Zed_edit.remove_prev context (len - i) ;
-  Zed_edit.goto context (min i previous_pos)
-
+    Zed_edit.goto_eot context ;
+    Zed_edit.remove_prev context (len - i) ;
+    Zed_edit.goto context (min i previous_pos)
+  end
 
 (** Mono line input with completion for a LibIndex.path. *)
 class completion_box options wakener =
