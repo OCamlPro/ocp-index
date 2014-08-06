@@ -9,14 +9,11 @@ let rec eq l1 l2 = match l1, l2 with
     {LibIndex. path = path2 ; name = name2 } :: t2 ->
       path1 = path2 && name1 = name2 && eq t1 t2
 
-(** Provide an association LibIndex.kind -> string -> style
+(** Provide an association LibIndex.kind -> tag (= string) -> style
    In order to encode styles in [Format.tag]. *)
-(* This is absolutely horrible, but I don't know how to do better *)
-let get_attr, attr_tbl =
-  let bold = LTerm_style.({ none with bold = Some true}) in
-  let colindex i = LTerm_style.({ none with foreground = Some (index i)}) in
+let kind_to_tag, tag_to_style, register_ressource =
   let h = Hashtbl.create 11 in
-  let attr = function
+  let kind_to_tag = function
     | LibIndex.Type -> "Type"
     | Value -> "Value"
     | Exception -> "Exception"
@@ -29,20 +26,47 @@ let get_attr, attr_tbl =
     | ClassType -> "ClassType"
     | Keyword -> "Keyword"
   in
-  Hashtbl.add h "Type"       @@ colindex 6 ;
-  Hashtbl.add h "Value"      @@ bold ;
-  Hashtbl.add h "Exception"  @@ colindex 3 ;
-  Hashtbl.add h "Field"      @@ colindex 4 ;
-  Hashtbl.add h "Variant"    @@ colindex 4 ;
-  Hashtbl.add h "Method"     @@ bold ;
-  Hashtbl.add h "Module"     @@ colindex 1 ;
-  Hashtbl.add h "ModuleType" @@ colindex 1 ;
-  Hashtbl.add h "Class"      @@ colindex 5 ;
-  Hashtbl.add h "ClassType"  @@ colindex 5 ;
-  Hashtbl.add h "Keyword"    @@ colindex 7 ;
-  Hashtbl.add h "Enabled"    @@ LTerm_style.({ none with underline = Some true}) ;
-  Hashtbl.add h "Disabled"   @@ colindex 8 ;
-  attr, h
+  let tag_to_style s =
+    try Hashtbl.find h s with Not_found -> LTerm_style.none
+  in
+  let register_ressource res s default =
+    match res with
+    | Some res ->
+        let res_style = LTerm_resources.get_style s res in
+        if res_style = LTerm_style.none then
+          Hashtbl.add h s default
+        else Hashtbl.add h s res_style
+    | None ->
+        Hashtbl.add h s default
+  in
+  kind_to_tag, tag_to_style, register_ressource
+
+(** Load custom styles from ~/.ocp-browser. *)
+let load () =
+  let bold = LTerm_style.({ none with bold = Some true}) in
+  let underline = LTerm_style.({ none with underline = Some true}) in
+  let colindex i = LTerm_style.({ none with foreground = Some (index i)}) in
+  let fn = Filename.concat LTerm_resources.home ".ocp-browser" in
+  Lwt.(
+    catch
+      (fun () -> LTerm_resources.load fn >>= fun x -> Lwt.return (Some x))
+      (fun _ -> Lwt.return None)
+    >>= fun res ->
+    register_ressource res "Type"       @@ colindex 6 ;
+    register_ressource res "Value"      @@ bold       ;
+    register_ressource res "Exception"  @@ colindex 3 ;
+    register_ressource res "Field"      @@ colindex 4 ;
+    register_ressource res "Variant"    @@ colindex 4 ;
+    register_ressource res "Method"     @@ bold       ;
+    register_ressource res "Module"     @@ colindex 1 ;
+    register_ressource res "ModuleType" @@ colindex 1 ;
+    register_ressource res "Class"      @@ colindex 5 ;
+    register_ressource res "ClassType"  @@ colindex 5 ;
+    register_ressource res "Keyword"    @@ colindex 7 ;
+    register_ressource res "Enabled"    @@ underline  ;
+    register_ressource res "Disabled"   @@ colindex 8 ;
+    Lwt.return ()
+    )
 
 (** Create a custom styled text formatter. *)
 (* Should go into lambda-term at some point. *)
@@ -76,7 +100,7 @@ let make_fmt () =
   Format.pp_set_formatter_tag_functions fmt {
     Format.
     mark_open_tag =
-      (fun a -> push_style (Hashtbl.find attr_tbl a) ; "");
+      (fun a -> push_style (tag_to_style a) ; "");
     mark_close_tag =
       (fun _ -> pop_style (); "");
     print_open_tag = (fun _ -> ());
@@ -98,7 +122,7 @@ let colorise opts =
   if not opts.IndexOptions.color then
     LibIndex.Format.no_color
   else
-    let f kind fstr fmt = pp_with_style get_attr kind fstr fmt
+    let f kind fstr fmt = pp_with_style kind_to_tag kind fstr fmt
     in { LibIndex.Format.f }
 
 (** Format the complete answer and return a styled text. *)
@@ -701,7 +725,9 @@ let main options =
   fun term -> LTerm_widget.run term root waiter
 
 let run options () =
-  Lwt_main.run (main options)
+  Lwt_main.run (
+    Lwt.bind (load ()) (fun () -> main options)
+  )
 
 let main_term : unit Cmdliner.Term.t * Cmdliner.Term.info =
   let open Cmdliner in
