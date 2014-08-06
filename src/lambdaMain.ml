@@ -1,6 +1,4 @@
-open Lwt
 open Lwt_react
-open LTerm_widget
 open CamomileLibraryDyn.Camomile
 
 (* LibIndex.info contains lazy values, we need a specialized equality. *)
@@ -46,7 +44,7 @@ let get_attr, attr_tbl =
   Hashtbl.add h "Disabled"   @@ colindex 8 ;
   attr, h
 
-(** Create a custom styled text formater. *)
+(** Create a custom styled text formatter. *)
 (* Should go into lambda-term at some point. *)
 let make_fmt () =
   let style = Stack.create () in
@@ -477,13 +475,13 @@ class completion_box options wakener =
       (* Exit the app on Break and Interrupt *)
       | action ->
           try super#send_action action
-          with Sys.Break | LTerm_read_line.Interrupt -> wakeup wakener ()
+          with Sys.Break | LTerm_read_line.Interrupt -> Lwt.wakeup wakener ()
 
   end
 
 
 (** Count the number of line took by a text. *)
-(* Assume there are now overfills, should be ensured by format. *)
+(* Assume there are no overfills, should be ensured by format. *)
 let height (str : LTerm_text.t) =
   let last = Array.length str - 1 in
   let count = ref 0 in
@@ -607,12 +605,12 @@ let pp_kinds fmt options =
     ("t","Type",t) ; ("v","Value",v) ; ("e","Exception",e) ;
     ("c","Variant",c) ; ("m","Module",m) ; ("s","ModuleType",s) ;
     ("k","Keyword",k) ] in
-  let pp_sep fmt () = Format.fprintf fmt ", " in
+  let pp_sep fmt () = Format.pp_print_string fmt ", " in
   Format.fprintf fmt " kinds: %a " (pp_print_list ~pp_sep pp_kind) l
 
 (** A frame with extra info on the border. *)
 class frame_info options = object
-  inherit frame as super
+  inherit LTerm_widget.frame as super
 
   method! draw ctx focused =
     super#draw ctx focused ;
@@ -629,15 +627,16 @@ let change_kind completion_box shox_box options = function
   | LTerm_event.Key { control = false; meta = true; shift = false; code = Char ch } ->
       let open IndexOptions in
       let fil = options.filter in
-      let new_fil =
-        if ch = UChar.of_char 't'      then { fil with t = not fil.t }
-        else if ch = UChar.of_char 'e' then { fil with e = not fil.e }
-        else if ch = UChar.of_char 'c' then { fil with c = not fil.c }
-        else if ch = UChar.of_char 'm' then { fil with m = not fil.m }
-        else if ch = UChar.of_char 's' then { fil with s = not fil.s }
-        else if ch = UChar.of_char 'k' then { fil with k = not fil.k }
-        else if ch = UChar.of_char 'v' then { fil with v = not fil.v }
-        else fil
+      let new_fil = try match UChar.char_of ch with
+        | 't' -> { fil with t = not fil.t }
+        | 'e' -> { fil with e = not fil.e }
+        | 'c' -> { fil with c = not fil.c }
+        | 'm' -> { fil with m = not fil.m }
+        | 's' -> { fil with s = not fil.s }
+        | 'k' -> { fil with k = not fil.k }
+        | 'v' -> { fil with v = not fil.v }
+        | _ -> fil
+        with UChar.Out_of_range -> fil
       in options.filter <- new_fil ;
       completion_box#completion ;
       shox_box#queue_draw ;
@@ -662,7 +661,7 @@ let show_completion show_box input =
 (** Boilerplate *)
 
 let main options =
-  let waiter, wakener = wait () in
+  let waiter, wakener = Lwt.wait () in
 
   let root = new LTerm_widget.vbox in
   let comp = new frame_info options in
