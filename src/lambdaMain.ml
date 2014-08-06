@@ -1,6 +1,8 @@
 open Lwt_react
 open CamomileLibraryDyn.Camomile
 
+let (>>=) = Lwt.(>>=)
+
 (* LibIndex.info contains lazy values, we need a specialized equality. *)
 let rec eq l1 l2 = match l1, l2 with
   | [], [] -> true
@@ -42,7 +44,7 @@ let kind_to_tag, tag_to_style, register_ressource =
   kind_to_tag, tag_to_style, register_ressource
 
 (** Load custom styles from ~/.ocp-browser. *)
-let load () =
+let load_style () =
   let bold = LTerm_style.({ none with bold = Some true}) in
   let underline = LTerm_style.({ none with underline = Some true}) in
   let colindex i = LTerm_style.({ none with foreground = Some (index i)}) in
@@ -159,7 +161,8 @@ let sprint_answer ?(doc=false) cols colorise id =
 
 module Bindings = Zed_input.Make (LTerm_key)
 
-let () =
+let load_bindings () =
+  LTerm_inputrc.load () >>= fun () ->
   let open LTerm_read_line in
   let open LTerm_key in
   let edit x = Edit (LTerm_edit.Zed x) in
@@ -185,7 +188,8 @@ let () =
 
   (* We use Alt+c to toggle constructors. *)
   LTerm_edit.unbind [{ control = false ; meta = true ; shift = false ; code = Char (UChar.of_char 'c')}] ;
-  ()
+  Lwt.return ()
+
 
 
 (** Line editor *)
@@ -726,7 +730,9 @@ let main options =
 
 let run options () =
   Lwt_main.run (
-    Lwt.bind (load ()) (fun () -> main options)
+    load_style () >>=
+    load_bindings >>=
+    fun () -> main options
   )
 
 let main_term : unit Cmdliner.Term.t * Cmdliner.Term.info =
