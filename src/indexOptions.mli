@@ -39,4 +39,6 @@ val filter : t -> LibIndex.info -> bool
 
 (** The cmdliner term to get the common options and create the [LibIndex.t]
     structure *)
-val common_opts : t Cmdliner.Term.t
+val common_opts :
+  ?default_filter:[ `C | `E | `K | `M | `S | `T | `V ] list ->
+  unit ->  t Cmdliner.Term.t

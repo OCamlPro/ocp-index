@@ -255,7 +255,7 @@ let interactive opts () =
 
 let browser_cmd : unit Term.t * Term.info =
   let doc = "Interactively completes and prints documentation." in
-  Term.(pure interactive $ IndexOptions.common_opts $ pure ()),
+  Term.(pure interactive $ IndexOptions.common_opts () $ pure ()),
   Term.info "ocp-browser" ~doc
 
 let () =

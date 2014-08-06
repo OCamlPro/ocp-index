@@ -738,7 +738,9 @@ let run options () =
 let main_term : unit Cmdliner.Term.t * Cmdliner.Term.info =
   let open Cmdliner in
   let doc = "Interactively completes and prints documentation." in
-  Term.(pure run $ IndexOptions.common_opts $ pure ()),
+  Term.(pure run
+        $ IndexOptions.common_opts ~default_filter:[`T;`V;`E;`C;`M;`S;`K] ()
+        $ pure ()),
   Term.info "ocp-browser" ~doc
 
 let () =
