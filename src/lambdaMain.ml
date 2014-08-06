@@ -143,10 +143,13 @@ let () =
   bind [{ control = false; meta = false; shift = false; code = Left }]     [edit Prev_char];
   bind [{ control = false; meta = true; shift = false; code = Backspace }] [edit Delete_prev_word];
 
-  bind [{ control = false; meta = false; shift = false; code = Prev_page }] [Complete_bar_first];
-  bind [{ control = false; meta = false; shift = false; code = Next_page }]  [Complete_bar_last];
-  bind [{ control = false; meta = false; shift = false; code = Up }]   [Complete_bar_prev];
+  bind [{ control = false; meta = true; shift = false; code = Home }] [Complete_bar_first];
+  bind [{ control = false; meta = true; shift = false; code = End }]  [Complete_bar_last];
+  bind [{ control = false; meta = false; shift = false; code = Up }] [Complete_bar_prev];
+  bind [{ control = true; meta = false; shift = false; code = Char (UChar.of_char 'p') }]
+    [Complete_bar_prev];
   bind [{ control = false; meta = false; shift = false; code = Down }] [Complete_bar_next];
+  bind [{ control = true; meta = false; shift = false; code = Char (UChar.of_char 'n') }] [Complete_bar_next];
 
   bind [{ control = false; meta = true; shift = false; code = Up }]    [Complete_bar_prev];
   bind [{ control = false; meta = true; shift = false; code = Down }]  [Complete_bar_next];
@@ -519,6 +522,10 @@ class show_box color = object (self)
     content <- new_content ;
     self#queue_draw
 
+  (** Number of entry currently printed. *)
+  val mutable printed_entries = (0,0)
+  method printed_entries = printed_entries
+
   method! draw ctx _focused =
     let {LTerm_geom. rows ; cols } = LTerm_geom.size_of_rect self#allocation in
     let cols = cols - 2 in
@@ -569,7 +576,13 @@ class show_box color = object (self)
               LTerm_draw.draw_styled ctx pos 2 text ; draw_right (pos + size) t
         in
 
-        let start = max 0 (min size_left (max default_pos (rows - right_size - size_focus))) in
+        printed_entries <-
+          List.length formatted_left, List.length formatted_right ;
+
+        let start =
+          max 0 (min size_left
+                   (max default_pos (rows - right_size - size_focus)))
+        in
 
         draw_left start formatted_left ;
         LTerm_draw.draw_styled ctx start 2 text_focus ;
@@ -623,7 +636,7 @@ class frame_info options = object
       LTerm_draw.draw_styled ctx 0 (width - len - 1) s
 end
 
-let change_kind completion_box shox_box options = function
+let change_kind (cbox : #completion_box) (sbox:#show_box) options = function
   | LTerm_event.Key { control = false; meta = true; shift = false; code = Char ch } ->
       let open IndexOptions in
       let fil = options.filter in
@@ -638,8 +651,16 @@ let change_kind completion_box shox_box options = function
         | _ -> fil
         with UChar.Out_of_range -> fil
       in options.filter <- new_fil ;
-      completion_box#completion ;
-      shox_box#queue_draw ;
+      cbox#completion ;
+      sbox#queue_draw ;
+      true
+  | LTerm_event.Key { control = false; meta = _ ; shift = false; code = Prev_page } ->
+      let k, _ = sbox#printed_entries in
+      for _i = 0 to max 1 k do cbox#send_action Complete_bar_prev done ;
+      true
+  | LTerm_event.Key { control = false; meta = _ ; shift = false; code = Next_page } ->
+      let _, k = sbox#printed_entries in
+      for _i = 0 to max 1 k do cbox#send_action Complete_bar_next done ;
       true
   | _ -> false
 
