@@ -414,7 +414,11 @@ let rec trie_of_sig_item
                 in
                 Trie.map (fun _k v -> rewrite_path v) s
         in
-        lazy (lookup parents), comments
+        let children = lazy (
+          (* Only keep the children, don't override the module reference *)
+          Trie.graft_lazy Trie.empty [] (lazy (lookup parents))
+        ) in
+        children, comments
     | Types.Sig_class (id,{Types.cty_type=cty},_)
     | Types.Sig_class_type (id,{Types.clty_type=cty},_)
       ->
