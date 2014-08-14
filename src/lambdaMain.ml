@@ -492,7 +492,7 @@ class completion_box options wakener =
     (** Only insert chars that are valid in OCaml identifiers. *)
     method! insert ch =
       let is_valid_char x = try match UChar.char_of x with
-        | 'a'..'z' | 'A'..'Z' | '_' | '\'' | '#'
+        | 'a'..'z' | 'A'..'Z' | '1'..'9' | '_' | '\'' | '#'
         | '!'|'$'|'%'|'&'|'*'|'+'|'-'|'.'|'/'
         | ':'|'<'|'='|'>'|'?'|'@'|'^'|'|'|'~'
           -> true
