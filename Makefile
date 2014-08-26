@@ -9,8 +9,8 @@ ifneq ($(has_cmdliner),no)
   endif
 endif
 
-OCPBUILD_ARGS = -install-lib $(prefix)/lib/ocp-index
-OCPBUILD_INSTALL_ARGS = $(OCPBUILD_ARGS) -install-bin $(prefix)/bin
+OCPBUILD_ARGS =
+OCPBUILD_INSTALL_ARGS =
 
 all: $(LIBS) $(PROJECTS) man
 
