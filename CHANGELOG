@@ -1,3 +1,10 @@
+## 1.0.3
+* improved emacs mode, now supporting both auto-comlete and company
+* fixed return value of ocp-grep
+* added '--format' to the complete command
+* fixed some case of laziness that could fail with some nested module aliases
+* better man-page
+
 ## 1.0.2
 * much more expressive command-line option "print" to access more known info
 * cleaner command-line include options
