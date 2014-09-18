@@ -60,7 +60,9 @@ let fold0 f tree acc =
         !!(t.children)
         acc
     in
-    f acc (List.rev rev_path) t.value
+    match t.value with
+    | [] -> acc
+    | values -> f acc (List.rev rev_path) values
   in
   aux acc tree []
 
