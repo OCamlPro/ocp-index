@@ -147,12 +147,12 @@ let sprint_answer ?(doc=false) cols colorise id =
         LibIndex.Format.ty ~colorise fmt id;
         print "@]" ;
   end ;
+  print "@]" ;
   if doc && Lazy.force id.LibIndex.doc <> None
   then begin
     print "@\n    " ;
     LibIndex.Format.doc ~colorise fmt id
   end ;
-  print "@]" ;
   Format.pp_print_flush fmt () ;
   get_content ()
 
