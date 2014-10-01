@@ -84,13 +84,13 @@ type state = {
 let interactive opts () =
   let w = curses_init opts.IndexOptions.color in
   let query_buf_max = w.width - 4 in
-  let query_buf = String.create query_buf_max in
+  let query_buf = Bytes.create query_buf_max in
   let fmt = Format.std_formatter in
 
   let rec loop (st:state) =
-    let query = String.sub query_buf 0 st.query_len in
+    let query = Bytes.sub query_buf 0 st.query_len in
     clear_input w opts.IndexOptions.filter ;
-    let _ = Curses.waddstr w.input query in
+    let _ = Curses.waddstr w.input (Bytes.to_string query) in
     let ch = Curses.wgetch w.input in
     update_margin fmt w.width ;
     if st.query_len >= query_buf_max
@@ -104,10 +104,10 @@ let interactive opts () =
           { nst with query_len = max (st.query_len - 1) 0 }
         else if ch = Curses.Key.right || ch = int_of_char '\t' then
           let query, nth = match st.completion with
-            | None -> String.sub query_buf 0 st.query_len, 0
+            | None -> Bytes.sub query_buf 0 st.query_len, 0
             | Some (s,n) -> s, n
           in
-          match LibIndex.complete opts.IndexOptions.lib_info query with
+          match LibIndex.complete opts.IndexOptions.lib_info (Bytes.to_string query) with
           | [] -> st
           | lst ->
               let nb = List.length lst in
@@ -153,40 +153,40 @@ let interactive opts () =
             else st
           )
         else
-          (query_buf.[st.query_len] <- char_of_int ch;
+          (Bytes.set query_buf st.query_len (char_of_int ch);
            { nst with query_len = st.query_len + 1 });
       in
       let query =
-        String.sub query_buf 0 st.query_len
+        Bytes.to_string (Bytes.sub query_buf 0 st.query_len)
       in
       let toskip = ref st.scroll in
       let _set_formatter_ =
         let toprint = ref (w.height - 3) in
-        let out str a b =
+        let out_string str a b =
           if !toskip > 0 then ()
           else if !toprint > 1 then
             for i = a to a + b - 1 do
               ignore (Curses.waddch w.output (int_of_char str.[i]))
             done
         in
-        let newline () =
+        let out_newline () =
           if !toskip > 0 then decr toskip
           else if !toprint > 2 then
-            (out "\n" 0 1; decr toprint)
+            (out_string "\n" 0 1; decr toprint)
           else if !toprint > 0 then
-            (out "\n..." 0 4; decr toprint)
+            (out_string "\n..." 0 4; decr toprint)
         in
-        let spaces n = out (String.make n ' ') 0 n in
-        let flush () = () in
-        Format.set_all_formatter_output_functions
-          ~out ~flush ~newline ~spaces
+        let out_spaces n = out_string (String.make n ' ') 0 n in
+        let out_flush () = () in
+        Format.set_formatter_out_functions
+          {Format.out_string; out_flush; out_newline; out_spaces}
       in
       let colorise =
         if not opts.IndexOptions.color then
           LibIndex.Format.no_color
         else
           let attr = function
-            | LibIndex.Type -> Curses.WA.color_pair 6
+            | LibIndex.Type | LibIndex.OpenType -> Curses.WA.color_pair 6
             | LibIndex.Value -> Curses.WA.bold
             | LibIndex.Exception -> Curses.WA.color_pair 3
             | LibIndex.Field _ | LibIndex.Variant _ -> Curses.WA.color_pair 4

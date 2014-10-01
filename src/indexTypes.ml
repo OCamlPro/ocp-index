@@ -35,7 +35,7 @@ type info = { path: string list;
 
 (** The kind of elements that can be stored in the trie *)
 and kind =
-  | Type | Value | Exception
+  | Type | Value | Exception | OpenType
   | Field of info | Variant of info
   | Method of info
   | Module | ModuleType
