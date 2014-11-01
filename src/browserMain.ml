@@ -194,6 +194,8 @@ class virtual line_editor = object(self)
   val mutable event = E.never
   val mutable resolver = None
 
+  method is_valid_char (_c : UChar.t) = true
+
   method! can_focus = true
 
   initializer
@@ -227,8 +229,9 @@ class virtual line_editor = object(self)
                       shift = false; code = Char ch } ->
                       Zed_macro.add self#macro
                         (Edit (LTerm_edit.Zed (Zed_edit.Insert ch)));
-                      self#insert ch ;
-                      true
+                      let b = self#is_valid_char ch in
+                      if b then self#insert ch ;
+                      b
                   | _ ->
                       false
                 else begin
@@ -508,17 +511,13 @@ class completion_box options exit =
     method completion_info = completion_info
 
     (** Only insert chars that are valid in OCaml identifiers. *)
-    method! insert ch =
-      let is_valid_char x = try match UChar.char_of x with
-        | 'a'..'z' | 'A'..'Z' | '1'..'9' | '_' | '\'' | '#'
-        | '!'|'$'|'%'|'&'|'*'|'+'|'-'|'.'|'/'
-        | ':'|'<'|'='|'>'|'?'|'@'|'^'|'|'|'~'
-          -> true
-        | _ -> false
-        with UChar.Out_of_range -> false
-      in
-      if is_valid_char ch then super#insert ch
-      else ()
+    method! is_valid_char  x = try match UChar.char_of x with
+      | 'a'..'z' | 'A'..'Z' | '1'..'9' | '_' | '\'' | '#'
+      | '!'|'$'|'%'|'&'|'*'|'+'|'-'|'.'|'/'
+      | ':'|'<'|'='|'>'|'?'|'@'|'^'|'|'|'~'
+        -> true
+      | _ -> false
+      with UChar.Out_of_range -> false
 
     method! send_action = function
       (* Exit the app on Break and Interrupt *)
