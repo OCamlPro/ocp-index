@@ -88,7 +88,7 @@ let colorise opts =
     in { LibIndex.Format.f }
 
 (** Format the complete answer and return a styled text. *)
-let sprint_answer ?(doc=false) cols colorise id =
+let sprint_answer ?(extra_info=false) cols colorise id =
   let get_content, fmt =
     LTerm_text.make_formatter ~read_color:tag_to_style () in
   Format.pp_set_margin fmt cols ;
@@ -109,7 +109,7 @@ let sprint_answer ?(doc=false) cols colorise id =
         print "@]" ;
   end ;
   print "@]" ;
-  if doc && Lazy.force id.LibIndex.doc <> None
+  if extra_info && Lazy.force id.LibIndex.doc <> None
   then begin
     print "@\n    " ;
     LibIndex.Format.doc ~colorise fmt id
@@ -580,6 +580,10 @@ class show_box color = object (self)
   val mutable printed_entries = (0,0)
   method printed_entries = printed_entries
 
+  val mutable extra_info = false
+  method toogle_extra_info =
+    extra_info <- not extra_info
+
   method! draw ctx _focused =
     let {LTerm_geom. rows ; cols } =
       LTerm_geom.size_of_rect self#allocation
@@ -588,7 +592,7 @@ class show_box color = object (self)
     match content with
     | _, [] -> ()
     | left, focus :: right -> begin
-        let text_focus = sprint_answer ~doc:true cols color focus in
+        let text_focus = sprint_answer ~extra_info cols color focus in
         let size_focus = (size text_focus).rows in
         let default_pos = (rows - size_focus) / 2 in
 
@@ -740,6 +744,12 @@ let event_handler (cbox : #completion_box) (sbox:#show_box) options show_help =
     when c = UChar.of_char 'h' ->
       show_help () ;
       true
+  | LTerm_event.Key
+      { control = false ; meta = false ; shift = false ; code = Char c}
+    when c = UChar.of_char ' ' ->
+      sbox#toogle_extra_info ;
+      sbox#queue_draw ;
+      true
   | _ -> false
 
 (** Express the result as an event mapped on the content of the completion box.
@@ -762,6 +772,7 @@ let show_completion show_box input =
 let help_content : _ format4 = "\
 Tab          : Complete.\n\
 Enter        : Choose the result under the cursor.\n\
+Space        : Toogle extra documentation.\n\
 Up/Down      : Move the cursor up/down.\n\
 Page Up/Down : Move up/down to the first non-visible entry.\n\
 Alt+Arrows   : Move in the module hierarchy.\n\
