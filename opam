@@ -13,7 +13,7 @@ depends: [
   "re"
   "cmdliner"
 ]
-depopts: ["curses" "lambda-term"]
+depopts: ["lambda-term"]
 ocaml-version: [ >= "4.00.0" ]
 post-messages: [
   "OCP-INDEX installed.

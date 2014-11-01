@@ -15,20 +15,14 @@ begin program "ocp-index"
   requires = [ "ocp-index-lib" "unix" "cmdliner" ]
 end
 
-begin program "ocp-browser"
-  sort = false
-  files = [ "indexOptions.ml" "browserMain.ml" ]
-  requires = [ "ocp-index-lib" "unix" "cmdliner" "curses" ]
-end
-
 begin program "ocp-grep"
   sort = false
   files = [ "grepMain.ml" ]
   requires = [ "unix" "cmdliner" "ocp-index-lib" "re" "re.posix" ]
 end
 
-begin program "ocp-lambda"
+begin program "ocp-browser"
   sort = false
-  files = [ "indexOptions.ml" "lambdaMain.ml" ]
+  files = [ "indexOptions.ml" "browserMain.ml" ]
   requires = [ "ocp-index-lib" "unix" "cmdliner" "lambda-term" ]
 end

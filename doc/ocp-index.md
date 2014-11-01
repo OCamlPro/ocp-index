@@ -113,9 +113,9 @@ There is a binding written by Peter Zotov at https://github.com/whitequark/subli
 ### ocp-browser
 
 A small ncurses-based browser based on ocp-index is also included. You will need
-ocaml-curses installed to build it:
+lambda-term installed to build it:
 ```
-$ opam install curses
+$ opam install lambda-term
 $ ./configure
 $ make ocp-browser
 ```

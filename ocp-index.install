@@ -1,6 +1,5 @@
 bin: [
   "?_obuild/ocp-browser/ocp-browser.asm" {"ocp-browser"}
-  "?_obuild/ocp-lambda/ocp-lambda.asm" {"ocp-lambda"}
   "?_obuild/ocp-grep/ocp-grep.asm" {"ocp-grep"}
   "?_obuild/ocp-index/ocp-index.asm" {"ocp-index"}
 ]
@@ -18,7 +17,6 @@ man: [
   "?man/man1/ocp-grep.1"
   "?man/man1/ocp-index.1"
   "?man/man1/ocp-browser.1"
-  "?man/man1/ocp-lambda.1"
 ]
 share: [
   "tools/ocp-index.el" {"../emacs/site-lisp/ocp-index.el"}
