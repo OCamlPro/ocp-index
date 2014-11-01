@@ -448,7 +448,7 @@ let index_of_biggest_prefix s l =
   in loop 0 min_int None l
 
 (** Mono line input with completion for a LibIndex.path. *)
-class completion_box options wakener =
+class completion_box options exit =
 
   let completion_info, set_completion_info =
     S.create ~eq ([] : LibIndex.info list) in
@@ -524,7 +524,7 @@ class completion_box options wakener =
       (* Exit the app on Break and Interrupt *)
       | action ->
           try super#send_action action
-          with Sys.Break | LTerm_read_line.Interrupt -> Lwt.wakeup wakener ()
+          with Sys.Break | LTerm_read_line.Interrupt -> exit ()
 
   end
 
@@ -700,9 +700,16 @@ class frame_info options = object
       LTerm_draw.draw_styled ctx 0 (width - len - 1) s
 end
 
-let event_handler (cbox : #completion_box) (sbox:#show_box) options = function
+
+
+let kind_char_list = List.map UChar.of_char ['t';'e';'c';'m';'s';'k';'v']
+
+let event_handler (cbox : #completion_box) (sbox:#show_box) options show_help =
+  function
   | LTerm_event.Key
-      { control = false; meta = true; shift = false; code = Char ch } ->
+      { control = false; meta = true; shift = false; code = Char ch }
+      when List.mem ch kind_char_list
+    ->
       let open IndexOptions in
       let fil = options.filter in
       let new_fil = try match UChar.char_of ch with
@@ -720,14 +727,19 @@ let event_handler (cbox : #completion_box) (sbox:#show_box) options = function
       sbox#queue_draw ;
       true
   | LTerm_event.Key
-      { control = false; meta = _ ; shift = false; code = Prev_page } ->
+      { control = false ; meta = false ; shift = false ; code = Prev_page } ->
       let k, _ = sbox#printed_entries in
       for _i = 0 to max 1 k do cbox#send_action Complete_bar_prev done ;
       true
   | LTerm_event.Key
-      { control = false; meta = _ ; shift = false; code = Next_page } ->
+      { control = false ; meta = false ; shift = false ; code = Next_page } ->
       let _, k = sbox#printed_entries in
       for _i = 0 to max 1 k do cbox#send_action Complete_bar_next done ;
+      true
+  | LTerm_event.Key
+      { control = false ; meta = true ; shift = false ; code = Char c}
+    when c = UChar.of_char 'h' ->
+      show_help () ;
       true
   | _ -> false
 
@@ -746,27 +758,64 @@ let show_completion show_box input =
   |> S.l2 ~eq:eq_pair zipper input#completion_index
   |> S.map show_box#set_content
 
+(** Modal help **)
+
+let help_content : _ format4 = "\
+Tab          : Complete.\n\
+Enter        : Choose the result under the cursor.\n\
+Up/Down      : Move the cursor up/down.\n\
+Page Up/Down : Move up/down to the first non-visible entry.\n\
+Alt+Arrows   : Move in the module hierarchy.\n\
+Alt+<X>      : Toogle one of the%a\n\
+Alt+h        : Show this help.\n\
+Ctrl+C       : Quit.\n\n\
+Press anything to quit this help.\n"
+
+class help_label options =
+  let text =
+    LTerm_text.styprintf ~read_color:tag_to_style
+      help_content pp_kinds options
+  in
+  let h = size text in
+  object
+    inherit LTerm_widget.t "label"
+
+    method! size_request = h
+
+    method! draw ctx _focused =
+      LTerm_draw.draw_styled ctx 0 0 text
+end
+
+let new_help_modal options =
+  let m = new LTerm_widget.modal_frame in
+  let label = new help_label options in
+  m#set label ;
+  m
+
 
 (** Boilerplate *)
 
 let main options =
-  let waiter, wakener = Lwt.wait () in
+  let do_run, push_layer, pop_layer, exit =
+    LTerm_widget.prepare_simple_run () in
 
   let root = new LTerm_widget.vbox in
   let comp = new frame_info options in
-  let input = new completion_box options wakener in
+  let input = new completion_box options exit in
   comp#set input ;
   root#add ~expand:false comp ;
 
   let show_box = new show_box (colorise options) in
   root#add show_box ;
 
-  root#on_event (event_handler input show_box options) ;
+  let help_modal = new_help_modal options in
+  help_modal#on_event (fun _ -> pop_layer () ; true) ;
+
+  root#on_event (event_handler input show_box options (push_layer help_modal)) ;
 
   S.keep @@ show_completion show_box input ;
 
-  Lazy.force LTerm.stdout >>=
-  fun term -> LTerm_widget.run term root waiter
+  do_run root
 
 let run options () =
   Lwt_main.run (
@@ -777,7 +826,7 @@ let run options () =
 
 let main_term : unit Cmdliner.Term.t * Cmdliner.Term.info =
   let open Cmdliner in
-  let doc = "Interactively completes and prints documentation." in
+  let doc = "Interactively completes and prints documentation. See Alt+h for help." in
   Term.(pure run
         $ IndexOptions.common_opts ~default_filter:[`T;`V;`E;`C;`M;`S;`K] ()
         $ pure ()),
