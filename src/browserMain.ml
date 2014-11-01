@@ -529,17 +529,24 @@ class completion_box options wakener =
   end
 
 
-(** Count the number of line took by a text. *)
-(* Assume there are no overfills, should be ensured by format. *)
-let height (str : LTerm_text.t) =
+(** Count the size took by a text. *)
+let size (str : LTerm_text.t) =
   let last = Array.length str - 1 in
-  let count = ref 0 in
+  let rows = ref 0 in
+  let cols = ref 0 in
+  let current_col = ref 0 in
   for i = 0 to last do
-    if fst str.(i) = newline then incr count
+    if fst str.(i) = newline then begin
+      incr rows ;
+      cols := max !cols !current_col ;
+      current_col := 0 ;
+    end
+    else
+      incr current_col
   done ;
   (* Don't count a potential last newline twice *)
-  if fst str.(last) <> newline then incr count ;
-  !count
+  if fst str.(last) <> newline then incr rows ;
+  {LTerm_geom. rows = !rows ; cols = !cols }
 
 (** The show box shows the result of a research.
 
@@ -583,7 +590,7 @@ class show_box color = object (self)
     | _, [] -> ()
     | left, focus :: right -> begin
         let text_focus = sprint_answer ~doc:true cols color focus in
-        let size_focus = height text_focus in
+        let size_focus = (size text_focus).rows in
         let default_pos = (rows - size_focus) / 2 in
 
         (* Can't figure out how to do simpler, bear with me. *)
@@ -607,7 +614,7 @@ class show_box color = object (self)
 
           | `L, info :: t, _ | `R, _, info :: t ->
               let text = sprint_answer cols color info in
-              let size = height text in
+              let size = (size text).rows in
               if dir = `L then
                 format dir t right (size + size_l) size_r
                   ((text,size) :: format_l) format_r
