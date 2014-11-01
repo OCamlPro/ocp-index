@@ -12,7 +12,7 @@ let rec eq l1 l2 = match l1, l2 with
       path1 = path2 && name1 = name2 && eq t1 t2
 
 (** Provide an association LibIndex.kind -> tag (= string) -> style
-   In order to encode styles in [Format.tag]. *)
+    In order to encode styles in [Format.tag]. *)
 let kind_to_tag, tag_to_style, register_ressource =
   let h = Hashtbl.create 11 in
   let kind_to_tag = function
@@ -166,28 +166,44 @@ let load_bindings () =
   let open LTerm_read_line in
   let open LTerm_key in
   let edit x = Edit (LTerm_edit.Zed x) in
-  bind [{ control = false; meta = false; shift = false; code = Right }]    [edit Next_char];
-  bind [{ control = false; meta = false; shift = false; code = Left }]     [edit Prev_char];
-  bind [{ control = false; meta = true; shift = false; code = Backspace }] [edit Delete_prev_word];
+  let (~/) x = Char (UChar.of_char x) in
+  bind [{ control = false; meta = false; shift = false; code = Right }]
+    [edit Next_char];
+  bind [{ control = false; meta = false; shift = false; code = Left }]
+    [edit Prev_char];
+  bind [{ control = false; meta = true; shift = false; code = Backspace }]
+    [edit Delete_prev_word];
 
-  bind [{ control = false; meta = true; shift = false; code = Home }] [Complete_bar_first];
-  bind [{ control = false; meta = true; shift = false; code = End }]  [Complete_bar_last];
-  bind [{ control = false; meta = false; shift = false; code = Up }] [Complete_bar_prev];
-  bind [{ control = true; meta = false; shift = false; code = Char (UChar.of_char 'p') }]
+  bind [{ control = false; meta = true; shift = false; code = Home }]
+    [Complete_bar_first];
+  bind [{ control = false; meta = true; shift = false; code = End }]
+    [Complete_bar_last];
+  bind [{ control = false; meta = false; shift = false; code = Up }]
     [Complete_bar_prev];
-  bind [{ control = false; meta = false; shift = false; code = Down }] [Complete_bar_next];
-  bind [{ control = true; meta = false; shift = false; code = Char (UChar.of_char 'n') }] [Complete_bar_next];
+  bind [{ control = true; meta = false; shift = false; code = ~/'p'}]
+    [Complete_bar_prev];
+  bind [{ control = false; meta = false; shift = false; code = Down }]
+    [Complete_bar_next];
+  bind [{ control = true; meta = false; shift = false; code = ~/'n'}]
+    [Complete_bar_next];
 
-  bind [{ control = false; meta = true; shift = false; code = Up }]    [Complete_bar_prev];
-  bind [{ control = false; meta = true; shift = false; code = Down }]  [Complete_bar_next];
-  bind [{ control = false; meta = true; shift = false; code = Right }] [Complete_bar];
-  (* bind [{ control = false; meta = true; shift = false; code = Left }]  [edit Delete_prev_word]; *)
+  bind [{ control = false; meta = true; shift = false; code = Up }]
+    [Complete_bar_prev];
+  bind [{ control = false; meta = true; shift = false; code = Down }]
+    [Complete_bar_next];
+  bind [{ control = false; meta = true; shift = false; code = Right }]
+    [Complete_bar];
+  (* bind [{ control = false; meta = true; shift = false; code = Left }]
+     [edit Delete_prev_word]; *)
   (* Not defined here, because what we want is not exactly a command. *)
 
-  bind [{ control = false; meta = false; shift = false; code = Enter }] [Complete_bar];
+  bind [{ control = false; meta = false; shift = false; code = Enter }]
+    [Complete_bar];
 
   (* We use Alt+c to toggle constructors. *)
-  LTerm_edit.unbind [{ control = false ; meta = true ; shift = false ; code = Char (UChar.of_char 'c')}] ;
+  LTerm_edit.unbind [
+    { control = false ; meta = true ; shift = false ; code = ~/'c'}
+  ] ;
   Lwt.return ()
 
 
@@ -211,7 +227,8 @@ class virtual line_editor = object(self)
     let rc = self#resource_class and resources = self#resources in
     style <- LTerm_resources.get_style rc resources;
     marked_style <- LTerm_resources.get_style (rc ^ ".marked") resources;
-    current_line_style <- LTerm_resources.get_style (rc ^ ".current-line") resources
+    current_line_style <-
+      LTerm_resources.get_style (rc ^ ".current-line") resources
 
   val mutable event = E.never
   val mutable resolver = None
@@ -219,41 +236,47 @@ class virtual line_editor = object(self)
   method! can_focus = true
 
   initializer
-    event <- E.map (fun _ -> self#queue_draw) (Zed_edit.update self#edit [Zed_edit.cursor self#context]);
+    event <-
+      E.map (fun _ -> self#queue_draw)
+        (Zed_edit.update self#edit [Zed_edit.cursor self#context]);
     self#on_event
       (function
-         | LTerm_event.Key key -> begin
-             let res =
-               match resolver with
-               | Some res -> res
-               | None -> Bindings.resolver [
-                   Bindings.pack (fun x -> x) !LTerm_read_line.bindings;
-                   Bindings.pack (List.map (fun x -> LTerm_read_line.Edit x)) !LTerm_edit.bindings]
-             in
-             match Bindings.resolve key res with
-               | Bindings.Accepted actions ->
-                   resolver <- None;
-                   List.iter self#send_action actions ;
-                   true
-               | Bindings.Continue res ->
-                   resolver <- Some res;
-                   true
-               | Bindings.Rejected ->
-                   if resolver = None then
-                     match key with
-                       | { control = false; meta = false; shift = false; code = Char ch } ->
-                           Zed_macro.add self#macro (Edit (LTerm_edit.Zed (Zed_edit.Insert ch)));
-                           self#insert ch ;
-                           true
-                       | _ ->
-                           false
-                   else begin
-                     resolver <- None;
-                     false
-                   end
-           end
-         | _ ->
-             false)
+        | LTerm_event.Key key -> begin
+            let res =
+              match resolver with
+              | Some res -> res
+              | None -> Bindings.resolver [
+                  Bindings.pack (fun x -> x) !LTerm_read_line.bindings;
+                  Bindings.pack (List.map (fun x -> LTerm_read_line.Edit x))
+                    !LTerm_edit.bindings
+                ]
+            in
+            match Bindings.resolve key res with
+            | Bindings.Accepted actions ->
+                resolver <- None;
+                List.iter self#send_action actions ;
+                true
+            | Bindings.Continue res ->
+                resolver <- Some res;
+                true
+            | Bindings.Rejected ->
+                if resolver = None then
+                  match key with
+                  | { control = false; meta = false;
+                      shift = false; code = Char ch } ->
+                      Zed_macro.add self#macro
+                        (Edit (LTerm_edit.Zed (Zed_edit.Insert ch)));
+                      self#insert ch ;
+                      true
+                  | _ ->
+                      false
+                else begin
+                  resolver <- None;
+                  false
+                end
+          end
+        | _ ->
+            false)
 
   method! send_action = function
     | Edit (Zed Newline) -> ()
@@ -270,9 +293,11 @@ class virtual line_editor = object(self)
     (*** Check that the cursor is displayed ***)
 
     let line_set = Zed_edit.lines self#edit in
-    let cursor_offset = Zed_cursor.get_position (Zed_edit.cursor self#context) in
+    let cursor_offset =
+      Zed_cursor.get_position (Zed_edit.cursor self#context) in
     let cursor_line = Zed_lines.line_index line_set cursor_offset in
-    let cursor_column = cursor_offset - Zed_lines.line_start line_set cursor_line in
+    let cursor_column =
+      cursor_offset - Zed_lines.line_start line_set cursor_line in
 
     (* Horizontal check *)
     if cursor_column < shift || cursor_column >= shift + size.cols then
@@ -281,12 +306,13 @@ class virtual line_editor = object(self)
     (* Vertical check *)
     let start_line = Zed_lines.line_index line_set start in
     let start_line =
-      if cursor_line < start_line || cursor_line >= start_line + size.rows then begin
+      if cursor_line < start_line || cursor_line >= start_line + size.rows
+      then begin
         let start_line = max 0 (cursor_line - size.rows / 2) in
         start <- Zed_lines.line_start line_set start_line;
         start_line
-      end else
-        start_line
+      end
+      else start_line
     in
 
     (*** Drawing ***)
@@ -407,9 +433,11 @@ class virtual line_editor = object(self)
 
   method! cursor_position =
     let line_set = Zed_edit.lines self#edit in
-    let cursor_offset = Zed_cursor.get_position (Zed_edit.cursor self#context) in
+    let cursor_offset =
+      Zed_cursor.get_position (Zed_edit.cursor self#context) in
     let cursor_line = Zed_lines.line_index line_set cursor_offset in
-    let cursor_column = cursor_offset - Zed_lines.line_start line_set cursor_line in
+    let cursor_column =
+      cursor_offset - Zed_lines.line_start line_set cursor_line in
     let start_line = Zed_lines.line_index line_set start in
     Some { row = cursor_line - start_line; col = cursor_column - shift }
 end
@@ -423,7 +451,8 @@ end
 
     Since some library use "_" as namespace marker, we stop at "_" too.
 *)
-(* Currently, it computes where to cut, go to the end of the text, erase the extra text, replace the cursor.
+(* Currently, it computes where to cut, go to the end of the text,
+   erase the extra text, replace the cursor.
    It's not atomic and will fire multiple useless events.
 *)
 let strip_path_level text context =
@@ -480,7 +509,8 @@ class completion_box options wakener =
         | _ -> false
       )
 
-    (* We maintain the last item under the cursor in order to try to restore a "good" index after completion. *)
+    (* We maintain the last item under the cursor in order to try
+       to restore a "good" index after completion. *)
     val mutable previous_completion = S.const ""
     initializer
       let r = ref "" in
@@ -553,15 +583,17 @@ let height (str : LTerm_text.t) =
 (** The show box shows the result of a research.
 
     [content] is a list zipper positioned at the focused element.
-    left and right lists are elements before and after the focus.
+    Left and right lists are elements before and after the focus.
 
-    We want to draw a focused element, as in the middle as possible, at [default_pos].
-    We don't want to format more left and right elements than necessary.
+    We want to draw a focused element, as in the middle as possible, at
+    [default_pos]. We don't want to format more left and right elements than
+    necessary.
 
-    We first format the left elements, in right-to-left order, until the height of formatted
-    texts is more than [default_pos]. We then format right elements in left-to-right order
-    until the total height of formatted text is longer than the number of rows. We may need to
-    go back to the left elements, if there are not enough right elements.
+    We first format the left elements, in right-to-left order, until the height
+    of formatted texts is more than [default_pos]. We then format right elements
+    in left-to-right order until the total height of formatted text is longer
+    than the number of rows. We may need to go back to the left elements, if
+    there are not enough right elements.
 
     We then render everything in the same fashion, with the focused element at
     [max 0 (min size_left default_pos)].
@@ -582,7 +614,9 @@ class show_box color = object (self)
   method printed_entries = printed_entries
 
   method! draw ctx _focused =
-    let {LTerm_geom. rows ; cols } = LTerm_geom.size_of_rect self#allocation in
+    let {LTerm_geom. rows ; cols } =
+      LTerm_geom.size_of_rect self#allocation
+    in
     let cols = cols - 2 in
     match content with
     | _, [] -> ()
@@ -592,7 +626,8 @@ class show_box color = object (self)
         let default_pos = (rows - size_focus) / 2 in
 
         (* Can't figure out how to do simpler, bear with me. *)
-        let rec format (dir:[ `L | `R ]) left right size_l size_r format_l format_r =
+        let rec format
+            (dir:[ `L | `R ]) left right size_l size_r format_l format_r =
           match dir, left, right with
           (* We are done (no more to draw or too much drawn already). *)
           | _, [], [] -> size_l, size_r, List.rev format_l, List.rev format_r
@@ -600,7 +635,8 @@ class show_box color = object (self)
               size_l, size_r, List.rev format_l, List.rev format_r
 
           (* Finished the left part, and stuff to do on the right. *)
-          | `L , [], _::_ -> format `R left right size_l size_r format_l format_r
+          | `L , [], _::_ ->
+              format `R left right size_l size_r format_l format_r
           | `L , _ , _::_ when size_l > default_pos ->
               format `R left right size_l size_r format_l format_r
 
@@ -612,9 +648,11 @@ class show_box color = object (self)
               let text = sprint_answer cols color info in
               let size = height text in
               if dir = `L then
-                format dir t right (size + size_l) size_r ((text,size) :: format_l) format_r
+                format dir t right (size + size_l) size_r
+                  ((text,size) :: format_l) format_r
               else
-                format dir left t size_l (size + size_r) format_l ((text,size) :: format_r)
+                format dir left t size_l (size + size_r)
+                  format_l ((text,size) :: format_r)
         in
         let size_left, right_size, formatted_left, formatted_right =
           format `L left right 0 0 [] []
@@ -623,12 +661,14 @@ class show_box color = object (self)
         let rec draw_left pos = function
           | [] -> ()
           | (text, size) :: t ->
-              LTerm_draw.draw_styled ctx (pos-size) 2 text ; draw_left (pos-size) t
+              LTerm_draw.draw_styled ctx (pos-size) 2 text ;
+              draw_left (pos-size) t
         in
         let rec draw_right pos = function
           | [] -> ()
           | (text, size) :: t ->
-              LTerm_draw.draw_styled ctx pos 2 text ; draw_right (pos + size) t
+              LTerm_draw.draw_styled ctx pos 2 text ;
+              draw_right (pos + size) t
         in
 
         printed_entries <-
@@ -691,8 +731,9 @@ class frame_info options = object
       LTerm_draw.draw_styled ctx 0 (width - len - 1) s
 end
 
-let change_kind (cbox : #completion_box) (sbox:#show_box) options = function
-  | LTerm_event.Key { control = false; meta = true; shift = false; code = Char ch } ->
+let event_handler (cbox : #completion_box) (sbox:#show_box) options = function
+  | LTerm_event.Key
+      { control = false; meta = true; shift = false; code = Char ch } ->
       let open IndexOptions in
       let fil = options.filter in
       let new_fil = try match UChar.char_of ch with
@@ -709,17 +750,20 @@ let change_kind (cbox : #completion_box) (sbox:#show_box) options = function
       cbox#completion ;
       sbox#queue_draw ;
       true
-  | LTerm_event.Key { control = false; meta = _ ; shift = false; code = Prev_page } ->
+  | LTerm_event.Key
+      { control = false; meta = _ ; shift = false; code = Prev_page } ->
       let k, _ = sbox#printed_entries in
       for _i = 0 to max 1 k do cbox#send_action Complete_bar_prev done ;
       true
-  | LTerm_event.Key { control = false; meta = _ ; shift = false; code = Next_page } ->
+  | LTerm_event.Key
+      { control = false; meta = _ ; shift = false; code = Next_page } ->
       let _, k = sbox#printed_entries in
       for _i = 0 to max 1 k do cbox#send_action Complete_bar_next done ;
       true
   | _ -> false
 
-(** Express the result as an event mapped on the content of the completion box. *)
+(** Express the result as an event mapped on the content of the completion box.
+*)
 let show_completion show_box input =
   let zipper n l =
     let rec aux k acc = function
@@ -748,7 +792,7 @@ let main options =
   let show_box = new show_box (colorise options) in
   root#add show_box ;
 
-  root#on_event (change_kind input show_box options) ;
+  root#on_event (event_handler input show_box options) ;
 
   S.keep @@ show_completion show_box input ;
 
