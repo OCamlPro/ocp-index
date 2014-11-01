@@ -70,47 +70,7 @@ let load_style () =
     Lwt.return ()
     )
 
-(** Create a custom styled text formatter. *)
-(* Should go into lambda-term at some point. *)
-let make_fmt () =
-  let style = Stack.create () in
-  let content = ref [||] in
-
-  let get_style () =
-    if Stack.is_empty style then LTerm_style.none
-    else Stack.top style
-  and pop_style () =
-    if Stack.is_empty style then ()
-    else ignore (Stack.pop style)
-  and push_style sty =
-    if Stack.is_empty style then Stack.push sty style
-    else Stack.push (LTerm_style.merge (Stack.top style) sty) style
-  in
-
-  let put s pos len =
-    let s = String.sub s pos len in
-    content := Array.append !content (LTerm_text.stylise s (get_style ()))
-  in
-  let flush () = () in
-  let fmt = Format.make_formatter put flush in
-
-  let get_content () =
-    Format.pp_print_flush fmt () ; !content
-  in
-
-  Format.pp_set_tags fmt true;
-  Format.pp_set_formatter_tag_functions fmt {
-    Format.
-    mark_open_tag =
-      (fun a -> push_style (tag_to_style a) ; "");
-    mark_close_tag =
-      (fun _ -> pop_style (); "");
-    print_open_tag = (fun _ -> ());
-    print_close_tag = (fun _ -> ());
-  } ;
-
-  get_content, fmt
-
+(** Similar to {!LTerm_text.pp_with_style} but with no typing restriction. *)
 let pp_with_style to_style =
   fun style fstr fmt ->
     let tag = to_style style in
@@ -129,7 +89,8 @@ let colorise opts =
 
 (** Format the complete answer and return a styled text. *)
 let sprint_answer ?(doc=false) cols colorise id =
-  let get_content, fmt = make_fmt () in
+  let get_content, fmt =
+    LTerm_text.make_formatter ~read_color:tag_to_style () in
   Format.pp_set_margin fmt cols ;
   let print = Format.fprintf fmt in
 
@@ -722,7 +683,8 @@ class frame_info options = object
 
   method! draw ctx focused =
     super#draw ctx focused ;
-    let get_content, fmt = make_fmt () in
+    let get_content, fmt =
+      LTerm_text.make_formatter ~read_color:tag_to_style () in
     pp_kinds fmt options ;
     let s = get_content () in
     let width = (LTerm_draw.size ctx).cols in
