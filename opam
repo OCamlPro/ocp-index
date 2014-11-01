@@ -15,6 +15,9 @@ depends: [
 ]
 depopts: ["lambda-term"]
 ocaml-version: [ >= "4.00.0" ]
+messages:
+  "To install ocp-browser, please install lambda-term" {! lambda-term:installed}
+
 post-messages: [
   "OCP-INDEX installed.
 
