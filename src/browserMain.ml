@@ -769,7 +769,7 @@ let show_completion show_box input =
 
 (** Modal help **)
 
-let help_content : _ format4 = "\
+let help_content : (_,_,_,_) format4 = "\
 Tab          : Complete.\n\
 Enter        : Choose the result under the cursor.\n\
 Space        : Toogle extra documentation.\n\
