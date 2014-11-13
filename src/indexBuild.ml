@@ -519,7 +519,7 @@ let load_cmi root t modul orig_file =
           file = orig_file;
         }
       in
-      let rec children = lazy (
+      let children = lazy (
         debug "Loading %s..." (orig_file_name orig_file);
         let chrono = timer () in
         let info = Cmi_format.read_cmi (orig_file_name orig_file) in
@@ -529,7 +529,7 @@ let load_cmi root t modul orig_file =
           List.fold_left
             (fun t sig_item ->
                let chld, _comments =
-                 trie_of_sig_item [[modul], children; [], root]
+                 trie_of_sig_item [[modul], lazy t; [], root]
                    orig_file [modul] sig_item
                in
                List.fold_left Trie.append t chld)
@@ -563,14 +563,14 @@ let load_cmt root t modul orig_file =
           file = orig_file;
         }
       in
-      let rec children = lazy (
+      let children = lazy (
         debug "Loading %s..." (orig_file_name orig_file);
         let chrono = timer () in
         let info = Cmt_format.read_cmt (orig_file_name orig_file) in
         debug " %.3fs ; now registering..." (chrono());
         let chrono = timer () in
         let comments = Some (Lazy.from_val info.Cmt_format.cmt_comments) in
-        let parents = [[modul], children; [], root] in
+        let parents = [[modul], lazy t; [], root] in
         let t =
           match info.Cmt_format.cmt_annots with
           | Cmt_format.Implementation {Typedtree.str_type = sign; _}
