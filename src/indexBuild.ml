@@ -367,9 +367,15 @@ let rec trie_of_sig_item
         trie_of_type_decl ?comments info descr
     | _ -> [], comments
   in
+  (* ignore functor arguments *)
+  let rec sig_item_contents = function
+    | Types.Sig_module (id, Types.Mty_functor (_,_,s), is_rec) ->
+        sig_item_contents (Types.Sig_module (id, s, is_rec))
+    | si -> si
+  in
   (* read module / class contents *)
   let children, comments =
-    match sig_item with
+    match sig_item_contents sig_item with
     | Types.Sig_module (id,Types.Mty_signature sign,_)
     | Types.Sig_modtype (id,Types.Modtype_manifest (Types.Mty_signature sign))
       ->
