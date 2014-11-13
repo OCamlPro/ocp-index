@@ -13,8 +13,12 @@ depends: [
   "re"
   "cmdliner"
 ]
-depopts: ["curses"]
+depopts: ["lambda-term"]
+conflicts : [ "lambda-term" {< "1.7"} ]
 ocaml-version: [ >= "4.00.0" ]
+messages:
+  "To install ocp-browser, please install lambda-term" {! lambda-term:installed}
+
 post-messages: [
   "OCP-INDEX installed.
 

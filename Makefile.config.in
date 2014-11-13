@@ -3,4 +3,4 @@ prefix = @prefix@
 mandir = $(shell if test -d @mandir@; then echo @mandir@; else echo @prefix@/man; fi)
 version = @PACKAGE_VERSION@
 has_cmdliner = @OCAML_PKG_cmdliner@
-has_curses = @OCAML_PKG_curses@
+has_lambdaTerm = @OCAML_PKG_lambda-term@

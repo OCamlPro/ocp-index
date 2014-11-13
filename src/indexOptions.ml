@@ -59,7 +59,19 @@ let cmd_input_line cmd =
   with
   | End_of_file | Unix.Unix_error _ | Sys_error _ -> failwith "cmd_input_line"
 
-let common_opts : t Term.t =
+
+
+let default_filter = [ `V ; `E ; `C ; `M ; `K ]
+
+let filter_to_string l =
+  let pp = function
+    | `V -> "v" | `E -> "b" | `C -> "c"
+    | `M -> "m" | `K -> "k" | `S -> "s"
+    | `T -> "t"
+  in
+  String.concat "," (List.map pp l)
+
+let common_opts ?(default_filter = default_filter) () : t Term.t =
   let ocamllib : string list Term.t =
     let no_stdlib : bool Term.t =
       let doc = "Don't include the OCaml standard library directory \
@@ -134,23 +146,26 @@ let common_opts : t Term.t =
   in
   let filter : filter_kind Term.t =
     let opts = [
-      "t", `Types; "types", `Types;
-      "v", `Values; "values", `Values;
-      "e", `Exceptions; "exceptions", `Exceptions;
-      "c", `Constructs; "constructs", `Constructs;
-      "m", `Modules; "modules", `Modules;
-      "s", `Sigs; "sigs", `Sigs;
-      "k", `Keywords; "keywords", `Keywords;
+      "t", `T; "types", `T;
+      "v", `V; "values", `V;
+      "e", `E; "exceptions", `E;
+      "c", `C; "constructs", `C;
+      "m", `M; "modules", `M;
+      "s", `S; "sigs", `S;
+      "k", `K; "keywords", `K;
     ] in
     let show =
       Arg.(value & opt (list (enum opts)) [] & info ["s";"show"]
-             ~doc:"Kinds of elements to show in answers: $(docv) is a \
-                   comma-separated list of `$(i,types)', `$(i,values)' and \
-                   methods, `$(i,exceptions)', `$(i,constructs)' (record \
-                   fields and sum type constructors), `$(i,modules)' and \
-                   classes, `$(i,sigs)' (module and class types), \
-                   `$(i,keywords)'. The default \
-                   is $(v,e,c,m,k)"
+             ~doc:(
+               Printf.sprintf
+                 "Kinds of elements to show in answers: $(docv) is a \
+                  comma-separated list of `$(i,types)', `$(i,values)' and \
+                  methods, `$(i,exceptions)', `$(i,constructs)' (record \
+                  fields and sum type constructors), `$(i,modules)' and \
+                  classes, `$(i,sigs)' (module and class types), \
+                  `$(i,keywords)'. The default \
+                  is $(%s)" (filter_to_string default_filter)
+             )
              ~docv:"LIST")
     in
     let hide =
@@ -161,13 +176,14 @@ let common_opts : t Term.t =
     in
     Term.(
       pure (fun show hide ->
-          let f key default = List.mem key show ||
-                              default && not (List.mem key hide)
+          let f key = List.mem key show ||
+                      List.mem key default_filter &&
+                      not (List.mem key hide)
           in
           let t,v,e,c,m,s,k =
-            f `Types false, f `Values true, f `Exceptions true,
-            f `Constructs true, f `Modules true, f `Sigs false,
-            f `Keyword true
+            f `T, f `V, f `E,
+            f `C, f `M, f `S,
+            f `K
           in
           { t ; v ; e ; c ; m ; s ; k })
       $ show $ hide

@@ -14,7 +14,7 @@ if test "$OCAML_PKG_cmdliner" = "no"; then
    AC_MSG_ERROR([Please install cmdliner.])
 fi
 
-AC_CHECK_OCAML_PKG([curses])
+AC_CHECK_OCAML_PKG([lambda-term])
 
 AC_CONFIG_FILES(
   Makefile.config

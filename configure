@@ -585,7 +585,7 @@ PACKAGE_URL=''
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
-OCAML_PKG_curses
+OCAML_PKG_lambda_term
 OCAML_PKG_cmdliner
 OCAMLFIND
 OCAMLBUILD
@@ -3663,17 +3663,17 @@ if test "$OCAML_PKG_cmdliner" = "no"; then
 fi
 
 
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for OCaml findlib package curses" >&5
-$as_echo_n "checking for OCaml findlib package curses... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for OCaml findlib package lambda-term" >&5
+$as_echo_n "checking for OCaml findlib package lambda-term... " >&6; }
 
   unset found
   unset pkg
   found=no
-  for pkg in curses  ; do
+  for pkg in lambda-term  ; do
     if $OCAMLFIND query $pkg >/dev/null 2>/dev/null; then
       { $as_echo "$as_me:${as_lineno-$LINENO}: result: found" >&5
 $as_echo "found" >&6; }
-      OCAML_PKG_curses=$pkg
+      OCAML_PKG_lambda_term=$pkg
       found=yes
       break
     fi
@@ -3681,7 +3681,7 @@ $as_echo "found" >&6; }
   if test "$found" = "no" ; then
     { $as_echo "$as_me:${as_lineno-$LINENO}: result: not found" >&5
 $as_echo "not found" >&6; }
-    OCAML_PKG_curses=no
+    OCAML_PKG_lambda_term=no
   fi
 
 

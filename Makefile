@@ -4,7 +4,7 @@ LIBS = ocp-index-lib
 PROJECTS =
 ifneq ($(has_cmdliner),no)
   PROJECTS := ocp-index ocp-grep
-  ifneq ($(has_curses),no)
+  ifneq ($(has_lambdaTerm),no)
     PROJECTS := $(PROJECTS) ocp-browser
   endif
 endif

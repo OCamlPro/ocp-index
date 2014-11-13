@@ -17,6 +17,8 @@
 
 open Cmdliner
 
+let common_opts = IndexOptions.common_opts ()
+
 let default_cmd =
   let man = [
     `S "DESCRIPTION";
@@ -28,7 +30,7 @@ let default_cmd =
   ]
   in
   let doc = "Explore the interfaces of installed OCaml libraries." in
-  Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ IndexOptions.common_opts)),
+  Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_opts)),
   Term.info "ocp-index" ~version:"1.0.3" ~doc ~man
 
 let format_man =
@@ -132,7 +134,7 @@ let complete_cmd =
     Format.pp_print_flush fmt ()
   in
   let doc = "Output completions for a given prefix." in
-  Term.(pure print_compl $ IndexOptions.common_opts $ sexpr $ format $ t),
+  Term.(pure print_compl $ common_opts $ sexpr $ format $ t),
   Term.info "complete" ~doc ~man
 
 let type_cmd =
@@ -155,7 +157,7 @@ let type_cmd =
     with Not_found -> exit 2
   in
   let doc = "Print the type of an identifier." in
-  Term.(pure print_ty $ IndexOptions.common_opts $ t),
+  Term.(pure print_ty $ common_opts $ t),
   Term.info "type" ~doc ~man
 
 let locate_cmd =
@@ -197,7 +199,7 @@ let locate_cmd =
     | _ -> List.iter (fun id -> print_endline (loc_as_string id)) ids
   in
   let doc = "Get the location where an identifier was defined." in
-  Term.(pure print_loc $ IndexOptions.common_opts $ interface $ t),
+  Term.(pure print_loc $ common_opts $ interface $ t),
   Term.info "locate" ~doc ~man
 
 let print_cmd =
@@ -226,7 +228,7 @@ let print_cmd =
       ids
   in
   let doc = "Print information about an identifier with a custom format." in
-  Term.(pure print $ IndexOptions.common_opts $ query $ format),
+  Term.(pure print $ common_opts $ query $ format),
   Term.info "print" ~doc ~man
 
 let () =
