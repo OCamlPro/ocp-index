@@ -301,43 +301,41 @@ let trie_of_type_decl ?comments info ty_decl =
 
 (* We usually load the info from the cmti file ; however, that doesn't give
    the implementation location. This function loads the cmt to get it. *)
-let locate_impl cmt path name kind =
+let rec locate_impl (parents:parents) cmt path name kind =
   try
     if not (Sys.file_exists cmt) then raise Not_found;
-    let rec find_item path sign =
-      match path with
-      | [] ->
-          List.find (fun item -> kind = kind_of_sig_item item &&
-                                 name = (id_of_sig_item item).Ident.name)
-            sign
-      | modul::path ->
-          let modul =
-            List.find (fun item -> kind_of_sig_item item = Module &&
-                                   modul = (id_of_sig_item item).Ident.name)
-              sign
-          in
-          match modul with
-          | Types.Sig_module (_,Types.Mty_signature sign,_) ->
-              find_item path sign
-          | _ -> raise Not_found
-    in
     debug "Loading %s (looking up %s.%s)..." cmt (String.concat "." path) name;
     let chrono = timer () in
     let cmt_contents = Cmt_format.read_cmt cmt in
     debug " %.3fs ; now registering..." (chrono());
     let chrono = timer () in
-    let sign =
+    let t =
       match cmt_contents.Cmt_format.cmt_annots with
-      | Cmt_format.Implementation impl -> List.rev impl.Typedtree.str_type
-      | _ -> raise Not_found
+      | Cmt_format.Implementation {Typedtree.str_type = sign; _}
+      | Cmt_format.Interface {Typedtree.sig_type = sign; _}
+      | Cmt_format.Packed (sign, _)
+        ->
+          let t =
+            List.fold_left
+              (fun t sig_item ->
+                 let chld, _comments =
+                   trie_of_sig_item parents (Cmt cmt)
+                     [List.hd path] sig_item
+                 in
+                 List.fold_left Trie.append t chld)
+              Trie.empty
+              sign
+          in
+          t
+      | _ -> Trie.empty
     in
     debug " %.3fs ; done\n%!" (chrono());
-    let item = find_item path sign in
-    loc_of_sig_item item
+    let c = Trie.find_all t (IndexMisc.modpath_to_key ~enddot:false (List.tl path@[name])) in
+    Lazy.force (List.find (fun item -> item.kind = kind) c).loc_impl
   with
   | Not_found -> Location.none
 
-let rec trie_of_sig_item
+and trie_of_sig_item
     ?comments (parents:parents) (orig_file:orig_file) path sig_item
   =
   let id = id_of_sig_item sig_item in
@@ -356,7 +354,7 @@ let rec trie_of_sig_item
     | Cmi f | Cmti f ->
         loc, lazy (
           let cmt = Filename.chop_extension f ^ ".cmt" in
-          locate_impl cmt (List.tl path) id.Ident.name kind
+          locate_impl parents cmt path id.Ident.name kind
         )
     | Cmt _ ->
         (* we assume there is no mli, so point the intf to the implementation *)
