@@ -27,7 +27,7 @@ val string_to_key: string -> key
 
 val key_to_string: key -> string
 
-val modpath_to_key: string list -> key
+val modpath_to_key: ?enddot:bool -> string list -> key
 
 val key_to_modpath: key -> string list
 

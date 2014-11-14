@@ -142,7 +142,7 @@ let qualify_ty (parents:parents) ty =
       in
       get_path ident
     in
-    let key = modpath_to_key path in
+    let key = modpath_to_key ~enddot:false path in
     let rec lookup = function
       | [] | ([],_) :: _ -> ident
       | ((path1::pathn), lazy t) :: parents ->
@@ -413,7 +413,8 @@ let rec trie_of_sig_item
           get_path sig_ident
         in
         let sig_key, path_key = match sig_path with
-          | hd::tl -> IndexMisc.string_to_key (hd^"."), IndexMisc.modpath_to_key tl
+          | hd::tl ->
+              IndexMisc.modpath_to_key [hd], IndexMisc.modpath_to_key tl
           | [] -> assert false
         in
         let rec lookup = function

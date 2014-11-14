@@ -59,8 +59,10 @@ let key_to_string l =
   in
   aux 0 l
 
-let modpath_to_key path =
-  List.fold_right (fun p acc -> string_to_key p @ dot :: acc) path []
+let modpath_to_key ?(enddot=true) path =
+  List.fold_right (fun p acc ->
+      let acc = if acc <> [] || enddot then dot::acc else acc in
+      string_to_key p @ acc) path []
 
 let key_to_modpath l =
   let rec aux n = function
