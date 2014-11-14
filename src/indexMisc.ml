@@ -57,12 +57,12 @@ let string_to_key s =
 
 let key_to_string l =
   let rec aux n = function
-    | [] -> String.create n
+    | [] -> Bytes.create n
     | c::r ->
         let s = aux (n+1) r in
-        s.[n] <- if c = dot then '.' else c; s
+        Bytes.set s n (if c = dot then '.' else c); s
   in
-  aux 0 l
+  Bytes.to_string (aux 0 l)
 
 let modpath_to_key ?(enddot=true) path =
   List.fold_right (fun p acc ->
@@ -70,15 +70,12 @@ let modpath_to_key ?(enddot=true) path =
       string_to_key p @ acc) path []
 
 let key_to_modpath l =
-  let rec aux n = function
-    | [] -> if n > 0 then [String.create n] else []
-    | '\000'::r -> String.create n :: aux 0 r
-    | c::r ->
-        match aux (n+1) r with
-        | s::_ as p -> s.[n] <- c; p
-        | [] -> assert false
+  let rec aux acc1 acc2 = function
+    | '\000'::r -> aux [] (acc1::acc2) r
+    | c::r -> aux (c::acc1) acc2 r
+    | [] -> if acc1 = [] then acc2 else acc1::acc2
   in
-  aux 0 l
+  List.rev_map (fun l -> key_to_string (List.rev l)) (aux [] [] l)
 
 let modpath_to_string path = String.concat "." path
 
