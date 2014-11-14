@@ -384,12 +384,11 @@ let rec trie_of_sig_item
     | Types.Sig_modtype (id,Types.Modtype_manifest (Types.Mty_signature sign))
       ->
         let path = path @ [id.Ident.name] in
-        let rec children_comments = lazy (
+        let children_comments = lazy (
           List.fold_left
             (fun (t,comments) sign ->
                let chlds,comments =
-                 let siblings = lazy (fst (Lazy.force children_comments)) in
-                 trie_of_sig_item ?comments ((path,siblings) :: parents)
+                 trie_of_sig_item ?comments ((path, lazy t) :: parents)
                    orig_file path sign
                in
                List.fold_left Trie.append t chlds, comments)
