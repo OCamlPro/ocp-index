@@ -620,7 +620,7 @@ let load_file root t modul f =
   | Cmi _ -> load_cmi root t modul f
   | Cmt _ | Cmti _ -> load_cmt root t modul f
 
-let load_files t dir files =
+let load_files t dirfiles =
   let split_filename file =
     try
       let i = String.rindex file '.' in
@@ -630,7 +630,7 @@ let load_files t dir files =
       modul, ext
     with Not_found -> file, ""
   in
-  let sort_modules acc file =
+  let sort_modules acc (dir,file) =
     let reg base = Trie.add acc (string_to_key base) in
     match split_filename file with
     | base, "cmi" -> reg base (Cmi (Filename.concat dir file))
@@ -639,7 +639,7 @@ let load_files t dir files =
     | _ -> acc
   in
   let modules =
-    List.fold_left sort_modules Trie.empty files
+    List.fold_left sort_modules Trie.empty dirfiles
   in
   let rec root = lazy (
     Trie.fold0 (fun t modul files ->
@@ -664,10 +664,18 @@ let load_files t dir files =
   )
   in Lazy.force root
 
-let load_dir t dir =
-  incr debug_dir_counter;
-  let files = Array.to_list (Sys.readdir dir) in
-  load_files t dir files
+let load_dirs t dirs =
+  let dirfiles =
+    List.fold_left (fun acc dir ->
+        incr debug_dir_counter;
+        let files =
+          List.rev_map (fun f -> dir, f) (Array.to_list (Sys.readdir dir))
+        in
+        List.rev_append files acc)
+      []
+      (List.rev dirs)
+  in
+  load_files t dirfiles
 
 let load paths =
   let t = Trie.create () in
@@ -679,7 +687,7 @@ let load paths =
       IndexPredefined.all
   in
   let chrono = timer () in
-  let t = List.fold_left load_dir t paths in
+  let t = load_dirs t paths in
   debug "Modules directory loaded in %.3fs (%d files in %d directories)...\n"
     (chrono()) !debug_file_counter !debug_dir_counter;
   open_module ~cleanup_path:true t ["Pervasives"]
@@ -713,7 +721,7 @@ let fully_open_module ?(cleanup_path=false) t path =
           if not (Sys.file_exists f) then mod_trie
           else
             let dir,base = Filename.dirname f, Filename.basename f in
-            let t = load_files Trie.empty dir [base] in
+            let t = load_files Trie.empty [dir,base] in
             let t = Trie.sub t tpath in
             Trie.merge ~values:merge mod_trie t
       | Cmt _ -> mod_trie
@@ -730,4 +738,4 @@ let fully_open_module ?(cleanup_path=false) t path =
 
 let add_file t file =
   let dir, file = Filename.dirname file, Filename.basename file in
-  load_files t dir [file]
+  load_files t [dir,file]
