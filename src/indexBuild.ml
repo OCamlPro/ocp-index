@@ -412,12 +412,16 @@ let rec trie_of_sig_item
           in
           get_path sig_ident
         in
-        let sig_key = modpath_to_key sig_path in
+        let sig_key, path_key = match sig_path with
+          | hd::tl -> IndexMisc.string_to_key (hd^"."), IndexMisc.modpath_to_key tl
+          | [] -> assert false
+        in
         let rec lookup = function
           | [] -> Trie.empty
           | (parentpath, lazy t) :: parents ->
               let s = Trie.sub t sig_key in
               if s = Trie.empty then lookup parents else
+                let s = Trie.sub s path_key in
                 let rewrite_path =
                   fix_path_prefix
                     (List.length parentpath + List.length sig_path)
