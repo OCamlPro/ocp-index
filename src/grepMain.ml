@@ -82,8 +82,7 @@ end = struct
   let ident path f ch =
     let modname =
       let s = Filename.basename (Filename.chop_extension f) in
-      s.[0] <- Char.uppercase s.[0];
-      s
+      String.mapi (function 0 -> Char.uppercase | _ -> fun x -> x) s
     in
     let f (curpath, lookfor, last_scope, acc) scope tok pos =
       let lookfor =
