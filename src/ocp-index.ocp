@@ -1,4 +1,5 @@
-comp += [ "-g" "-w" "+1..39-4-9-37-40" ]
+comp += [ "-g" "-w" "+1..39-4-9-37-40" "-safe-string" ]
+link += [ "-g" "-w" "+1..39-4-9-37-40" ]
 
 begin library "ocp-index-lib"
   sort = false

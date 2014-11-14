@@ -230,13 +230,10 @@ let loc_of_sig_item = function
   | Types.Sig_value (_,descr) -> descr.Types.val_loc
   | Types.Sig_type (_,descr,_) -> descr.Types.type_loc
   | Types.Sig_typext (_,descr,_) -> descr.Types.ext_loc
-  (* Sadly the Types tree doesn't contain locations for those. This means we
-     won't associate comments easily either (todo...) *)
-  | Types.Sig_module _
-  | Types.Sig_modtype _
-  | Types.Sig_class _
-  | Types.Sig_class_type _
-    -> Location.none
+  | Types.Sig_module (_,descr,_) -> descr.Types.md_loc
+  | Types.Sig_modtype (_,descr) -> descr.Types.mtd_loc
+  | Types.Sig_class (_,descr,_) -> descr.Types.cty_loc
+  | Types.Sig_class_type (_,descr,_) -> descr.Types.clty_loc
 
 let id_of_sig_item = function
   | Types.Sig_value (id,_)
@@ -402,8 +399,12 @@ let rec trie_of_sig_item
           | Some _, lazy (_, comments) -> comments
         in
         children, comments
-    | Types.Sig_module (_,{ Types.md_type = Types.Mty_ident sig_ident },_)
-    | Types.Sig_modtype (_,{ Types.mtd_type = Some (Types.Mty_ident sig_ident) }) ->
+    | Types.Sig_module (_,{ Types.md_type =
+                              Types.Mty_ident sig_ident
+                            | Types.Mty_alias sig_ident},_)
+    | Types.Sig_modtype (_,{ Types.mtd_type =
+                               Some ( Types.Mty_ident sig_ident
+                                    | Types.Mty_alias sig_ident) }) ->
         let sig_path =
           let rec get_path = function
             | Path.Pident id -> [id.Ident.name]
