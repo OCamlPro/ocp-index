@@ -129,6 +129,8 @@ let ty_of_sig_item =
   | Types.Sig_class(id, decl, rs) -> tree_of_class_declaration id decl rs
   | Types.Sig_class_type(id, decl, rs) -> tree_of_cltype_declaration id decl rs
 
+(* -- Qualifying types -- *)
+
 (* The types may contain unqualified identifiers.
    We need to do some (lazy) lookup in the trie to qualify them, so that
    for example [M.empty] shows up as [M.t] and not just [t] *)
@@ -208,6 +210,8 @@ let qualify_ty_in_sig_item (parents:parents) =
   | Osig_value (str, ty, str2) -> Osig_value (str, qual ty, str2)
   | Osig_exception (str, tylist) -> Osig_exception (str, List.map qual tylist)
   | out_sig -> out_sig (* don't get down in modules, classes and their types *)
+
+(* -- end -- *)
 
 let loc_of_sig_item = function
   | Types.Sig_value (_,descr) -> descr.Types.val_loc
@@ -512,7 +516,7 @@ let qualify_type_idents parents t =
   in
   Trie.map qualify t
 
-let load_cmi root t modul orig_file =
+let load_cmi ?(qualify=false) root t modul orig_file =
   Trie.map_subtree t (string_to_key modul)
     (fun t ->
       let t =
@@ -549,14 +553,15 @@ let load_cmi root t modul orig_file =
         t
       )
       in
-      let children = lazy (
-        qualify_type_idents [[modul], children; [], root]
-          (Lazy.force children)
-      )
+      let children =
+        if qualify then lazy (
+          qualify_type_idents [[modul], children; [], root]
+            (Lazy.force children)
+        ) else children
       in
       Trie.graft_lazy t [dot] children)
 
-let load_cmt root t modul orig_file =
+let load_cmt ?(qualify=false) root t modul orig_file =
   Trie.map_subtree t (string_to_key modul)
     (fun t ->
       let t =
@@ -604,10 +609,11 @@ let load_cmt root t modul orig_file =
         t
       )
       in
-      let children = lazy (
-        qualify_type_idents [[modul], children; [], root]
-          (Lazy.force children)
-      )
+      let children =
+        if qualify then lazy (
+          qualify_type_idents [[modul], children; [], root]
+            (Lazy.force children)
+        ) else children
       in
       Trie.graft_lazy t [dot] children)
 
