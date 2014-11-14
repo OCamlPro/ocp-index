@@ -371,6 +371,10 @@ let rec trie_of_sig_item
   let rec sig_item_contents = function
     | Types.Sig_module (id, Types.Mty_functor (_,_,s), is_rec) ->
         sig_item_contents (Types.Sig_module (id, s, is_rec))
+    | Types.Sig_modtype
+        (id, Types.Modtype_manifest (Types.Mty_functor (_,_,s))) ->
+        sig_item_contents
+          (Types.Sig_modtype (id, Types.Modtype_manifest s))
     | si -> si
   in
   (* read module / class contents *)
@@ -398,7 +402,8 @@ let rec trie_of_sig_item
           | Some _, lazy (_, comments) -> comments
         in
         children, comments
-    | Types.Sig_module (_,Types.Mty_ident sig_ident,_) ->
+    | Types.Sig_module (_,Types.Mty_ident sig_ident,_)
+    | Types.Sig_modtype (_,Types.Modtype_manifest (Types.Mty_ident sig_ident)) ->
         let sig_path =
           let rec get_path = function
             | Path.Pident id -> [id.Ident.name]
