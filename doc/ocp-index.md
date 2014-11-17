@@ -24,6 +24,7 @@ Examples:
 * `ocp-index type Module.ident`
 * `ocp-index complete iden`
 * `ocp-index locate Module.ident`
+* `ocp-index print Module.ident <format>`
 
 Options:
 * `-I` include dirs / loaded libraries
@@ -34,6 +35,20 @@ Options:
 
 * output format: `--color`, `--show`/`--hide` to control the kinds of idents to
   display
+* `--format FORMAT`, display using the given format string:
+    <table>
+    <tr><th>string<th>contents<th>examples
+    <tr><td><code>%n</code><td>name<td>"map"
+    <tr><td><code>%q</code><td>qualified ident in context<td>"List.map", "map"
+    <tr><td><code>%p</code><td>full ident path<td>"List.map"
+    <tr><td><code>%k</code><td>ident kind<td>"type", "val", "exception", "field(<type>)"...
+    <tr><td><code>%t</code><td>type<td>('a -> 'b) -> 'a list -> 'a list
+    <tr><td><code>%d</code><td>ocamldoc comment<td>"Applies the function..."
+    <tr><td><code>%l</code><td>Implementation location<td>"src/list.ml:83:0"
+    <tr><td><code>%s</code><td>Interface location<td>"src/list.mli:51:0"
+    <tr><td><code>%f</code><td>File of origin<td>"_build/list.cmti"
+    <tr><td><code>%i</code><td>Summary<td>List.map val ('a -> 'b) -> 'a list -> 'b list
+    </table>
 
 ## Build
 
@@ -57,22 +72,22 @@ You can run the script `tools/emacs-setup.sh` to get hints on the configuration
 of emacs for ocp-index (it won't modify any files). Adding the following
 line to your `.emacs`:
 ```lisp
-(add-to-list 'load-path "/path/to/ocp-index.el")
+(add-to-list 'load-path "/path/to/ocp-index.el/")
 (require 'ocp-index)
 ```
 Will give you:
-- `C-c TAB` to auto-complete ((global-set-key (kbd "KEY") 'auto-complete) to add
+- `C-c TAB` to auto-complete (`(global-set-key (kbd "KEY") 'auto-complete)` to add
   your own binding)
 - `C-c t` to print the type of the identifier under cursor
 - `C-c ;` to jump to the definition of the identifier under cursor (use `C-c C-;` to do that in the current window)
 - `C-c :` to jump to the interface of the identifier under cursor (use `C-c C-:` to do that in the current window)
+- `C-c /` to lookup all occurences of the ident under point in the current project (ocp-grep)
 
 See `M-x customize ocp-index` for more options.
 
 ### Vim
 
-A script `ocp-index.vim`, contributed by
-[anyakichi](https://github.com/anyakichi/vim-ocp-index), is available under
+A script `ocp-index.vim`, contributed by Daisuke Inajima, is available under
 `tools`. It supports:
 * omni completion
 * type information printing
@@ -108,14 +123,15 @@ If needed, you can specify ocp-index path explicitly: `let g:ocpindex_program = 
 
 ### Sublime Text
 
-There is a binding written by Peter Zotov at https://github.com/whitequark/sublime-ocp-index
+There is a binding written by Peter Zotov on [Github](https://github.com/whitequark/sublime-ocp-index)
 
 ### ocp-browser
 
-A small ncurses-based browser based on ocp-index is also included. You will need
-lambda-term installed to build it:
-```
-$ opam install lambda-term
-$ ./configure
-$ make ocp-browser
-```
+<img src="ocp-browser.gif" alt="ocp-browser animated screenshot"></img>
+
+A nice terminal interface leveraging the power of ocp-index is included. It
+provides a quick way to browser external and in-project interfaces. Thanks to
+the contribution from [Gabriel Radanne](https://gihub.com/Drup).
+
+To compile it, make sure that you have lambda-term installed, e.g. `opam install
+lambda-term ocp-index`.
