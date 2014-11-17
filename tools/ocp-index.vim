@@ -49,12 +49,6 @@ function! s:ocp_index(cmd, arg)
     return system(join(cmdline), context)
 endfunction
 
-function! s:complete(entry)
-    let entry = substitute(a:entry, '\n\s*', ' ', 'g')
-    let ml = matchlist(entry, '^\(\S\+\)\s*\(.*\)')
-    return {'word': ml[1], 'menu': ml[2]}
-endfunction
-
 function! ocpindex#complete(findstart, base)
     if a:findstart
         " locate the start of the word
@@ -68,9 +62,17 @@ function! ocpindex#complete(findstart, base)
         return start
     else
         " find months matching with "a:base"
-        let res = []
-        let s = s:ocp_index('complete', a:base)
-        return map(split(s, '\n\ze\S'), 's:complete(v:val)')
+        "let s = s:ocp_index('complete', a:base)
+   let s = []
+   for line in split(s:ocp_index('complete', a:base), '\n\ze\S')
+       let ml = matchlist(line, '^\(\S\+\)\s*\(\p*\)')
+       if len(ml) >= 3
+       call add(s, {'word': ml[1], 'menu': ml[2]})
+       else
+       call add(s, {'word': 'matchfailure' , 'menu': line})
+       endif
+   endfor
+        return s
     endif
 endfunction
 
@@ -100,11 +102,12 @@ function! ocpindex#jump()
         call remove(s:jump_history, 0,
         \           len(s:jump_history) - s:max_jump_history - 1)
     endif
-    " save current position to jumplist.
-    " XXX: this code doesn't work as intended.  head of "fname" is registered
-    " in jumplist in spite of using keepjumps.
     normal! m`
-    execute 'keepjumps' 'edit' fname
+    if bufexists(fname)
+   execute 'keepjumps buffer ' . fname
+    else
+   execute 'keepjumps edit ' . fname
+    endif
     call cursor(line, col)
 endfunction
 

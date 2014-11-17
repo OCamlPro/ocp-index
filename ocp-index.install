@@ -20,5 +20,5 @@ man: [
 ]
 share: [
   "tools/ocp-index.el" {"../emacs/site-lisp/ocp-index.el"}
-  "tools/ocp-index.vim" {"../vim/syntax/ocp-index.vim"}
+  "tools/ocp-index.vim" {"../vim/syntax/ocpindex.vim"}
 ]
