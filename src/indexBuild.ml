@@ -299,44 +299,8 @@ let trie_of_type_decl ?comments info ty_decl =
         variants,
       comments
 
-(* We usually load the info from the cmti file ; however, that doesn't give
-   the implementation location. This function loads the cmt to get it. *)
-let rec locate_impl (parents:parents) cmt path name kind =
-  try
-    if not (Sys.file_exists cmt) then raise Not_found;
-    debug "Loading %s (looking up %s.%s)..." cmt (String.concat "." path) name;
-    let chrono = timer () in
-    let cmt_contents = Cmt_format.read_cmt cmt in
-    debug " %.3fs ; now registering..." (chrono());
-    let chrono = timer () in
-    let t =
-      match cmt_contents.Cmt_format.cmt_annots with
-      | Cmt_format.Implementation {Typedtree.str_type = sign; _}
-      | Cmt_format.Interface {Typedtree.sig_type = sign; _}
-      | Cmt_format.Packed (sign, _)
-        ->
-          let t =
-            List.fold_left
-              (fun t sig_item ->
-                 let chld, _comments =
-                   trie_of_sig_item parents (Cmt cmt)
-                     [List.hd path] sig_item
-                 in
-                 List.fold_left Trie.append t chld)
-              Trie.empty
-              sign
-          in
-          t
-      | _ -> Trie.empty
-    in
-    debug " %.3fs ; done\n%!" (chrono());
-    let c = Trie.find_all t (IndexMisc.modpath_to_key ~enddot:false (List.tl path@[name])) in
-    Lazy.force (List.find (fun item -> item.kind = kind) c).loc_impl
-  with
-  | Not_found -> Location.none
-
-and trie_of_sig_item
-    ?comments (parents:parents) (orig_file:orig_file) path sig_item
+let rec trie_of_sig_item
+    ?comments implloc_trie (parents:parents) (orig_file:orig_file) path sig_item
   =
   let id = id_of_sig_item sig_item in
   let loc = loc_of_sig_item sig_item in
@@ -350,16 +314,19 @@ and trie_of_sig_item
   in
   let ty = Some (ty_of_sig_item sig_item) in
   let kind = kind_of_sig_item sig_item in
-  let loc_sig, loc_impl = match orig_file with
-    | Cmi f | Cmti f ->
-        loc, lazy (
-          let cmt = Filename.chop_extension f ^ ".cmt" in
-          locate_impl parents cmt path id.Ident.name kind
-        )
-    | Cmt _ ->
-        (* we assume there is no mli, so point the intf to the implementation *)
-        loc, Lazy.from_val loc
-  in
+  let loc_sig = loc in
+  let loc_impl = lazy (match implloc_trie with
+      | lazy None -> loc
+      | lazy (Some t) ->
+          try
+            let path = List.tl path @ [id.Ident.name] in
+            let key = IndexMisc.modpath_to_key ~enddot:false path in
+            let c =
+              List.find (fun item -> item.kind = kind) (Trie.find_all t key)
+            in
+            Lazy.force c.loc_impl
+          with Not_found -> Location.none
+    ) in
   let info = {path; orig_path = path; kind; name = id.Ident.name; ty;
               loc_sig; loc_impl; doc; file = orig_file}
   in
@@ -390,8 +357,8 @@ and trie_of_sig_item
           List.fold_left
             (fun (t,comments) sign ->
                let chlds,comments =
-                 trie_of_sig_item ?comments ((path, lazy t) :: parents)
-                   orig_file path sign
+                 trie_of_sig_item ?comments implloc_trie
+                   ((path, lazy t) :: parents) orig_file path sign
                in
                List.fold_left Trie.append t chlds, comments)
             (Trie.empty,comments)
@@ -514,6 +481,48 @@ let qualify_type_idents parents t =
   in
   Trie.map qualify t
 
+let cmt_sign cmt_contents =
+  match cmt_contents.Cmt_format.cmt_annots with
+  | Cmt_format.Implementation {Typedtree.str_type = sign; _}
+  | Cmt_format.Interface {Typedtree.sig_type = sign; _}
+  | Cmt_format.Packed (sign, _)
+    -> Some sign
+  | _ -> None
+
+(* Look for a cmt file for the purpose of loading implementation locations.
+   (assuming other information is already loaded eg. from the cmti). *)
+let load_loc_impl parents orig_file =
+  match orig_file with
+  | Cmt _ -> None
+  | Cmi f | Cmti f ->
+      let cmt = Filename.chop_extension f ^ ".cmt" in
+      if not (Sys.file_exists cmt) then None
+      else (
+        debug "Loading %s (for implementation locations)..." cmt;
+        let chrono = timer () in
+        let cmt_contents = Cmt_format.read_cmt cmt in
+        debug " %.3fs ; now registering..." (chrono());
+        let chrono = timer () in
+        match cmt_sign cmt_contents with
+        | Some sign ->
+            let t =
+              List.fold_left
+                (fun t sig_item ->
+                   let chld, _comments =
+                     trie_of_sig_item (lazy None) parents (Cmt cmt)
+                       [] sig_item
+                   in
+                   List.fold_left Trie.append t chld)
+                Trie.empty
+                sign
+            in
+            debug " %.3fs ; done\n%!" (chrono());
+            Some t
+        | _ ->
+            debug " %.3fs ; done\n%!" (chrono());
+            None
+      )
+
 let load_cmi ?(qualify=false) root t modul orig_file =
   Trie.map_subtree t (string_to_key modul)
     (fun t ->
@@ -536,11 +545,13 @@ let load_cmi ?(qualify=false) root t modul orig_file =
         let info = Cmi_format.read_cmi (orig_file_name orig_file) in
         debug " %.3fs ; now registering..." (chrono());
         let chrono = timer () in
+        let parents = [[modul], lazy t; [], root] in
+        let implloc_trie = lazy (load_loc_impl parents orig_file) in
         let t =
           List.fold_left
             (fun t sig_item ->
                let chld, _comments =
-                 trie_of_sig_item [[modul], lazy t; [], root]
+                 trie_of_sig_item implloc_trie parents
                    orig_file [modul] sig_item
                in
                List.fold_left Trie.append t chld)
@@ -583,17 +594,15 @@ let load_cmt ?(qualify=false) root t modul orig_file =
         let chrono = timer () in
         let comments = Some (Lazy.from_val info.Cmt_format.cmt_comments) in
         let parents = [[modul], lazy t; [], root] in
+        let implloc_trie = lazy (load_loc_impl parents orig_file) in
         let t =
-          match info.Cmt_format.cmt_annots with
-          | Cmt_format.Implementation {Typedtree.str_type = sign; _}
-          | Cmt_format.Interface {Typedtree.sig_type = sign; _}
-          | Cmt_format.Packed (sign, _)
-            ->
+          match cmt_sign info with
+          | Some sign ->
               let t, _trailing_comments =
                 List.fold_left
                   (fun (t,comments) sig_item ->
                      let chld, comments =
-                       trie_of_sig_item ?comments parents orig_file
+                       trie_of_sig_item ?comments implloc_trie parents orig_file
                          [modul] sig_item
                      in
                      List.fold_left Trie.append t chld, comments)
@@ -601,7 +610,7 @@ let load_cmt ?(qualify=false) root t modul orig_file =
                   sign
               in
               t
-          | _ -> Trie.empty
+          | None -> Trie.empty
         in
         debug " %.3fs ; done\n%!" (chrono());
         t
