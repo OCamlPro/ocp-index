@@ -30,6 +30,11 @@ let timer () =
   else
     fun () -> 0.
 
+let rec foldl_next f acc = function
+  | [] -> acc
+  | [x] -> f acc x None
+  | x1::(x2::_ as tl) -> foldl_next f (f acc x1 (Some x2)) tl
+
 type key = char list
 
 (* Used as path separator in keys *)

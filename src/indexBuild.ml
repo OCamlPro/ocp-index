@@ -90,10 +90,14 @@ let alias ?(cleanup_path=false) t origin alias =
 (* Pops comments from a list of comments (string * loc) to find the ones that
    are associated to a given location. Also returns the remaining comments after
    the location. *)
-let associate_comment ?(after_only=false) comments loc =
+let associate_comment ?(after_only=false) comments loc nextloc =
   if loc = Location.none then None, comments else
   let lstart = loc.Location.loc_start.Lexing.pos_lnum
   and lend =  loc.Location.loc_end.Lexing.pos_lnum in
+  let isnext c =
+    nextloc <> Location.none &&
+    nextloc.Location.loc_start.pos_cnum < c.Location.loc_end.Lexing.pos_cnum
+  in
   let rec aux = function
     | [] -> None, []
     | (comment, cloc)::comments ->
@@ -102,7 +106,7 @@ let associate_comment ?(after_only=false) comments loc =
         in
         if cend < lstart - 1 || cstart < lend && after_only then
           aux comments
-        else if cstart > lend + 1 then
+        else if cstart > lend + 1 || isnext cloc then
           None, (comment, cloc)::comments
         else if String.length comment < 2 ||
                 comment.[0] <> '*' || comment.[1] = '*'
@@ -300,15 +304,22 @@ let trie_of_type_decl ?comments info ty_decl =
       comments
 
 let rec trie_of_sig_item
-    ?comments implloc_trie (parents:parents) (orig_file:orig_file) path sig_item
+    ?comments implloc_trie (parents:parents) (orig_file:orig_file) path
+    sig_item next
   =
   let id = id_of_sig_item sig_item in
   let loc = loc_of_sig_item sig_item in
+  let nextloc = match next with
+    | None -> Location.none
+    | Some n -> loc_of_sig_item n
+  in
   let doc, comments =
     match comments with
     | None -> lazy None, None
     | Some comments ->
-        let assoc = lazy (associate_comment (Lazy.force comments) loc) in
+        let assoc = lazy (
+          associate_comment (Lazy.force comments) loc nextloc
+        ) in
         lazy (fst (Lazy.force assoc)),
         Some (lazy (snd (Lazy.force assoc)))
   in
@@ -354,11 +365,11 @@ let rec trie_of_sig_item
       ->
         let path = path @ [id.Ident.name] in
         let children_comments = lazy (
-          List.fold_left
-            (fun (t,comments) sign ->
+          IndexMisc.foldl_next
+            (fun (t,comments) sign next ->
                let chlds,comments =
                  trie_of_sig_item ?comments implloc_trie
-                   ((path, lazy t) :: parents) orig_file path sign
+                   ((path, lazy t) :: parents) orig_file path sign next
                in
                List.fold_left Trie.append t chlds, comments)
             (Trie.empty,comments)
@@ -506,11 +517,11 @@ let load_loc_impl parents orig_file =
         match cmt_sign cmt_contents with
         | Some sign ->
             let t =
-              List.fold_left
-                (fun t sig_item ->
+              IndexMisc.foldl_next
+                (fun t sig_item next ->
                    let chld, _comments =
                      trie_of_sig_item (lazy None) parents (Cmt cmt)
-                       [] sig_item
+                       [] sig_item next
                    in
                    List.fold_left Trie.append t chld)
                 Trie.empty
@@ -548,11 +559,11 @@ let load_cmi ?(qualify=false) root t modul orig_file =
         let parents = [[modul], lazy t; [], root] in
         let implloc_trie = lazy (load_loc_impl parents orig_file) in
         let t =
-          List.fold_left
-            (fun t sig_item ->
+          IndexMisc.foldl_next
+            (fun t sig_item next ->
                let chld, _comments =
                  trie_of_sig_item implloc_trie parents
-                   orig_file [modul] sig_item
+                   orig_file [modul] sig_item next
                in
                List.fold_left Trie.append t chld)
             Trie.empty
@@ -599,11 +610,11 @@ let load_cmt ?(qualify=false) root t modul orig_file =
           match cmt_sign info with
           | Some sign ->
               let t, _trailing_comments =
-                List.fold_left
-                  (fun (t,comments) sig_item ->
+                IndexMisc.foldl_next
+                  (fun (t,comments) sig_item next ->
                      let chld, comments =
                        trie_of_sig_item ?comments implloc_trie parents orig_file
-                         [modul] sig_item
+                         [modul] sig_item next
                      in
                      List.fold_left Trie.append t chld, comments)
                   (Trie.empty, comments)

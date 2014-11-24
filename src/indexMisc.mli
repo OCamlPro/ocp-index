@@ -18,6 +18,9 @@ val debug: ('a, out_channel, unit) format -> 'a
 
 val timer: unit -> unit -> float
 
+(** Similar to List.fold_left but with 1 step look-ahead *)
+val foldl_next: ('acc -> 'a -> 'a option -> 'acc) -> 'acc -> 'a list -> 'acc
+
 type key = char list
 val dot: char
 val dots: string
