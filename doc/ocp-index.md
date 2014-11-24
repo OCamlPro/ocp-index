@@ -130,7 +130,7 @@ There is a binding written by Peter Zotov on [Github](https://github.com/whitequ
 <img src="ocp-browser.gif" alt="ocp-browser animated screenshot"></img>
 
 A nice terminal interface leveraging the power of ocp-index is included. It
-provides a quick way to browser external and in-project interfaces. Thanks to
+provides a quick way to browse external and in-project interfaces. Thanks to
 the contribution from [Gabriel Radanne](https://gihub.com/Drup).
 
 To compile it, make sure that you have lambda-term installed, e.g. `opam install

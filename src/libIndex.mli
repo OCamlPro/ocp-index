@@ -25,6 +25,10 @@ type t
 type orig_file = IndexTypes.orig_file = private
     Cmt of string | Cmti of string | Cmi of string
 
+(** Raised when a file couldn't be loaded (generally due to a different
+    compiler version) *)
+exception Bad_format of string
+
 (** Contains the information on a given identifier *)
 type info = IndexTypes.info = private {
   path: string list;

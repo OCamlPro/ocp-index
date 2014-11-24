@@ -233,7 +233,18 @@ let print_cmd =
 
 let () =
   match
-    Term.eval_choice default_cmd [complete_cmd; type_cmd; locate_cmd; print_cmd]
+    try
+      Term.eval_choice ~catch:false
+        default_cmd [complete_cmd; type_cmd; locate_cmd; print_cmd]
+    with
+    | LibIndex.Bad_format f ->
+        Printf.eprintf
+          "[ERROR] %S can't be read.\n\
+           It's likely that it belongs to a version of OCaml different from \
+           the one ocp-index was compiled against.\n"
+          f;
+        exit 4
+    | _ -> `Error `Exn
   with
   | `Error _ -> exit 1
   | _ -> exit 0

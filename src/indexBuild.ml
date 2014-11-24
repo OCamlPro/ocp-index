@@ -503,6 +503,11 @@ let cmt_sign cmt_contents =
     -> Some sign
   | _ -> None
 
+let protect_read reader f =
+  try reader f with
+  | Cmt_format.Error _ | Cmi_format.Error _ ->
+      raise (Bad_format f)
+
 (* Look for a cmt file for the purpose of loading implementation locations.
    (assuming other information is already loaded eg. from the cmti). *)
 let load_loc_impl parents orig_file =
@@ -514,7 +519,7 @@ let load_loc_impl parents orig_file =
       else (
         debug "Loading %s (for implementation locations)..." cmt;
         let chrono = timer () in
-        let cmt_contents = Cmt_format.read_cmt cmt in
+        let cmt_contents = protect_read Cmt_format.read_cmt cmt in
         debug " %.3fs ; now registering..." (chrono());
         let chrono = timer () in
         match cmt_sign cmt_contents with
@@ -556,7 +561,9 @@ let load_cmi ?(qualify=false) root t modul orig_file =
       let children = lazy (
         debug "Loading %s..." (orig_file_name orig_file);
         let chrono = timer () in
-        let info = Cmi_format.read_cmi (orig_file_name orig_file) in
+        let info =
+          protect_read Cmi_format.read_cmi (orig_file_name orig_file)
+        in
         debug " %.3fs ; now registering..." (chrono());
         let chrono = timer () in
         let parents = [[modul], lazy t; [], root] in
@@ -603,7 +610,9 @@ let load_cmt ?(qualify=false) root t modul orig_file =
       let children = lazy (
         debug "Loading %s..." (orig_file_name orig_file);
         let chrono = timer () in
-        let info = Cmt_format.read_cmt (orig_file_name orig_file) in
+        let info =
+          protect_read Cmt_format.read_cmt (orig_file_name orig_file)
+        in
         debug " %.3fs ; now registering..." (chrono());
         let chrono = timer () in
         let comments = Some (Lazy.from_val info.Cmt_format.cmt_comments) in

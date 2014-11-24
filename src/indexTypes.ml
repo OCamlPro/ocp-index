@@ -44,3 +44,7 @@ and kind =
 
 (** Lazy trie structure holding the info on all identifiers *)
 type t = (char, info) Trie.t
+
+(** Raised when cmi/cmt/cmti files can't be loaded. Probably a different
+    version of OCaml *)
+exception Bad_format of string
