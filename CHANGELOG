@@ -1,3 +1,16 @@
+## 1.1.1
+* fixed comment association for modules and one-per-line values
+* better errors on cmi/cmt from incompatible compiler versions
+* fixed version reporting
+
+## 1.1.0
+* completely rewritten ocp-browser by Gabriel Radanne
+* supports OCaml 4.02 (with git branching)
+* respect file loading order, which avoids some lookup loop bugs
+* fixed and disabled type qualification by default
+* fixed handling of functors
+* get implementation positions through module aliases
+
 ## 1.0.3
 * improved emacs mode, now supporting both auto-comlete and company
 * fixed return value of ocp-grep

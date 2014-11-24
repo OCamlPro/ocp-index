@@ -31,7 +31,7 @@ let default_cmd =
   in
   let doc = "Explore the interfaces of installed OCaml libraries." in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_opts)),
-  Term.info "ocp-index" ~version:"1.0.3" ~doc ~man
+  Term.info "ocp-index" ~version:"1.1.1" ~doc ~man
 
 let format_man =
   let formats = [
