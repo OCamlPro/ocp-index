@@ -106,7 +106,10 @@ let associate_comment ?(after_only=false) comments loc nextloc =
         in
         if cend < lstart - 1 || cstart < lend && after_only then
           aux comments
-        else if cstart > lend + 1 || isnext cloc then
+        else if cstart > lend + 1 ||
+                isnext cloc ||
+                cstart > lstart && cend < lend (* keep inner comments *)
+        then
           None, (comment, cloc)::comments
         else if String.length comment < 2 ||
                 comment.[0] <> '*' || comment.[1] = '*'
