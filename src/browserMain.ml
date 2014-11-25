@@ -473,6 +473,12 @@ class completion_box options exit =
         | _ -> false
       )
 
+    (** Switch for disabling/enabling all the non-modules kinds on Alt+a. *)
+    val mutable module_state = false
+    method module_state = module_state
+    method set_module_state b =
+      module_state <- b
+
     (* We maintain the last item under the cursor in order to try
        to restore a "good" index after completion. *)
     val mutable previous_completion = S.const ""
@@ -704,11 +710,38 @@ class frame_info options = object
 end
 
 
+(** The list of non-modules kinds. *)
+let value_kind_char_list = List.map UChar.of_char ['t';'e';'c';'k';'v']
 
-let kind_char_list = List.map UChar.of_char ['t';'e';'c';'m';'s';'k';'v']
+(** The list of modules kinds. *)
+let modules_kind_char_list = List.map UChar.of_char ['m';'s']
+
+(** The list of all kinds. *)
+let kind_char_list = value_kind_char_list @ modules_kind_char_list
 
 let event_handler (cbox : #completion_box) (sbox:#show_box) options show_help =
   function
+  | LTerm_event.Key
+      { control = false; meta = true; shift = false; code = Char ch }
+    when ch = UChar.of_char 'a' ->
+      let open IndexOptions in
+      let fil = options.filter in
+      (* Checks if the user didn't re-enabled/disabled everything by himself.
+         Avoids silly double-toggle. *)
+      let new_state =
+        if cbox#module_state
+        then fil.t && fil.e && fil.c && fil.k && fil.v
+        else fil.t || fil.e || fil.c || fil.k || fil.v
+      in
+      cbox#set_module_state new_state ;
+      let new_b = not new_state in
+      options.filter <-
+        { fil with
+          t = new_b ; e = new_b ; c = new_b ; k = new_b ; v = new_b
+        } ;
+      cbox#completion ;
+      sbox#queue_draw ;
+      true
   | LTerm_event.Key
       { control = false; meta = true; shift = false; code = Char ch }
       when List.mem ch kind_char_list
@@ -777,6 +810,7 @@ Up/Down      : Move the cursor up/down.\n\
 Page Up/Down : Move up/down to the first non-visible entry.\n\
 Alt+Arrows   : Move in the module hierarchy.\n\
 Alt+<X>      : Toogle one of the%a\n\
+Alt+a        : Toggle all the non-modules kinds.\n\
 Alt+h        : Show this help.\n\
 Ctrl+C       : Quit.\n\n\
 Press anything to quit this help.\n"
