@@ -96,7 +96,8 @@ let associate_comment ?(after_only=false) comments loc nextloc =
   and lend =  loc.Location.loc_end.Lexing.pos_lnum in
   let isnext c =
     nextloc <> Location.none &&
-    nextloc.Location.loc_start.pos_cnum < c.Location.loc_end.Lexing.pos_cnum
+    nextloc.Location.loc_start.Lexing.pos_cnum <
+    c.Location.loc_end.Lexing.pos_cnum
   in
   let rec aux = function
     | [] -> None, []
