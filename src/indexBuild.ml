@@ -572,11 +572,12 @@ let load_cmi ?(qualify=false) root t modul orig_file =
         in
         debug " %.3fs ; now registering..." (chrono());
         let chrono = timer () in
-        let parents = [[modul], lazy t; [], root] in
-        let implloc_trie = lazy (load_loc_impl parents orig_file) in
-        let t =
+        let rec implloc_trie =
+          lazy (load_loc_impl [[modul], lazy_t; [], root] orig_file)
+        and lazy_t = lazy (
           foldl_next
             (fun t sig_item next ->
+               let parents = [[modul], lazy t; [], root] in
                let chld, _comments =
                  trie_of_sig_item implloc_trie parents
                    orig_file [modul] sig_item next
@@ -584,7 +585,8 @@ let load_cmi ?(qualify=false) root t modul orig_file =
                List.fold_left Trie.append t chld)
             Trie.empty
             info.Cmi_format.cmi_sign
-        in
+        ) in
+        let t = Lazy.force lazy_t in
         debug " %.3fs ; done\n%!" (chrono());
         t
       )
@@ -622,14 +624,15 @@ let load_cmt ?(qualify=false) root t modul orig_file =
         debug " %.3fs ; now registering..." (chrono());
         let chrono = timer () in
         let comments = Some (Lazy.from_val info.Cmt_format.cmt_comments) in
-        let parents = [[modul], lazy t; [], root] in
-        let implloc_trie = lazy (load_loc_impl parents orig_file) in
-        let t =
+        let rec implloc_trie =
+          lazy (load_loc_impl [[modul], lazy_t; [], root] orig_file)
+        and lazy_t = lazy (
           match cmt_sign info with
           | Some sign ->
               let t, _trailing_comments =
                 foldl_next
                   (fun (t,comments) sig_item next ->
+                     let parents = [[modul], lazy t; [], root] in
                      let chld, comments =
                        trie_of_sig_item ?comments implloc_trie parents orig_file
                          [modul] sig_item next
@@ -640,7 +643,8 @@ let load_cmt ?(qualify=false) root t modul orig_file =
               in
               t
           | None -> Trie.empty
-        in
+        ) in
+        let t = Lazy.force lazy_t in
         debug " %.3fs ; done\n%!" (chrono());
         t
       )
