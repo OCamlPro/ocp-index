@@ -335,7 +335,7 @@ let rec trie_of_sig_item
       | lazy (Some t) ->
           try
             let path = List.tl path @ [id.Ident.name] in
-            let key = IndexMisc.modpath_to_key ~enddot:false path in
+            let key = modpath_to_key ~enddot:false path in
             let c =
               List.find (fun item -> item.kind = kind) (Trie.find_all t key)
             in
@@ -369,7 +369,7 @@ let rec trie_of_sig_item
       ->
         let path = path @ [id.Ident.name] in
         let children_comments = lazy (
-          IndexMisc.foldl_next
+          foldl_next
             (fun (t,comments) sign next ->
                let chlds,comments =
                  trie_of_sig_item ?comments implloc_trie
@@ -397,15 +397,15 @@ let rec trie_of_sig_item
         in
         let sig_key, path_key = match sig_path with
           | hd::tl ->
-              IndexMisc.modpath_to_key [hd], IndexMisc.modpath_to_key tl
+              modpath_to_key [hd], modpath_to_key tl
           | [] -> assert false
         in
         let rec lookup = function
           | [] ->
-              if IndexMisc.debug_enabled then
+              if debug_enabled then
                 debug "WARN: Module or sig reference %s not found a %s\n"
-                  (IndexMisc.modpath_to_string sig_path)
-                  (IndexMisc.modpath_to_string (path@[id.Ident.name]));
+                  (modpath_to_string sig_path)
+                  (modpath_to_string (path@[id.Ident.name]));
               Trie.empty
           | (parentpath, lazy t) :: parents ->
               let s = Trie.sub t sig_key in
@@ -531,7 +531,7 @@ let load_loc_impl parents orig_file =
         match cmt_sign cmt_contents with
         | Some sign ->
             let t =
-              IndexMisc.foldl_next
+              foldl_next
                 (fun t sig_item next ->
                    let chld, _comments =
                      trie_of_sig_item (lazy None) parents (Cmt cmt)
@@ -575,7 +575,7 @@ let load_cmi ?(qualify=false) root t modul orig_file =
         let parents = [[modul], lazy t; [], root] in
         let implloc_trie = lazy (load_loc_impl parents orig_file) in
         let t =
-          IndexMisc.foldl_next
+          foldl_next
             (fun t sig_item next ->
                let chld, _comments =
                  trie_of_sig_item implloc_trie parents
@@ -628,7 +628,7 @@ let load_cmt ?(qualify=false) root t modul orig_file =
           match cmt_sign info with
           | Some sign ->
               let t, _trailing_comments =
-                IndexMisc.foldl_next
+                foldl_next
                   (fun (t,comments) sig_item next ->
                      let chld, comments =
                        trie_of_sig_item ?comments implloc_trie parents orig_file
