@@ -401,7 +401,12 @@ let rec trie_of_sig_item
           | [] -> assert false
         in
         let rec lookup = function
-          | [] -> Trie.empty
+          | [] ->
+              if IndexMisc.debug_enabled then
+                debug "WARN: Module or sig reference %s not found a %s\n"
+                  (IndexMisc.modpath_to_string sig_path)
+                  (IndexMisc.modpath_to_string (path@[id.Ident.name]));
+              Trie.empty
           | (parentpath, lazy t) :: parents ->
               let s = Trie.sub t sig_key in
               if s = Trie.empty then lookup parents else
