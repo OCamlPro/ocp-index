@@ -1,0 +1,9 @@
+PKG lambda-term
+PKG cmdliner
+PKG re
+PKG ocp-indent
+
+S src/
+B _obuild/*
+
+FLG -w -40
