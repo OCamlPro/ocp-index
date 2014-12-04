@@ -180,7 +180,7 @@ module IndexFormat = struct
 
   let loc ?root ?(intf=false) ?colorise:(_ = no_color) fmt id =
     let loc =
-      if intf then id.loc_sig
+      if intf then Lazy.force id.loc_sig
       else Lazy.force id.loc_impl
     in
     if loc = Location.none then

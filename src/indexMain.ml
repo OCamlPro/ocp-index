@@ -183,7 +183,7 @@ let locate_cmd =
     let ids0 = LibIndex.get_all opts.IndexOptions.lib_info query in
     let filter_ids intf =
       List.filter (fun id ->
-          intf && id.LibIndex.loc_sig <> Location.none
+          intf && Lazy.force id.LibIndex.loc_sig <> Location.none
           || not intf && Lazy.force id.LibIndex.loc_impl <> Location.none)
         ids0
     in

@@ -261,15 +261,15 @@ this function to present completions to the user."
 (defun ocp-index-grep ()
   "Use ocp-index and ocp-grep to find uses of the identifier under point"
   (interactive nil)
-  (let* ((ident (ocp-index-symbol-at-point))
+  (let* ((grep-use-null-device nil)
+         (ident (ocp-index-symbol-at-point))
          (path  (ocp-index-run "print" ident "%p"))
          (path  (if (string= path "") ident path))
-         (path  (replace-regexp-in-string "\n\+$" "" path))
-         (grep-use-null-device nil))
+         (path  (replace-regexp-in-string "\n\+$" "" path)))
     (grep (format "%s %s" ocp-grep-path path))))
 
 (defun ocp-index-jump-to-loc (loc other-window)
-  (if (string-match "^\\([^:]*\\):\\([0-9]\+\\):\\([0-9]\+\\)$" loc)
+  (if (string-match "^\\([^:]*\\):\\([0-9-]\+\\):\\([0-9-]\+\\)$" loc)
       (let ((file   (match-string 1 loc))
             (line   (string-to-number (match-string 2 loc)))
             (column (string-to-number (match-string 3 loc)))
@@ -277,8 +277,8 @@ this function to present completions to the user."
         (when file
           (if other-window (find-file-other-window file) (find-file file))
           (goto-char (point-min))
-          (forward-line (1- line))
-          (forward-char column)
+          (when (>= line 0) (forward-line (1- line)))
+          (when (>= column 0) (forward-char column))
           (when other-window (switch-to-buffer-other-window last-buffer))))
     (message (replace-regexp-in-string "\n\+$" "" loc))))
 

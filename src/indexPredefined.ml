@@ -26,9 +26,9 @@ let mktype name ?(params=[]) ?(def=Otyp_abstract) doc = {
   ty = Some (Osig_type (
       (name,List.map (fun v -> v,(true,true)) params,def,Asttypes.Public,[]),
       Orec_not));
-  loc_sig = Location.none;
-  loc_impl = lazy Location.none;
-  doc = lazy (Some doc);
+  loc_sig = Lazy.from_val Location.none;
+  loc_impl = Lazy.from_val Location.none;
+  doc = Lazy.from_val (Some doc);
   file = Cmi "*built-in*";
 }
 
@@ -42,9 +42,9 @@ let mkvariant name parent params = {
                                           | l -> Otyp_tuple l),
                          Asttypes.Public, []),
                         Outcometree.Orec_not));
-  loc_sig = Location.none;
-  loc_impl = lazy Location.none;
-  doc = lazy None;
+  loc_sig = Lazy.from_val Location.none;
+  loc_impl = Lazy.from_val Location.none;
+  doc = Lazy.from_val None;
   file = Cmi "*built-in*";
 }
 
@@ -54,9 +54,9 @@ let mkexn name params doc = {
   kind = Exception;
   name = name;
   ty = Some (Osig_exception (name,params));
-  loc_sig = Location.none;
-  loc_impl = lazy Location.none;
-  doc = lazy (Some doc);
+  loc_sig = Lazy.from_val Location.none;
+  loc_impl = Lazy.from_val Location.none;
+  doc = Lazy.from_val (Some doc);
   file = Cmi "*built-in*";
 }
 
@@ -66,9 +66,9 @@ let mkkwd name = {
   kind = Keyword;
   name = name;
   ty = None;
-  loc_sig = Location.none;
-  loc_impl = lazy Location.none;
-  doc = lazy None;
+  loc_sig = Lazy.from_val Location.none;
+  loc_impl = Lazy.from_val Location.none;
+  doc = Lazy.from_val None;
   file = Cmi "*built-in*";
 }
 
