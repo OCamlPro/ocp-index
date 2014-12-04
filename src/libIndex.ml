@@ -57,10 +57,18 @@ let get t query = Trie.find t (Misc.string_to_key query)
 let get_all t query = Trie.find_all t (Misc.string_to_key query)
 
 let complete t ?filter:(f = fun _ -> true) query =
-  filter
-    (Trie.filter_keys ((<>) Misc.dot)
-       (Trie.sub t (Misc.string_to_key query)))
-    f
+  let completions =
+    filter
+      (Trie.filter_keys ((<>) Misc.dot)
+         (Trie.sub t (Misc.string_to_key query)))
+      f
+  in
+  List.sort
+    (fun i j ->
+       let c = compare i.loc_sig j.loc_sig in
+       if c <> 0 then c
+       else compare i.path j.path)
+    completions
 
 (* - Output functions - *)
 
