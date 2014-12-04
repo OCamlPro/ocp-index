@@ -53,7 +53,8 @@ let format_man =
   in
   [ `S "FORMAT STRINGS";
     `P "Format strings are arbitrary strings that will be printed for every \
-        match, with the following sequences interpreted:" ] @
+        match, with the usual OCaml escapes plus the following sequences \
+        interpreted:" ] @
   List.map (fun (k, s) -> `I (Printf.sprintf "$(b,%s)" k, s)) formats
 
 let man = [
@@ -125,7 +126,7 @@ let complete_cmd =
         | None -> LibIndex.Format.info ~colorise
         | Some fstring ->
             LibIndex.Format.format ?root:opts.IndexOptions.project_root
-              fstring ~colorise
+              (Scanf.unescaped fstring) ~colorise
       in
       List.iter (fun info ->
           print fmt info;
@@ -223,6 +224,7 @@ let print_cmd =
     let ids = LibIndex.get_all opts.IndexOptions.lib_info query in
     let root = opts.IndexOptions.project_root in
     if ids = [] then exit 2;
+    let format = Scanf.unescaped format in
     List.iter
       (fun id -> print_endline (LibIndex.Print.format ?root format id))
       ids

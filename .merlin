@@ -1,3 +1,4 @@
+PKG compiler-libs
 PKG lambda-term
 PKG cmdliner
 PKG re
