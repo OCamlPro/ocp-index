@@ -334,6 +334,145 @@ let trie_of_type_decl ?comments info ty_decl =
         variants,
       comments
 
+(** Implements looking up a module path in the parents list *)
+let lookup_parents (parents:parents) path sig_path =
+  let sig_key, path_key = match sig_path with
+    | hd::tl ->
+        modpath_to_key [hd], modpath_to_key tl
+    | [] -> assert false
+  in
+  let rec lookup = function
+    | [] ->
+        if debug_enabled then
+          debug "WARN: Module or sig reference %s not found a %s\n"
+            (modpath_to_string sig_path)
+            (modpath_to_string path);
+        Trie.empty
+    | (parentpath, lazy t) :: parents ->
+        let s = Trie.sub t sig_key in
+        if s = Trie.empty then lookup parents else
+          let s = Trie.sub s path_key in
+          let rewrite_path =
+            fix_path_prefix (List.length parentpath + List.length sig_path) path
+          in
+          Trie.map (fun _k v -> rewrite_path v) s
+  in
+  lookup parents
+
+let rec path_of_ocaml = function
+  | Path.Pident id -> [id.Ident.name]
+  | Path.Pdot (path, s, _) -> path_of_ocaml path @ [s]
+  | Path.Papply (p1, _p2) -> path_of_ocaml p1
+
+
+(* These four functions go through the typedtree to extract includes *)
+let rec lookup_trie_of_module_expr parents t path = function
+  | Typedtree.Tmod_ident (incpath,{ Location.txt = _lid}) ->
+      let incpath = path_of_ocaml incpath in
+      debug "Including %s impl at %s\n" (modpath_to_string incpath) (modpath_to_string path);
+      let parents = (path, lazy t) :: parents in
+      let sub = lookup_parents parents path incpath in
+      overriding_merge t sub
+  | Typedtree.Tmod_constraint (e,_,_,_)
+  | Typedtree.Tmod_apply (e,_,_) ->
+      lookup_trie_of_module_expr parents t path e.mod_desc
+  | _ -> t
+let rec extract_includes_from_submodule_sig parents t path name = function
+  | Typedtree.Tmty_signature sign ->
+      let path = path @ [name] in
+      let sub_includes = lazy (
+        get_includes_sig ((path, lazy t) :: parents) Trie.empty path sign
+      ) in
+      Trie.graft_lazy t (modpath_to_key [name]) sub_includes
+  | Typedtree.Tmty_functor (_,_,_,e)
+  | Typedtree.Tmty_with (e,_) ->
+      extract_includes_from_submodule_sig parents t path name e.Typedtree.mty_desc
+  | _ -> t
+and get_includes_impl parents t path ttree_struct =
+  let rec extract_submodule_impl t name = function
+    | Typedtree.Tmod_structure str ->
+        let path = path @ [name] in
+        let sub_includes = lazy (
+          get_includes_impl ((path, lazy t) :: parents) Trie.empty path str
+        ) in
+        Trie.graft_lazy t (modpath_to_key [name]) sub_includes
+    | Typedtree.Tmod_functor (_,_,_,e)
+    | Typedtree.Tmod_apply (e,_,_)
+    | Typedtree.Tmod_constraint (e,_,_,_) ->
+        extract_submodule_impl t name e.Typedtree.mod_desc
+    | _ -> t
+  in
+  List.fold_left (fun t struc_item ->
+      match struc_item.Typedtree.str_desc with
+      | Typedtree.Tstr_include
+          { Typedtree.incl_mod = { Typedtree.mod_desc = e }} ->
+          lookup_trie_of_module_expr parents t path e
+      | Typedtree.Tstr_module
+          { Typedtree.mb_id = id; mb_expr = { Typedtree.mod_desc } } ->
+          extract_submodule_impl t id.Ident.name mod_desc
+      | Typedtree.Tstr_recmodule l ->
+          List.fold_left
+            (fun t { Typedtree.mb_id; mb_expr = { Typedtree.mod_desc } } ->
+               extract_submodule_impl t mb_id.Ident.name mod_desc)
+            t l
+      | Typedtree.Tstr_modtype
+          { Typedtree.mtd_id = id; mtd_type = Some { Typedtree.mty_desc = e } } ->
+          extract_includes_from_submodule_sig parents t path id.Ident.name e
+      | _ -> t)
+    t ttree_struct.Typedtree.str_items
+and get_includes_sig parents t path ttree_sig =
+  let rec extract_includes t = function
+    | Typedtree.Tmty_ident (incpath,_) ->
+        let incpath = path_of_ocaml incpath in
+        debug "Including %s sig at %s\n" (modpath_to_string incpath) (modpath_to_string path);
+        let parents = (path, lazy t) :: parents in
+        let sub = lookup_parents parents path incpath in
+        overriding_merge t sub
+    | Typedtree.Tmty_with (e,_) ->
+        extract_includes t e.Typedtree.mty_desc
+    | Typedtree.Tmty_typeof e ->
+        lookup_trie_of_module_expr parents t path
+          e.Typedtree.mod_desc
+    | _ -> t
+  in
+  List.fold_left (fun t sig_item ->
+      match sig_item.Typedtree.sig_desc with
+      | Typedtree.Tsig_include
+          { Typedtree.incl_mod = { Typedtree.mty_desc = e }} ->
+          extract_includes t e
+      | Typedtree.Tsig_module
+          { Typedtree.md_id = id ; md_type = { Typedtree.mty_desc } }
+      | Typedtree.Tsig_modtype
+          { Typedtree.mtd_id = id; mtd_type = Some { Typedtree.mty_desc } } ->
+          extract_includes_from_submodule_sig parents t path
+            id.Ident.name mty_desc
+      | Typedtree.Tsig_recmodule l ->
+          List.fold_left
+            (fun t { Typedtree.md_id; md_type = { Typedtree.mty_desc } } ->
+               extract_includes_from_submodule_sig parents t path
+                 md_id.Ident.name mty_desc)
+            t l
+      | _ -> t)
+    t ttree_sig.Typedtree.sig_items
+
+let add_locs ~locs t =
+  Trie.map (fun path info ->
+      let loc_info = lazy (
+        List.find (has_kind info.kind) (Trie.find_all locs path)
+      ) in
+      let lookup fld none =
+        let loc = Lazy.force (fld info) in
+        if loc = none
+        then try Lazy.force (fld (Lazy.force loc_info)) with Not_found -> none
+        else loc
+      in
+      { info with
+        loc_sig = lazy (lookup (fun i -> i.loc_sig) Location.none);
+        loc_impl = lazy (lookup (fun i -> i.loc_impl) Location.none);
+        doc = lazy (lookup (fun i -> i.doc) None);
+      }
+    ) t
+
 let rec trie_of_sig_item
     ?comments implloc_trie (parents:parents) (orig_file:orig_file) path
     sig_item next
@@ -420,40 +559,11 @@ let rec trie_of_sig_item
     | Types.Sig_modtype (_,{ Types.mtd_type =
                                Some ( Types.Mty_ident sig_ident
                                     | Types.Mty_alias sig_ident) }) ->
-        let sig_path =
-          let rec get_path = function
-            | Path.Pident id -> [id.Ident.name]
-            | Path.Pdot (path, s, _) -> get_path path @ [s]
-            | Path.Papply (p1, _p2) -> get_path p1
-          in
-          get_path sig_ident
-        in
-        let sig_key, path_key = match sig_path with
-          | hd::tl ->
-              modpath_to_key [hd], modpath_to_key tl
-          | [] -> assert false
-        in
-        let rec lookup = function
-          | [] ->
-              if debug_enabled then
-                debug "WARN: Module or sig reference %s not found a %s\n"
-                  (modpath_to_string sig_path)
-                  (modpath_to_string (path@[id.Ident.name]));
-              Trie.empty
-          | (parentpath, lazy t) :: parents ->
-              let s = Trie.sub t sig_key in
-              if s = Trie.empty then lookup parents else
-                let s = Trie.sub s path_key in
-                let rewrite_path =
-                  fix_path_prefix
-                    (List.length parentpath + List.length sig_path)
-                    (path @ [id.Ident.name])
-                in
-                Trie.map (fun _k v -> rewrite_path v) s
-        in
+        let sig_path = path_of_ocaml sig_ident in
         let children = lazy (
           (* Only keep the children, don't override the module reference *)
-          Trie.graft_lazy Trie.empty [] (lazy (lookup parents))
+          Trie.graft_lazy Trie.empty []
+            (lazy (lookup_parents parents (path@[id.Ident.name]) sig_path))
         ) in
         children, comments
     | Types.Sig_class (id,{Types.cty_type=cty},_)
@@ -546,6 +656,14 @@ let cmt_sign cmt_contents =
     -> Some sign
   | _ -> None
 
+let cmt_includes parents t path cmt_contents =
+  match cmt_contents.Cmt_format.cmt_annots with
+  | Cmt_format.Implementation impl ->
+      get_includes_impl parents t path impl
+  | Cmt_format.Interface sign ->
+      get_includes_sig parents t path sign
+  | _ -> Trie.empty
+
 let protect_read reader f =
   try reader f with
   | Cmt_format.Error _ | Cmi_format.Error _ ->
@@ -561,7 +679,7 @@ let lookup_loc_impl orig_file =
       if not (Sys.file_exists cmt) then None else Some cmt
 
 let load_loc_impl parents filename cmt_contents =
-  debug "Registering %s (for implementation locations)..." filename;
+  debug " -Registering %s (for implementation locations)..." filename;
   let chrono = timer () in
   match cmt_sign cmt_contents with
   | Some sign ->
@@ -577,6 +695,8 @@ let load_loc_impl parents filename cmt_contents =
           sign
       in
       debug " %.3fs\n%!" (chrono());
+      let includes = cmt_includes parents Trie.empty [] cmt_contents in
+      let t = add_locs ~locs:includes t in
       Some t
   | _ ->
       debug " %.3fs\n%!" (chrono());
@@ -604,7 +724,7 @@ let load_cmi ?(qualify=false) root t modul orig_file =
        ) in
        let children = lazy (
         let info = Lazy.force info in
-        debug "Registering %s..." file;
+        debug " -Registering %s..." file;
         let chrono = timer () in
         let rec implloc_trie = lazy (
           match Lazy.force impl_cmt with
@@ -671,7 +791,7 @@ let load_cmt ?(qualify=false) root t modul orig_file =
        ) in
        let children = lazy (
          let info = Lazy.force info in
-         debug "Registering %s..." cmt_file;
+         debug " -Registering %s..." cmt_file;
          let chrono = timer () in
          let comments = Some (Lazy.from_val info.Cmt_format.cmt_comments) in
          let rec implloc_trie = lazy (
@@ -700,6 +820,13 @@ let load_cmt ?(qualify=false) root t modul orig_file =
          let t = Lazy.force lazy_t in
          debug " %.3fs\n%!" (chrono());
          t
+       ) in
+       let children = lazy (
+         let includes =
+           cmt_includes [[modul], children; [], root]
+             Trie.empty [] (Lazy.force info)
+         in
+         add_locs ~locs:includes (Lazy.force children)
        ) in
        let loc_sig, loc_impl =
          let of_info i = match i.Cmt_format.cmt_sourcefile with
