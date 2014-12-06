@@ -382,115 +382,6 @@ let rec path_of_ocaml = function
   | Path.Pdot (path, s, _) -> path_of_ocaml path @ [s]
   | Path.Papply (p1, _p2) -> path_of_ocaml p1
 
-
-(* These four functions go through the typedtree to extract includes *)
-let rec lookup_trie_of_module_expr parents t path = function
-  | Typedtree.Tmod_ident (incpath,{ Location.txt = _lid}) ->
-      let incpath = path_of_ocaml incpath in
-      debug "Including %s impl at %s\n" (modpath_to_string incpath) (modpath_to_string path);
-      let parents = (path, lazy t) :: parents in
-      let sub = lookup_parents parents path incpath in
-      overriding_merge t sub
-  | Typedtree.Tmod_constraint (e,_,_,_)
-  | Typedtree.Tmod_apply (e,_,_) ->
-      lookup_trie_of_module_expr parents t path e.mod_desc
-  | _ -> t
-let rec extract_includes_from_submodule_sig parents t path name = function
-  | Typedtree.Tmty_signature sign ->
-      let path = path @ [name] in
-      let sub_includes = lazy (
-        get_includes_sig ((path, lazy t) :: parents) Trie.empty path sign
-      ) in
-      Trie.graft_lazy t (modpath_to_key [name]) sub_includes
-  | Typedtree.Tmty_functor (_,_,_,e)
-  | Typedtree.Tmty_with (e,_) ->
-      extract_includes_from_submodule_sig parents t path name e.Typedtree.mty_desc
-  | _ -> t
-and get_includes_impl parents t path ttree_struct =
-  let rec extract_submodule_impl t name = function
-    | Typedtree.Tmod_structure str ->
-        let path = path @ [name] in
-        let sub_includes = lazy (
-          get_includes_impl ((path, lazy t) :: parents) Trie.empty path str
-        ) in
-        Trie.graft_lazy t (modpath_to_key [name]) sub_includes
-    | Typedtree.Tmod_functor (_,_,_,e)
-    | Typedtree.Tmod_apply (e,_,_)
-    | Typedtree.Tmod_constraint (e,_,_,_) ->
-        extract_submodule_impl t name e.Typedtree.mod_desc
-    | _ -> t
-  in
-  List.fold_left (fun t struc_item ->
-      match struc_item.Typedtree.str_desc with
-      | Typedtree.Tstr_include
-          { Typedtree.incl_mod = { Typedtree.mod_desc = e }} ->
-          lookup_trie_of_module_expr parents t path e
-      | Typedtree.Tstr_module
-          { Typedtree.mb_id = id; mb_expr = { Typedtree.mod_desc } } ->
-          extract_submodule_impl t id.Ident.name mod_desc
-      | Typedtree.Tstr_recmodule l ->
-          List.fold_left
-            (fun t { Typedtree.mb_id; mb_expr = { Typedtree.mod_desc } } ->
-               extract_submodule_impl t mb_id.Ident.name mod_desc)
-            t l
-      | Typedtree.Tstr_modtype
-          { Typedtree.mtd_id = id; mtd_type = Some { Typedtree.mty_desc = e } } ->
-          extract_includes_from_submodule_sig parents t path id.Ident.name e
-      | _ -> t)
-    t ttree_struct.Typedtree.str_items
-and get_includes_sig parents t path ttree_sig =
-  let rec extract_includes t = function
-    | Typedtree.Tmty_ident (incpath,_) ->
-        let incpath = path_of_ocaml incpath in
-        debug "Including %s sig at %s\n" (modpath_to_string incpath) (modpath_to_string path);
-        let parents = (path, lazy t) :: parents in
-        let sub = lookup_parents parents path incpath in
-        overriding_merge t sub
-    | Typedtree.Tmty_with (e,_) ->
-        extract_includes t e.Typedtree.mty_desc
-    | Typedtree.Tmty_typeof e ->
-        lookup_trie_of_module_expr parents t path
-          e.Typedtree.mod_desc
-    | _ -> t
-  in
-  List.fold_left (fun t sig_item ->
-      match sig_item.Typedtree.sig_desc with
-      | Typedtree.Tsig_include
-          { Typedtree.incl_mod = { Typedtree.mty_desc = e }} ->
-          extract_includes t e
-      | Typedtree.Tsig_module
-          { Typedtree.md_id = id ; md_type = { Typedtree.mty_desc } }
-      | Typedtree.Tsig_modtype
-          { Typedtree.mtd_id = id; mtd_type = Some { Typedtree.mty_desc } } ->
-          extract_includes_from_submodule_sig parents t path
-            id.Ident.name mty_desc
-      | Typedtree.Tsig_recmodule l ->
-          List.fold_left
-            (fun t { Typedtree.md_id; md_type = { Typedtree.mty_desc } } ->
-               extract_includes_from_submodule_sig parents t path
-                 md_id.Ident.name mty_desc)
-            t l
-      | _ -> t)
-    t ttree_sig.Typedtree.sig_items
-
-let add_locs ~locs t =
-  Trie.map (fun path info ->
-      let loc_info = lazy (
-        List.find (has_kind info.kind) (Trie.find_all locs path)
-      ) in
-      let lookup fld none =
-        let loc = Lazy.force (fld info) in
-        if loc = none
-        then try Lazy.force (fld (Lazy.force loc_info)) with Not_found -> none
-        else loc
-      in
-      { info with
-        loc_sig = lazy (lookup (fun i -> i.loc_sig) Location.none);
-        loc_impl = lazy (lookup (fun i -> i.loc_impl) Location.none);
-        doc = lazy (lookup (fun i -> i.doc) None);
-      }
-    ) t
-
 let rec trie_of_sig_item
     ?comments ?srcpath implloc_trie (parents:parents) (orig_file:orig_file)
     path sig_item next
@@ -636,6 +527,139 @@ let rec trie_of_sig_item
     :: siblings,
     comments
 
+
+(* These four functions go through the typedtree to extract includes *)
+let rec lookup_trie_of_module_expr parents t path = function
+  | Typedtree.Tmod_ident (incpath,{ Location.txt = _lid}) ->
+      let incpath = path_of_ocaml incpath in
+      debug "Including %s impl at %s\n" (modpath_to_string incpath) (modpath_to_string path);
+      let parents = (path, lazy t) :: parents in
+      let sub = lookup_parents parents path incpath in
+      overriding_merge t sub
+  | Typedtree.Tmod_constraint (e,_,_,_)
+  (* | Typedtree.Tmod_apply (e,_,_) *) ->
+      lookup_trie_of_module_expr parents t path e.mod_desc
+  | Typedtree.Tmod_apply ({ mod_desc = Typedtree.Tmod_functor(id,_,_,f) },
+                          { mod_desc = Typedtree.Tmod_ident (arg,_)
+                                     | Typedtree.Tmod_constraint ({mod_desc = Typedtree.Tmod_ident (arg,_)},_,_,_)  },_) ->
+      let t = lookup_trie_of_module_expr parents t path f.Typedtree.mod_desc in
+      debug "Grafting %s at %s\n" id.Ident.name (modpath_to_string (path_of_ocaml arg));
+      let functor_arg = lazy (lookup_parents parents (path_of_ocaml arg) path) in
+      Trie.graft_lazy t (modpath_to_key [id.Ident.name]) functor_arg
+  | _ -> t
+let rec extract_includes_from_submodule_sig parents t path name = function
+  | Typedtree.Tmty_signature sign ->
+      let path = path @ [name] in
+      let sub_includes = lazy (
+        get_includes_sig ((path, lazy t) :: parents)
+          (Trie.sub t (modpath_to_key [name])) path sign
+      ) in
+      Trie.graft_lazy t (modpath_to_key [name]) sub_includes
+  | Typedtree.Tmty_functor (_,_,_,e)
+  | Typedtree.Tmty_with (e,_) ->
+      extract_includes_from_submodule_sig parents t path name e.Typedtree.mty_desc
+  | _ -> t
+and get_includes_impl parents t path ttree_struct =
+  let rec extract_submodule_impl t name = function
+    | Typedtree.Tmod_structure str ->
+        let path = path @ [name] in
+        let sub_includes = lazy (
+          get_includes_impl ((path, lazy t) :: parents)
+            (Trie.sub t (modpath_to_key [name])) path str
+        ) in
+        Trie.graft_lazy t (modpath_to_key [name]) sub_includes
+    (* | Typedtree.Tmod_functor (arg_id,_,arg_t,e) *)
+    | Typedtree.Tmod_apply ({ mod_desc = Typedtree.Tmod_functor(id,_,_,f) },
+                            { mod_desc = Typedtree.Tmod_ident (arg,_)
+                                       | Typedtree.Tmod_constraint ({mod_desc = Typedtree.Tmod_ident (arg,_)},_,_,_)  },_) ->
+        debug "Grafting %s at %s\n" id.Ident.name (modpath_to_string (path_of_ocaml arg));
+        let functor_arg = lazy (
+          lookup_parents
+            ((path, lazy t)::parents) (path_of_ocaml arg) (path@[name])
+        ) in
+        extract_submodule_impl
+          (Trie.graft_lazy t (modpath_to_key [id.Ident.name]) functor_arg)
+          name f.Typedtree.mod_desc
+    | Typedtree.Tmod_functor (_,_,_,e)
+    | Typedtree.Tmod_constraint (e,_,_,_) ->
+        extract_submodule_impl t name e.Typedtree.mod_desc
+    | _ -> t
+  in
+  List.fold_left (fun t struc_item ->
+      match struc_item.Typedtree.str_desc with
+      | Typedtree.Tstr_include
+          { Typedtree.incl_mod = { Typedtree.mod_desc = e }} ->
+          lookup_trie_of_module_expr parents t path e
+      | Typedtree.Tstr_open
+          { Typedtree.open_path = p } ->
+          let sub = lookup_parents ((path, lazy t) :: parents) path (path_of_ocaml p) in
+          overriding_merge t sub
+      | Typedtree.Tstr_module
+          { Typedtree.mb_id = id; mb_expr = { Typedtree.mod_desc } } ->
+          extract_submodule_impl t id.Ident.name mod_desc
+      | Typedtree.Tstr_recmodule l ->
+          List.fold_left
+            (fun t { Typedtree.mb_id; mb_expr = { Typedtree.mod_desc } } ->
+               extract_submodule_impl t mb_id.Ident.name mod_desc)
+            t l
+      | Typedtree.Tstr_modtype
+          { Typedtree.mtd_id = id; mtd_type = Some { Typedtree.mty_desc = e } } ->
+          extract_includes_from_submodule_sig parents t path id.Ident.name e
+      | _ -> t)
+    t ttree_struct.Typedtree.str_items
+and get_includes_sig parents t path ttree_sig =
+  let rec extract_includes t = function
+    | Typedtree.Tmty_ident (incpath,_) ->
+        let incpath = path_of_ocaml incpath in
+        debug "Including %s sig at %s\n" (modpath_to_string incpath) (modpath_to_string path);
+        let parents = (path, lazy t) :: parents in
+        let sub = lookup_parents parents path incpath in
+        overriding_merge t sub
+    | Typedtree.Tmty_with (e,_) ->
+        extract_includes t e.Typedtree.mty_desc
+    | Typedtree.Tmty_typeof e ->
+        lookup_trie_of_module_expr parents t path
+          e.Typedtree.mod_desc
+    | _ -> t
+  in
+  List.fold_left (fun t sig_item ->
+      match sig_item.Typedtree.sig_desc with
+      | Typedtree.Tsig_include
+          { Typedtree.incl_mod = { Typedtree.mty_desc = e }} ->
+          extract_includes t e
+      | Typedtree.Tsig_module
+          { Typedtree.md_id = id ; md_type = { Typedtree.mty_desc } }
+      | Typedtree.Tsig_modtype
+          { Typedtree.mtd_id = id; mtd_type = Some { Typedtree.mty_desc } } ->
+          extract_includes_from_submodule_sig parents t path
+            id.Ident.name mty_desc
+      | Typedtree.Tsig_recmodule l ->
+          List.fold_left
+            (fun t { Typedtree.md_id; md_type = { Typedtree.mty_desc } } ->
+               extract_includes_from_submodule_sig parents t path
+                 md_id.Ident.name mty_desc)
+            t l
+      | _ -> t)
+    t ttree_sig.Typedtree.sig_items
+
+let add_locs ~locs t =
+  Trie.map (fun path info ->
+      let loc_info = lazy (
+        List.find (has_kind info.kind) (Trie.find_all locs path)
+      ) in
+      let lookup fld none =
+        let loc = Lazy.force (fld info) in
+        if loc = none
+        then try Lazy.force (fld (Lazy.force loc_info)) with Not_found -> none
+        else loc
+      in
+      { info with
+        loc_sig = lazy (lookup (fun i -> i.loc_sig) Location.none);
+        loc_impl = lazy (lookup (fun i -> i.loc_impl) Location.none);
+        doc = lazy (lookup (fun i -> i.doc) None);
+      }
+    ) t
+
 (* Can work in a subtree (t doesn't have to be the root) *)
 let qualify_type_idents parents t =
   let qualify _key id =
@@ -714,7 +738,7 @@ let load_loc_impl parents filename cmt_contents =
           sign
       in
       debug " %.3fs\n%!" (chrono());
-      let includes = cmt_includes parents Trie.empty [] cmt_contents in
+      let includes = cmt_includes parents t [] cmt_contents in
       let t = add_locs ~locs:includes t in
       Some t
   | _ ->
@@ -845,7 +869,7 @@ let load_cmt ?(qualify=false) root t modul orig_file =
        let children = lazy (
          let includes =
            cmt_includes [[modul], children; [], root]
-             Trie.empty [] (Lazy.force info)
+             t [] (Lazy.force info)
          in
          add_locs ~locs:includes (Lazy.force children)
        ) in
