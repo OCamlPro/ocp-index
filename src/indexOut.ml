@@ -110,12 +110,14 @@ module IndexFormat = struct
     | Otyp_manifest (ty,_) -> tydecl fmt ty
     | Otyp_record fields ->
         let print_field fmt (name, mut, arg) =
-          Format.fprintf fmt "@[<2>%s%s :@ %a@];"
+          Format.fprintf fmt "@[<2>%s%s :@ @[%a@]@];"
             (if mut then "mutable " else "") name
             !Oprint.out_type arg
         in
-        Format.fprintf fmt "{%a@;<1 -2>}"
-          (list ~left:(fun fmt -> Format.pp_print_space fmt ())
+        Format.fprintf fmt "@[<hv 2>{%a}@]"
+          (list
+             ~left:(fun fmt -> Format.pp_print_space fmt ())
+             ~right:(fun fmt -> Format.pp_print_break fmt 1 (-2))
              print_field Format.pp_print_space)
           fields
     | Otyp_sum [] ->
@@ -126,24 +128,27 @@ module IndexFormat = struct
           | None ->
               if tyl = [] then Format.pp_print_string fmt name
               else
-                Format.fprintf fmt "@[<2>%s of@ %a@]"
+                Format.fprintf fmt "@[<2>%s of@ @[%a@]@]"
                   name
                   (list !Oprint.out_type
                      (fun fmt () -> Format.fprintf fmt " *@ "))
                   tyl
           | Some ret_type ->
               if tyl = [] then
-                Format.fprintf fmt "@[<2>%s :@ %a@]" name
+                Format.fprintf fmt "@[<2>%s :@ @[%a@]@]" name
                   !Oprint.out_type ret_type
               else
-                Format.fprintf fmt "@[<2>%s :@ %a -> %a@]"
+                Format.fprintf fmt "@[<2>%s :@ @[%a -> @[%a@]@]@]"
                   name
                   (list !Oprint.out_type
                      (fun fmt () -> Format.fprintf fmt " *@ "))
                   tyl
                   !Oprint.out_type ret_type
         in
-        list print_variant (fun fmt () -> Format.fprintf fmt "@ | ")
+        list print_variant
+          ~left:(fun fmt ->
+              Format.pp_print_if_newline fmt (); Format.fprintf fmt "| ")
+          (fun fmt () -> Format.fprintf fmt "@ | ")
           fmt constrs
     | ty ->
         !Oprint.out_type fmt ty
@@ -167,13 +172,13 @@ module IndexFormat = struct
     | Osig_module (_,mtyp,_) ->
         !Oprint.out_module_type fmt mtyp
     | Osig_type ((_,_,ty,_,_),_) ->
-        Format.fprintf fmt "@[<hv 2>%a@]" tydecl ty
+        tydecl fmt ty
     | Osig_value (_,ty,_) ->
         !Oprint.out_type fmt ty
 
   let ty ?(colorise = no_color) fmt id =
     option_iter id.ty
-      (colorise.f Type "%a" fmt out_ty)
+      (colorise.f Type "@[<hv>%a@]" fmt out_ty)
 
   let doc ?colorise:(_ = no_color) fmt id =
     option_iter (Lazy.force id.doc) (Format.fprintf fmt "@[<h>%a@]" lines)
@@ -200,12 +205,17 @@ module IndexFormat = struct
       (match id.file with Cmt f | Cmi f | Cmti f -> f)
 
   let info ?(colorise = no_color) fmt id =
-    path ~colorise fmt id;
-    Format.fprintf fmt " %a" (kind ~colorise) id;
-    if id.ty <> None then
-      Format.fprintf fmt " @[<h>%a@]" (ty ~colorise) id;
-    if Lazy.force id.doc <> None then
-      Format.fprintf fmt "@\n    %a" (doc ~colorise) id
+    let breakif n fmt = function
+      | None -> ()
+      | Some _ -> Format.pp_print_break fmt 1 n
+    in
+    Format.fprintf fmt "@[<v 2>@[<hov 2>%a@ %a%a%a@]%a%a@]@."
+      (path ?short:None ~colorise) id
+      (kind ~colorise) id
+      (breakif 0) id.ty
+      (ty ~colorise) id
+      (breakif 2) (Lazy.force id.doc)
+      (doc ~colorise) id
 
   let format ?root format ?colorise fmt id =
     let rec aux i =

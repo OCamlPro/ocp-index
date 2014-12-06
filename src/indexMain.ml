@@ -102,37 +102,34 @@ let complete_cmd =
     if sexpr then (
       if format <> None then
         raise (Invalid_argument "options --format and --sexp are incompatible");
-      Format.pp_print_string fmt "(\n";
+      Format.fprintf fmt "(@[<v 2>@ ";
       List.iter (fun info ->
           let (!) f x = f ?colorise:None x in
-          Format.fprintf fmt "  (\"%a\""
+          Format.fprintf fmt "(@[<v 2>\"%a\""
             !(LibIndex.Format.path ~short:true) info;
-          Format.fprintf fmt " (:path . \"%a\")"
+          Format.fprintf fmt "@ (:path . \"%a\")"
             !(LibIndex.Format.path ~short:false) info;
-          Format.fprintf fmt " (:type . %S)" (LibIndex.Print.ty info);
-          Format.fprintf fmt " (:kind . \"%a\")" !LibIndex.Format.kind info;
+          Format.fprintf fmt "@ (:type . %S)" (LibIndex.Print.ty info);
+          Format.fprintf fmt "@ (:kind . \"%a\")" !LibIndex.Format.kind info;
           (if Lazy.force info.LibIndex.doc <> None
-           then Format.fprintf fmt " (:doc . %S)" (LibIndex.Print.doc info));
-          Format.fprintf fmt ")\n"
+           then Format.fprintf fmt "@ (:doc . %S)" (LibIndex.Print.doc info));
+          Format.fprintf fmt "@]@ )@ "
         )
         results;
-      Format.pp_print_string fmt ")\n"
+      Format.fprintf fmt "@]@ )@."
     ) else
       let colorise =
         if opts.IndexOptions.color then LibIndex.Format.color
         else LibIndex.Format.no_color
       in
-      let print = match format with
-        | None -> LibIndex.Format.info ~colorise
+      let print fmt i = match format with
+        | None -> LibIndex.Format.info ~colorise fmt i
         | Some fstring ->
             LibIndex.Format.format ?root:opts.IndexOptions.project_root
-              (Scanf.unescaped fstring) ~colorise
+              (Scanf.unescaped fstring) ~colorise fmt i;
+            Format.pp_print_newline fmt ()
       in
-      List.iter (fun info ->
-          print fmt info;
-          Format.pp_print_newline fmt ())
-        results;
-    Format.pp_print_flush fmt ()
+      List.iter (print fmt) results;
   in
   let doc = "Output completions for a given prefix." in
   Term.(pure print_compl $ common_opts $ sexpr $ format $ t),
