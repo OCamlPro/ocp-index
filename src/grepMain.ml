@@ -81,7 +81,10 @@ end = struct
 
   let ident path f ch =
     let modname =
-      let s = Filename.basename (Filename.chop_extension f) in
+      let s =
+        Filename.basename
+          (try Filename.chop_extension f with Invalid_argument _ -> f)
+      in
       s.[0] <- Char.uppercase s.[0];
       s
     in
