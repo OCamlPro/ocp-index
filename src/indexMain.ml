@@ -246,7 +246,11 @@ let () =
            the one ocp-index was compiled against.\n"
           f;
         exit 4
-    | _ -> `Error `Exn
+    | e ->
+        IndexMisc.debug "%s\n" (Printexc.to_string e);
+        if Printexc.backtrace_status () then
+          IndexMisc.debug "%s\n" (Printexc.get_backtrace ());
+        `Error `Exn
   with
   | `Error _ -> exit 1
   | _ -> exit 0

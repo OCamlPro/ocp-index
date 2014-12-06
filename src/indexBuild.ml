@@ -35,6 +35,21 @@ open IndexMisc
 let orig_file_name = function
   | Cmt f | Cmti f | Cmi f -> f
 
+let equal_kind k1 k2 = match k1,k2 with
+  | Type,Type | Value,Value | Exception,Exception
+  | Field _,Field _ | Variant _,Variant _ | Method _,Method _
+  | Module,Module | ModuleType,ModuleType
+  | Class,Class | ClassType,ClassType
+  | Keyword,Keyword ->
+      true
+  | Type,_ | Value,_ | Exception,_
+  | Field _,_ | Variant _,_ | Method _,_
+  | Module,_ | ModuleType,_
+  | Class,_ | ClassType,_
+  | Keyword,_ ->
+      false
+
+let has_kind k info = equal_kind k info.kind
 
 (* - Trie loading and manipulation functions - *)
 
@@ -156,7 +171,7 @@ let qualify_ty (parents:parents) ty =
     let rec lookup = function
       | [] | ([],_) :: _ -> ident
       | ((path1::pathn), lazy t) :: parents ->
-          if not (List.exists (fun id -> id.kind = Type) (Trie.find_all t key))
+          if not (List.exists (has_kind Type) (Trie.find_all t key))
           then lookup parents
           else
             let rec add_pfx = function
@@ -337,7 +352,7 @@ let rec trie_of_sig_item
             let path = List.tl path @ [id.Ident.name] in
             let key = modpath_to_key ~enddot:false path in
             let c =
-              List.find (fun item -> item.kind = kind) (Trie.find_all t key)
+              List.find (has_kind kind) (Trie.find_all t key)
             in
             Lazy.force c.loc_impl
           with Not_found -> Location.none
@@ -790,7 +805,7 @@ let fully_open_module ?(cleanup_path=false) t path =
   let merge intfs impls =
     let keep_intf info =
       try
-        let intf = List.find (fun i -> i.kind = info.kind) intfs in
+        let intf = List.find (has_kind info.kind) intfs in
         let doc = lazy (match info.doc with
             | lazy None -> Lazy.force intf.doc
             | lazy some -> some)

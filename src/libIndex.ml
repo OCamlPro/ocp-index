@@ -65,7 +65,7 @@ let complete t ?filter:(f = fun _ -> true) query =
   in
   List.sort
     (fun i j ->
-       let c = compare i.loc_sig j.loc_sig in
+       let c = compare (Lazy.force i.loc_sig) (Lazy.force j.loc_sig) in
        if c <> 0 then c
        else compare i.path j.path)
     completions
