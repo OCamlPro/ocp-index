@@ -305,12 +305,21 @@ let trie_of_type_decl ?comments info ty_decl =
         (fun { Types.cd_id; cd_args } ->
           let ty =
             let params = match cd_args with
-              | [] -> Outcometree.Otyp_sum []
-              | param::_ ->
+              | Cstr_tuple [] -> Outcometree.Otyp_sum []
+              | Cstr_tuple (param::_ as l) ->
                      Printtyp.tree_of_typexp false
-                       { Types. desc = Types.Ttuple cd_args;
+                       { Types. desc = Types.Ttuple l;
                          level = param.Types.level;
                          id = param.Types.id }
+              | Cstr_record params ->
+                  Outcometree.Otyp_record (
+                    List.map
+                      (fun l ->
+                         (Ident.name l.Types.ld_id,
+                          l.ld_mutable = Mutable,
+                          Printtyp.tree_of_typexp false l.ld_type)
+                      )
+                      params)
             in
             Outcometree.Osig_type (Outcometree.{
                 otype_name    = "";
