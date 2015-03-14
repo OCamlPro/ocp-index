@@ -85,7 +85,7 @@ end = struct
         Filename.basename
           (try Filename.chop_extension f with Invalid_argument _ -> f)
       in
-      String.mapi (function 0 -> Char.uppercase | _ -> fun x -> x) s
+      String.mapi (function 0 -> Char.uppercase_ascii | _ -> fun x -> x) s
     in
     let f (curpath, lookfor, last_scope, acc) scope tok pos =
       let lookfor =
