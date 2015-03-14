@@ -183,6 +183,8 @@ module IndexFormat = struct
         tydecl fmt otype_type
     | Osig_value (_,ty,_) ->
         !Oprint.out_type fmt ty
+    | Osig_ellipsis ->
+        Format.fprintf fmt "..."
 
   let ty ?(colorise = no_color) fmt id =
     option_iter id.ty
