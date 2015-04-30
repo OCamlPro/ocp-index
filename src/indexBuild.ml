@@ -305,12 +305,21 @@ let trie_of_type_decl ?comments info ty_decl =
         (fun { Types.cd_id; cd_args } ->
           let ty =
             let params = match cd_args with
-              | [] -> Outcometree.Otyp_sum []
-              | param::_ ->
+              | Cstr_tuple [] -> Outcometree.Otyp_sum []
+              | Cstr_tuple (param::_ as l) ->
                      Printtyp.tree_of_typexp false
-                       { Types. desc = Types.Ttuple cd_args;
+                       { Types. desc = Types.Ttuple l;
                          level = param.Types.level;
                          id = param.Types.id }
+              | Cstr_record params ->
+                  Outcometree.Otyp_record (
+                    List.map
+                      (fun l ->
+                         (Ident.name l.Types.ld_id,
+                          l.ld_mutable = Mutable,
+                          Printtyp.tree_of_typexp false l.ld_type)
+                      )
+                      params)
             in
             Outcometree.Osig_type (Outcometree.{
                 otype_name    = "";
@@ -902,8 +911,8 @@ let load_files t dirfiles =
     try
       let i = String.rindex file '.' in
       let len = String.length file in
-      let modul = String.capitalize (String.sub file 0 i) in
-      let ext = String.lowercase (String.sub file (i+1) (len-i-1)) in
+      let modul = String.capitalize_ascii (String.sub file 0 i) in
+      let ext = String.lowercase_ascii (String.sub file (i+1) (len-i-1)) in
       modul, ext
     with Not_found -> file, ""
   in
