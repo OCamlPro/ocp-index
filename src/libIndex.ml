@@ -63,8 +63,12 @@ let complete t ?filter:(f = fun _ -> true) query =
          (Trie.sub t (Misc.string_to_key query)))
       f
   in
+  let file = function { file = Cmt f | Cmi f | Cmti f } -> f in
   List.sort
     (fun i j ->
+       let c = compare (file i) (file j) in
+       if c <> 0 then c
+       else
        let c = compare (Lazy.force i.loc_sig) (Lazy.force j.loc_sig) in
        if c <> 0 then c
        else compare i.path j.path)
