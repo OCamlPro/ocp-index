@@ -18,7 +18,10 @@ man: [
   "?man/man1/ocp-index.1"
   "?man/man1/ocp-browser.1"
 ]
+share_root: [
+  "tools/ocp-index.el" {"emacs/site-lisp/ocp-index.el"}
+]
 share: [
-  "tools/ocp-index.el" {"../emacs/site-lisp/ocp-index.el"}
-  "tools/ocp-index.vim" {"../vim/syntax/ocpindex.vim"}
+  "tools/ocp-index.vim" {"vim/autoload/ocpindex.vim"}
+  "tools/autoload.vim" {"vim/ftplugin/ocaml.vim"}
 ]

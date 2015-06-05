@@ -43,6 +43,12 @@ install: $(PROJECTS) man
 	  tools/emacs-setup.sh $(datarootdir)/emacs/site-lisp; \
 	  echo; \
 	fi
+	@if $$(which vim >/dev/null); then \
+	  echo "== Vim configuration =="; \
+	  echo "Add the following to your .vimrc:"; \
+	  echo "  set rtp+=$(datarootdir)/ocp-index/vim"; \
+          echo; \
+       fi
 
 .PHONY: clean
 clean: ocp-build.root

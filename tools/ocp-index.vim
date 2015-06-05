@@ -2,7 +2,10 @@
 " Maintainer: INAJIMA Daisuke <inajima@sopht.jp>
 " Version: 0.1
 
-let s:ocaml_lib_dir = ""
+if exists("g:loaded_ocpindex")
+  finish
+endif
+let g:loaded_ocpindex = 1
 
 let s:jump_history = []
 let s:max_jump_history = 100
@@ -11,10 +14,6 @@ function! ocpindex#init()
     if executable(g:ocpindex_program) != 1
         echoerr "ocpindex: ocp-index not found"
         return
-    endif
-
-    if executable("ocamlc") == 1
-        let s:ocaml_lib_dir = substitute(system('ocamlc -where'), '\n$', '', '')
     endif
 
     setlocal omnifunc=ocpindex#complete
@@ -35,15 +34,6 @@ function! s:ocp_index(cmd, arg)
     let cmdline = [g:ocpindex_program, shellescape(a:cmd),
     \              '--context', ':', '-F',
     \              shellescape(substitute(expand('%:t:r'), '^\w', '\u\0', ''))]
-
-    " If build directory is not found, specify ocaml lib directory as both
-    " build and root directory.  ocp-index's build/root path detection routine
-    " seems to be broken.
-    if finddir('_build', '.;') == "" && finddir('_obuild', '.;') == "" &&
-    \  findfile('OMakeroot', '.;') == ""
-        let d = shellescape(s:ocaml_lib_dir)
-        call extend(cmdline, ['--build', d, '--root', d])
-    endif
 
     call add(cmdline, shellescape(a:arg))
     return system(join(cmdline), context)

@@ -28,6 +28,13 @@ depopts: "lambda-term"
 conflicts: "lambda-term" {< "1.7"}
 available: [ocaml-version >= "4.00.0"]
 messages: "To install ocp-browser, please install lambda-term" {! lambda-term:installed}
-post-messages: "To use ocp-index from emacs, add the following to your .emacs:
-  (add-to-list 'load-path \"%{share}%/emacs/site-lisp\")
-  (require 'ocp-index)" {success}
+post-messages:
+  "This package requires additional configuration for use in editors. Either install package 'user-setup', or manually:
+
+* for Emacs, add these lines to ~/.emacs:
+  (add-to-list 'load-path \"%{prefix}%/share/emacs/site-lisp\")
+  (require 'ocp-index)
+
+* for Vim, add the following line to ~/.vimrc:
+  set rtp+=%{share}%/ocp-index/vim
+" {success & !user-setup:installed}

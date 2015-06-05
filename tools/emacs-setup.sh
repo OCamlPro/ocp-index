@@ -26,7 +26,8 @@ if ! check_eldir; then
     exit 2
 fi
 
-echo "To setup tuareg-mode (or ocaml-mode) to use ocp-index for completion,"
+echo "== Emacs configuration =="
+echo "To setup tuareg-mode (or caml-mode) to use ocp-index for completion,"
 echo "please add the following to your .emacs :"
 echo
 if [ "${eldir#/usr/}" = "$eldir" ]; then
