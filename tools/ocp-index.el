@@ -261,6 +261,7 @@ this function to present completions to the user."
 (defun ocp-index-grep ()
   "Use ocp-index and ocp-grep to find uses of the identifier under point"
   (interactive nil)
+  (require 'grep)
   (let* ((grep-use-null-device nil)
          (ident (ocp-index-symbol-at-point))
          (path  (ocp-index-run "print" ident "%p"))
