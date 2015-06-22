@@ -310,7 +310,7 @@ let () =
     Term.eval
       (Term.(pure grep
              $ Args.pattern $ Args.files $ Args.color $ Args.strings $ Args.regexp),
-       Term.info "ocp-grep" ~version:"1.1.1" ~doc ~man)
+       Term.info "ocp-grep" ~version:"1.1.2" ~doc ~man)
   with
   | `Ok true -> exit 0
   | `Ok false -> exit 1

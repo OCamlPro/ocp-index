@@ -1,3 +1,14 @@
+## 1.1.2
+* much improved vim script
+* better output formatting
+* give location of full modules (previously, only values within the module had
+  location). Useful for in-editor file jumping
+* sort results by location (to get the same source idents in mli order, rather
+  than somewhat but not really alphabetical order)
+* allow escapes in --format
+* ocp-browser: add global toggle with Alt-a
+* fixed some cases of recursive lookup within the same file
+
 ## 1.1.1
 * fixed comment association for modules and one-per-line values
 * better errors on cmi/cmt from incompatible compiler versions
