@@ -1,3 +1,8 @@
+## 1.1.3
+* some small elisp improvements
+* add '%e' format string for enclosing type definition (useful to get "other variants", "other fields"). Repeat C-c C-t in emacs mode to use.
+* compatible with new 4.02.3 doc attached to the parse-tree (4.02 branch)
+
 ## 1.1.2
 * much improved vim script
 * better output formatting
