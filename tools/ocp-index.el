@@ -37,7 +37,7 @@
 
 (defcustom ocp-index-show-help t
   "*If set, show the documentation bubble after completion (otherwise,
-   the type is printed in the minibuffer)."
+   the type is printed in the echo area)."
   :group 'ocp-index :type 'boolean)
 
 (defvar ocp-index-has-auto-complete
@@ -194,7 +194,7 @@
     (setq ocp-index-completion-data data)))
 
 (defun ocp-index-completion-exit-function (candidate state)
-  "Print the type of CANDIDATE in the minibuffer."
+  "Print the type of CANDIDATE in the echo area."
   (let ((ret (cdr (assoc :type (assoc candidate ocp-index-completion-data)))))
     (if ret (message "%s: %s" candidate ret))))
 
@@ -247,16 +247,18 @@ this function to present completions to the user."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   
 (defun ocp-index-print-type (ident)
-  "Display the type of an ocaml identifier in the mini-buffer using ocp-index"
+  "Display the type of an ocaml identifier in the echo area using ocp-index.\
+   Call twice to show the enclosing type of field records, variants and methods"
   (interactive (let ((default (ocp-index-symbol-at-point)))
                  (list
                   (read-string
                    (format "type ident (%s): " default) nil nil default))))
   (let* ((ident   (ocp-index-symbol-at-point))
-         (output  (ocp-index-run "print" ident "%k %p: %t"))
+         (format  (if (equal last-command this-command) "%e" "%k %p: %t"))
+         (output  (ocp-index-run "print" ident format))
          (output  (if (string= output "") "No definition found" output))
          (type    (replace-regexp-in-string "\n\+$" "" output)))
-    (message "%s" type)))
+    (display-message-or-buffer type "*ocp-index*")))
 
 (defun ocp-index-grep ()
   "Use ocp-index and ocp-grep to find uses of the identifier under point"
