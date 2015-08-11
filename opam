@@ -13,7 +13,7 @@ tags: [
   "org:ocamlpro"
   "org:typerex"
 ]
-dev-repo: "https://github.com/OCamlPro/ocp-index.git"
+dev-repo: "https://github.com/OCamlPro/ocp-index.git#4.02"
 build: [
   ["./configure" "--prefix" prefix]
   [make]
@@ -26,7 +26,7 @@ depends: [
 ]
 depopts: "lambda-term"
 conflicts: "lambda-term" {< "1.7"}
-available: [ocaml-version >= "4.01.0" & ocaml-version < "4.02"]
+available: [ocaml-version >= "4.02.0" & ocaml-version < "4.03"]
 messages: "For ocp-browser, please also install package lambda-term" {! lambda-term:installed}
 post-messages:
   "This package requires additional configuration for use in editors. Either install package 'user-setup', or manually:
