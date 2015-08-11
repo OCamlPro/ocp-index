@@ -270,13 +270,33 @@ let kind_of_sig_item = function
   | Types.Sig_class _ -> Class
   | Types.Sig_class_type _ -> ClassType
 
+let attrs_of_sig_item = function
+  | Types.Sig_value (_,descr) -> descr.Types.val_attributes
+  | Types.Sig_type (_,descr,_) -> descr.Types.type_attributes
+  | Types.Sig_typext (_,descr,_) -> descr.Types.ext_attributes
+  | Types.Sig_module (_,descr,_) -> descr.Types.md_attributes
+  | Types.Sig_modtype (_,descr) -> descr.Types.mtd_attributes
+  | Types.Sig_class (_,descr,_) -> descr.Types.cty_attributes
+  | Types.Sig_class_type (_,descr,_) -> descr.Types.clty_attributes
+
+let doc_of_attributes attrs =
+  let doc_loc_id = "ocaml.doc" in (* not exported ! *)
+  let open Parsetree in
+  match List.find (fun ({Location.txt},_) -> txt = doc_loc_id) attrs with
+  | _, PStr [{pstr_desc = Pstr_eval ({pexp_desc},_)}] ->
+      (match pexp_desc with
+       | Pexp_constant (Const_string (s,_)) -> Some s
+       | _ -> debug "Unexpected ocaml.doc docstring format"; None)
+  | _ -> None
+  | exception Not_found -> None
+
 let trie_of_type_decl ?comments info ty_decl =
   match ty_decl.Types.type_kind with
   | Types.Type_abstract -> [], comments
   | Types.Type_open -> [], comments
   | Types.Type_record (fields,_repr) ->
       List.map
-        (fun { Types.ld_id; ld_type } ->
+        (fun { Types.ld_id; ld_type; ld_attributes } ->
           let ty = Printtyp.tree_of_typexp false ld_type in
           let ty =
             Outcometree.Osig_type (Outcometree.{
@@ -286,6 +306,7 @@ let trie_of_type_decl ?comments info ty_decl =
                 otype_private = Asttypes.Public;
                 otype_cstrs   = []; }, Outcometree.Orec_not)
           in
+          let doc = doc_of_attributes ld_attributes in
           string_to_key ld_id.Ident.name,
           Trie.create ~value:{
             path = info.path;
@@ -295,14 +316,14 @@ let trie_of_type_decl ?comments info ty_decl =
             ty = Some ty;
             loc_sig = info.loc_sig;
             loc_impl = info.loc_impl;
-            doc = lazy None;
+            doc = lazy doc;
             file = info.file;
           } ())
         fields,
       comments
   | Types.Type_variant variants ->
       List.map
-        (fun { Types.cd_id; cd_args } ->
+        (fun { Types.cd_id; cd_args; cd_attributes } ->
           let ty =
             let params = match cd_args with
               | [] -> Outcometree.Otyp_sum []
@@ -319,6 +340,7 @@ let trie_of_type_decl ?comments info ty_decl =
                 otype_private = Asttypes.Public;
                 otype_cstrs   = []; }, Outcometree.Orec_not)
           in
+          let doc = doc_of_attributes cd_attributes in
           string_to_key cd_id.Ident.name,
           Trie.create ~value:{
             path = info.path;
@@ -328,7 +350,7 @@ let trie_of_type_decl ?comments info ty_decl =
             ty = Some ty;
             loc_sig = info.loc_sig;
             loc_impl = info.loc_impl;
-            doc = lazy None;
+            doc = lazy doc;
             file = info.file;
           } ())
         variants,
@@ -375,9 +397,10 @@ let rec trie_of_sig_item
     | Some n -> loc_of_sig_item n
   in
   let doc, comments =
-    match comments with
-    | None -> lazy None, None
-    | Some comments ->
+    match doc_of_attributes (attrs_of_sig_item sig_item), comments with
+    | Some s, _ -> lazy (Some s), comments
+    | None, None -> lazy None, None
+    | None, Some comments ->
         let assoc = lazy (
           associate_comment (Lazy.force comments) loc nextloc
         ) in
