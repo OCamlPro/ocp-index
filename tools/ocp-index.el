@@ -275,7 +275,8 @@ this function to present completions to the user."
             (line   (string-to-number (match-string 2 loc)))
             (column (string-to-number (match-string 3 loc)))
             (last-buffer (current-buffer)))
-        (when file
+        (if (not (file-exists-p file))
+            (message "Could not find source file %s" file)
           (if other-window (find-file-other-window file) (find-file file))
           (goto-char (point-min))
           (when (>= line 0) (forward-line (1- line)))
