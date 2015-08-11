@@ -48,6 +48,8 @@ let format_man =
     "%s", "The location of the signature (as found in a .mli)";
     "%f", "The file where ocp-index found the definition (.cmi, .cmt)";
     "%i", "A short summary of some of this information";
+    "%e", "The enclosing type definition, for field records, variants and \
+           methods";
     "%%", "A single '%' character";
   ]
   in

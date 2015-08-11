@@ -82,6 +82,13 @@ let key_to_modpath l =
 
 let modpath_to_string path = String.concat "." path
 
+let parent_type id =
+  match id.IndexTypes.kind with
+  | Field parent | Variant parent | Method parent -> Some parent
+  | Type | Value | Exception | Module | ModuleType | Class
+  | ClassType | Keyword -> None
+
+
 let unique_subdirs ?(skip = fun _ -> false) dir_list =
   let rec subdirs acc path =
     Array.fold_left

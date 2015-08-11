@@ -180,6 +180,9 @@ module IndexFormat = struct
     option_iter id.ty
       (colorise.f Type "@[<hv>%a@]" fmt out_ty)
 
+  let parent_ty ?colorise fmt id =
+    option_iter (IndexMisc.parent_type id) (ty ?colorise fmt)
+
   let doc ?colorise:(_ = no_color) fmt id =
     option_iter (Lazy.force id.doc) (Format.fprintf fmt "@[<h>%a@]" lines)
 
@@ -236,6 +239,7 @@ module IndexFormat = struct
           | 's' -> loc  ?root ~intf:true ?colorise fmt id
           | 'f' -> file ?colorise fmt id
           | 'i' -> info ?colorise fmt id
+          | 'e' -> parent_ty ?colorise fmt id
           | '%' -> Format.fprintf fmt "%%"
           | c   -> Format.fprintf fmt "%%%c" c
         in
