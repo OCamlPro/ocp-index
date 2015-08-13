@@ -163,7 +163,10 @@ let parse t stream0 =
   | END -> close t Block, stream
   | LPAREN -> (Paren, []) :: t, stream
   | RPAREN -> close t Paren, stream
-  | LBRACE -> (Brace, []) :: t, stream
+  | LBRACE ->
+      (match parse_path stream with
+       | [], stream -> (Brace, []) :: t, stream
+       | path, stream -> (Brace, [Open path]) :: t, stream)
   | RBRACE -> close t Brace, stream
   | OPEN ->
       let t = if Stream.previous stream = LET then t else maybe_close t Def in
@@ -228,8 +231,16 @@ let read ?line ?column chan =
 let read_string string =
   read_nstream (Nstream.of_string string)
 
-let to_list t =
-  List.fold_left (fun acc (_, ctx) -> List.rev_append ctx acc) [] t
+let to_list =
+  let aux acc t =
+    List.fold_left (fun acc -> function
+        | Brace, _ -> acc (* brace opens don't propagate down *)
+        | _, ctx -> List.rev_append ctx acc)
+      acc t
+  in
+  function
+  | (Brace, ctx) :: t -> aux (List.rev ctx) t
+  | t -> aux [] t
 
 let fold_nstream f acc ?(init=[]) ?stop nstream =
   let rec aux acc t stream =
