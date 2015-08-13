@@ -260,16 +260,33 @@ this function to present completions to the user."
          (type    (replace-regexp-in-string "\n\+$" "" output)))
     (display-message-or-buffer type "*ocp-index*")))
 
-(defun ocp-index-grep ()
-  "Use ocp-index and ocp-grep to find uses of the identifier under point"
+(defun ocp-index-try-expand-symbol-at-point ()
   (interactive nil)
+  (let ((ident (ocp-index-symbol-at-point)))
+    (when ident
+      (let* ((path  (ocp-index-run "print" ident "%p"))
+             (path  (replace-regexp-in-string "\n\+$" "" path)))
+        (if (string= path "") ident path)))))
+
+(defun ocp-index-grep (query)
+  "Search for an OCaml ident or string using ocp-grep.
+Calls ocp-grep to find uses of a qualified ident in the current project.
+The default query is extracted from the ident under point, qualified using ocp-index.
+If the query is enclosed in double-quotes, it is understood as a POSIX regexp to
+be searched within string literals.
+
+The set of files to search in are determined by ocp-grep: it guesses the project root
+and greps in any OCaml source files from there. "
+  (interactive
+   (let ((default (ocp-index-try-expand-symbol-at-point)))
+     (list
+      (read-string
+       (format "grep OCaml code for (%s): " default) nil nil default))))
   (require 'grep)
-  (let* ((grep-use-null-device nil)
-         (ident (ocp-index-symbol-at-point))
-         (path  (ocp-index-run "print" ident "%p"))
-         (path  (if (string= path "") ident path))
-         (path  (replace-regexp-in-string "\n\+$" "" path)))
-    (grep (format "%s %s" ocp-grep-path path))))
+  (let ((grep-use-null-device nil))
+    (if (string-match-p "\".*\"" query)
+        (grep (format "%s -e %s" ocp-grep-path query))
+      (grep (format "%s %s" ocp-grep-path query)))))
 
 (defun ocp-index-jump-to-loc (loc other-window)
   (if (string-match "^\\([^:]*\\):\\([0-9-]\+\\):\\([0-9-]\+\\)$" loc)
