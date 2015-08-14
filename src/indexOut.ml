@@ -18,6 +18,11 @@ let option_iter opt f = match opt with
   | Some x -> f x
   | None -> ()
 
+let rec string_index_from s i chars =
+  if i >= String.length s then raise Not_found
+  else if String.contains chars s.[i] then i
+  else string_index_from s (i+1) chars
+
 module IndexFormat = struct
 
   let list
@@ -181,8 +186,12 @@ module IndexFormat = struct
     option_iter id.ty
       (colorise.f Type "@[<hv>%a@]" fmt out_ty)
 
-  let parent_ty ?colorise fmt id =
-    option_iter (IndexMisc.parent_type id) (ty ?colorise fmt)
+  let parent_ty ?colorise ?short fmt id =
+    option_iter (IndexMisc.parent_type id)
+      (fun id ->
+         Format.fprintf fmt "@[<hv>%a =@ %a@]"
+           (path ?colorise ?short) id
+           (ty ?colorise) id)
 
   let doc ?colorise:(_ = no_color) fmt id =
     option_iter (Lazy.force id.doc) (Format.fprintf fmt "@[<h>%a@]" lines)
@@ -221,38 +230,60 @@ module IndexFormat = struct
       (breakif 2) (Lazy.force id.doc)
       (doc ~colorise) id
 
-  let format ?root format ?colorise fmt id =
-    let rec aux i =
-      let j =
-        try String.index_from format i '%'
-        with Not_found -> String.length format
-      in
-      if j > i then Format.fprintf fmt "%s" (String.sub format i (j - i));
-      if j < String.length format - 1 then
-        let () = match format.[j+1] with
-          | 'n' -> name ?colorise fmt id
-          | 'q' -> path ~short:true ?colorise fmt id
-          | 'p' -> path ?colorise fmt id
-          | 'k' -> kind ?colorise fmt id
-          | 't' -> ty   ?colorise fmt id
-          | 'd' -> doc  ?colorise fmt id
-          | 'l' -> loc  ?root ?colorise fmt id
-          | 's' -> loc  ?root ~intf:true ?colorise fmt id
-          | 'f' -> file ?colorise fmt id
-          | 'i' -> info ?colorise fmt id
-          | 'e' -> parent_ty ?colorise fmt id
-          | '%' -> Format.fprintf fmt "%%"
-          | c   -> Format.fprintf fmt "%%%c" c
-        in
-        aux (j + 2)
-      else if j < String.length format then
-        Format.fprintf fmt "%s"
-          (String.sub format j (String.length format - j))
+  let handle_format_char ?root chr ?colorise fmt id = match chr with
+    | 'n' -> name ?colorise fmt id
+    | 'q' -> path ~short:true ?colorise fmt id
+    | 'p' -> path ?colorise fmt id
+    | 'k' -> kind ?colorise fmt id
+    | 't' -> ty   ?colorise fmt id
+    | 'd' -> doc  ?colorise fmt id
+    | 'l' -> loc  ?root ?colorise fmt id
+    | 's' -> loc  ?root ~intf:true ?colorise fmt id
+    | 'f' -> file ?colorise fmt id
+    | 'i' -> info ?colorise fmt id
+    | 'e' -> parent_ty ?colorise fmt id
+    | '%' -> Format.fprintf fmt "%%"
+    | c   -> Format.fprintf fmt "%%%c" c
+
+  let format ?root ?(separate=false) format ?colorise fmt id =
+    let len = String.length format in
+    let rec aux addsub ffmt flush i =
+      let j = try string_index_from format i "%\\" with Not_found -> len in
+      if j > i then addsub i (j - i);
+      if j >= len - 1 then addsub j (len - j)
+      else
+        let fmt = ffmt () in
+        begin match format.[j], format.[j+1] with
+          | '%', c -> handle_format_char ?root c ?colorise fmt id
+          | '\\', 'n' -> Format.pp_print_newline fmt ()
+          | '\\', 't' -> Format.pp_print_char fmt '\t'
+          | '\\', 'r' -> Format.pp_print_char fmt '\r'
+          | '\\', c -> Format.pp_print_char fmt c
+          | _ -> assert false
+        end;
+        flush fmt;
+        aux addsub ffmt flush (j + 2)
     in
-    aux 0
+    if not separate then
+      let addsub i len = Format.pp_print_string fmt (String.sub format i len) in
+      let ffmt () = fmt in
+      let flush _ = () in
+      aux addsub ffmt flush 0
+    else
+      let b = Buffer.create 200 in
+      let addsub = Buffer.add_substring b format in
+      let ffmt () = Format.formatter_of_buffer b in
+      let flush fmt = Format.pp_print_flush fmt () in
+      aux addsub ffmt flush 0;
+      Format.pp_print_string fmt (Buffer.contents b)
+
 end
 
 module Print = struct
+
+  let disable_split_lines () =
+    Format.pp_set_margin Format.str_formatter 1_000_000
+
   let make (f: ?colorise: IndexFormat.coloriser -> 'a) ?(color=false) id =
     let colorise =
       if color then IndexFormat.color else IndexFormat.no_color
@@ -276,7 +307,9 @@ module Print = struct
 
   let info = make IndexFormat.info
 
-  let format ?root format = make (IndexFormat.format ?root format)
+  let format ?root ?separate format =
+    make (IndexFormat.format ?root ?separate format)
+
 end
 
 module Format = IndexFormat

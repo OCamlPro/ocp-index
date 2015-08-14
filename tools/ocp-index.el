@@ -2,6 +2,7 @@
 ;; (https://github.com/auto-complete/auto-complete) and ocp-index
 
 (provide 'ocp-index)
+(require 'cl)
 
 ;; Customize defs
 
@@ -76,7 +77,7 @@
 (defun ocp-index-symbol-at-point ()
   (let ((bounds (ocp-index-bounds-of-symbol-at-point)))
     (when bounds
-      (buffer-substring (car bounds) (cdr bounds)))))
+      (buffer-substring-no-properties (car bounds) (cdr bounds)))))
 
 ;; override default prefix definition
 (defun ac-prefix-symbol ()
@@ -107,7 +108,7 @@
                    args)))
     (when ocp-index-debug
       (message "%s" (mapconcat
-                     (lambda (s) (format "\"%s\"" s))
+                     (lambda (s) (format "%S" s))
                      (list* ocp-index-path cmd) " ")))
     cmd))
 
@@ -246,19 +247,47 @@ this function to present completions to the user."
   
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   
-(defun ocp-index-print-type (ident)
-  "Display the type of an ocaml identifier in the echo area using ocp-index.\
+(defun ocp-index-get-info (path)
+  (let*
+      ((format "((:kind . \"%k\")(:name . \"%p\")(:type . \"%t\")(:doc . \"%d\")(:parent . \"%e\"))")
+       (output (ocp-index-run "print" path format "--separate"))
+       (els (concat "(" output ")"))
+       (res (read-from-string els)))
+    (car-safe res)))
+
+(defun ocp-index-print-info (ident)
+  "Display the type and doc of an ocaml identifier in the echo area using
+   ocp-index.
    Call twice to show the enclosing type of field records, variants and methods"
   (interactive (let ((default (ocp-index-symbol-at-point)))
                  (list
                   (read-string
                    (format "type ident (%s): " default) nil nil default))))
-  (let* ((ident   (ocp-index-symbol-at-point))
-         (format  (if (equal last-command this-command) "%e" "%k %p: %t"))
-         (output  (ocp-index-run "print" ident format))
-         (output  (if (string= output "") "No definition found" output))
-         (type    (replace-regexp-in-string "\n\+$" "" output)))
-    (display-message-or-buffer type "*ocp-index*")))
+  (let*
+      ((infos (ocp-index-get-info ident))
+       (parents (cl-remove-if (lambda (i) (string= "" (cdr (assoc :parent i))))
+                              infos))
+       (msg
+        (if (not infos) "No definition found"
+          (if (and parents (equal last-command this-command))
+              (mapconcat (lambda (i) (cdr (assoc :parent i))) parents "\n")
+            (mapconcat
+             (lambda (i)
+               (let*
+                   ((kind (cdr (assoc :kind i)))
+                    (name (cdr (assoc :name i)))
+                    (type (cdr (assoc :type i)))
+                    (doc (cdr (assoc :doc i))))
+                 (format
+                  "%s %s: %s%s"
+                  (propertize kind 'face 'font-lock-keyword-face)
+                  (propertize name 'face 'font-lock-variable-name-face)
+                  (propertize type 'face 'font-lock-type-face)
+                  (if (string= doc "") ""
+                    (propertize (concat "\n> " doc)
+                                'face 'font-lock-doc-face)))))
+             infos "\n")))))
+    (display-message-or-buffer msg "*ocp-index*")))
 
 (defun ocp-index-try-expand-symbol-at-point ()
   (interactive nil)
@@ -320,9 +349,9 @@ and greps in any OCaml source files from there. "
       (message "No definition found")
       nil)))
 
-(defun ocp-index-print-type-at-point ()
+(defun ocp-index-print-info-at-point ()
   (interactive nil)
-  (ocp-index-print-type (ocp-index-symbol-at-point)))
+  (ocp-index-print-info (ocp-index-symbol-at-point)))
 
 (defun ocp-index-jump (name sig other-window)
   (if (and (eq (car-safe last-command) name)
@@ -350,7 +379,7 @@ and greps in any OCaml source files from there. "
 
 (defvar ocp-index-keymap
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c C-t") 'ocp-index-print-type-at-point)
+    (define-key map (kbd "C-c C-t") 'ocp-index-print-info-at-point)
     (define-key map (kbd "C-c ;") 'ocp-index-jump-to-definition-at-point-other-window)
     (define-key map (kbd "C-c :") 'ocp-index-jump-to-sig-at-point-other-window)
     (define-key map (kbd "C-c C-;") 'ocp-index-jump-to-definition-at-point)

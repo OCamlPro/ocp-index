@@ -55,7 +55,7 @@ let format_man =
   in
   [ `S "FORMAT STRINGS";
     `P "Format strings are arbitrary strings that will be printed for every \
-        match, with the usual OCaml escapes plus the following sequences \
+        match, with the usual '\\n', '\\t', '\\r' plus the following sequences \
         interpreted:" ] @
   List.map (fun (k, s) -> `I (Printf.sprintf "$(b,%s)" k, s)) formats
 
@@ -93,7 +93,12 @@ let complete_cmd =
     Arg.(value & opt (some string) None &
          info ["f";"format"] ~doc ~docv:"FORMAT")
   in
-  let print_compl opts sexpr format query =
+  let separate: bool Term.t =
+    let doc = "When using a format string, format each escape independently \
+               rather than as a whole. Useful when generating (elisp) code." in
+    Arg.(value & flag & info ["separate"] ~doc)
+  in
+  let print_compl opts sexpr format separate query =
     let fmt = Format.std_formatter in
     let results =
       LibIndex.complete
@@ -128,13 +133,14 @@ let complete_cmd =
         | None -> LibIndex.Format.info ~colorise fmt i
         | Some fstring ->
             LibIndex.Format.format ?root:opts.IndexOptions.project_root
-              (Scanf.unescaped fstring) ~colorise fmt i;
+              ~separate
+              fstring ~colorise fmt i;
             Format.pp_print_newline fmt ()
       in
       List.iter (print fmt) results;
   in
   let doc = "Output completions for a given prefix." in
-  Term.(pure print_compl $ common_opts $ sexpr $ format $ t),
+  Term.(pure print_compl $ common_opts $ sexpr $ format $ separate $ t),
   Term.info "complete" ~doc ~man
 
 let type_cmd =
@@ -219,17 +225,23 @@ let print_cmd =
     let doc = "Specify the output format. See section FORMAT STRINGS." in
     Arg.(value & pos 1 string "%i" & info [] ~doc ~docv:"FORMAT")
   in
-  let print opts query format =
+  let separate: bool Term.t =
+    let doc = "Format each escape in the format string independently \
+               rather than as a whole. Useful when generating (elisp) code." in
+    Arg.(value & flag & info ["separate"] ~doc)
+  in
+  let print opts query format separate =
     let ids = LibIndex.get_all opts.IndexOptions.lib_info query in
     let root = opts.IndexOptions.project_root in
     if ids = [] then exit 2;
-    let format = Scanf.unescaped format in
     List.iter
-      (fun id -> print_endline (LibIndex.Print.format ?root format id))
+      (fun id ->
+         let s = LibIndex.Print.format ?root ~separate format id in
+         if s <> "" then print_endline s)
       ids
   in
   let doc = "Print information about an identifier with a custom format." in
-  Term.(pure print $ common_opts $ query $ format),
+  Term.(pure print $ common_opts $ query $ format $ separate),
   Term.info "print" ~doc ~man
 
 let () =

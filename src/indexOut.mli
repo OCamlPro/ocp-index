@@ -50,13 +50,16 @@ module Format: sig
   val info: ?colorise:coloriser -> Format.formatter -> info -> unit
 
   (** print following a custom format string (%n,%p,%k,%t,%d,%l,%s,%f,%i are
-      interpreted) *)
+      interpreted). If [~separate] is set to [true], escapes are formatted
+      independently. *)
   val format:
-    ?root:string -> string -> ?colorise:coloriser ->
+    ?root:string -> ?separate:bool -> string -> ?colorise:coloriser ->
     Format.formatter -> info -> unit
+
 end
 
 module Print: sig
+  val disable_split_lines: unit -> unit
   val name: ?color:bool -> info -> string
   val path: ?short:bool -> ?color:bool -> info -> string
   val kind: ?color:bool -> info -> string
@@ -65,5 +68,5 @@ module Print: sig
   val loc: ?root:string -> ?intf:bool -> ?color:bool -> info -> string
   val file: ?color:bool -> info -> string
   val info: ?color:bool -> info -> string
-  val format: ?root:string -> string -> ?color:bool -> info -> string
+  val format: ?root:string -> ?separate:bool -> string -> ?color:bool -> info -> string
 end
