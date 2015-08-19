@@ -65,7 +65,7 @@ let default_filter = [ `V ; `E ; `C ; `M ; `K ]
 
 let filter_to_string l =
   let pp = function
-    | `V -> "v" | `E -> "b" | `C -> "c"
+    | `V -> "v" | `E -> "e" | `C -> "c"
     | `M -> "m" | `K -> "k" | `S -> "s"
     | `T -> "t"
   in
@@ -164,7 +164,7 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
                   fields and sum type constructors), `$(i,modules)' and \
                   classes, `$(i,sigs)' (module and class types), \
                   `$(i,keywords)'. The default \
-                  is $(%s)" (filter_to_string default_filter)
+                  is $(b,%s)" (filter_to_string default_filter)
              )
              ~docv:"LIST")
     in
