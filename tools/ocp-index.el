@@ -249,7 +249,7 @@ this function to present completions to the user."
   
 (defun ocp-index-get-info (path)
   (let*
-      ((format "((:kind . \"%k\")(:name . \"%p\")(:type . \"%t\")(:doc . \"%d\")(:parent . \"%e\"))")
+      ((format "((:kind . \"%k\")(:name . \"%p\")(:type . \"%t\")(:doc . \"%D\")(:parent . \"%e\"))")
        (output (ocp-index-run "print" path format "--separate"))
        (els (concat "(" output ")"))
        (res (read-from-string els)))

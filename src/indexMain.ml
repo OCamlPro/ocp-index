@@ -44,6 +44,7 @@ let format_man =
            \"module\", \"modtype\", \"class\", \"classtype\", \"keyword\"";
     "%t", "The type of the ident";
     "%d", "The ident documentation (ocamldoc comment, from a .cmt file)";
+    "%D", "Same as %d, but as an escaped string";
     "%l", "The location of the declaration";
     "%s", "The location of the signature (as found in a .mli)";
     "%f", "The file where ocp-index found the definition (.cmi, .cmt)";
