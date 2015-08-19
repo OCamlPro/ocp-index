@@ -38,7 +38,9 @@ module Format: sig
 
   val ty: ?colorise:coloriser -> Format.formatter -> info -> unit
 
-  val doc: ?colorise:coloriser -> Format.formatter -> info -> unit
+  val doc:
+    ?escaped:bool ->
+    ?colorise:coloriser -> Format.formatter -> info -> unit
 
   val loc:
     ?root:string -> ?intf:bool ->
@@ -64,7 +66,7 @@ module Print: sig
   val path: ?short:bool -> ?color:bool -> info -> string
   val kind: ?color:bool -> info -> string
   val ty: ?color:bool -> info -> string
-  val doc: ?color:bool -> info -> string
+  val doc: ?escaped:bool -> ?color:bool -> info -> string
   val loc: ?root:string -> ?intf:bool -> ?color:bool -> info -> string
   val file: ?color:bool -> info -> string
   val info: ?color:bool -> info -> string

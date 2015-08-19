@@ -42,12 +42,14 @@ module IndexFormat = struct
         left fmt; aux lst; right fmt;
         if paren then Format.pp_print_char fmt ')'
 
-  let lines fmt str =
+  let lines ?(escaped=false) fmt str =
     let len = String.length str in
+    let esc = if escaped then String.escaped else fun s -> s in
     let rec aux i =
       if i >= len then () else
         let j = try String.index_from str i '\n' with Not_found -> len in
-        Format.pp_print_string fmt (String.trim (String.sub str i (j - i)));
+        Format.pp_print_string fmt
+          (esc (String.trim (String.sub str i (j - i))));
         if j < len - 1 then
           (Format.pp_force_newline fmt ();
            aux (j+1))
@@ -192,8 +194,9 @@ module IndexFormat = struct
            (path ?colorise ?short) id
            (ty ?colorise) id)
 
-  let doc ?colorise:(_ = no_color) fmt id =
-    option_iter (Lazy.force id.doc) (Format.fprintf fmt "@[<h>%a@]" lines)
+  let doc ?escaped ?colorise:(_ = no_color) fmt id =
+    option_iter (Lazy.force id.doc)
+      (Format.fprintf fmt "@[<h>%a@]" (lines ?escaped))
 
   let loc ?root ?(intf=false) ?colorise:(_ = no_color) fmt id =
     let loc =
@@ -227,7 +230,7 @@ module IndexFormat = struct
       (breakif 0) id.ty
       (ty ~colorise) id
       (breakif 2) (Lazy.force id.doc)
-      (doc ~colorise) id
+      (doc ?escaped:None ~colorise) id
 
   let handle_format_char ?root chr ?colorise fmt id = match chr with
     | 'n' -> name ?colorise fmt id
@@ -236,6 +239,7 @@ module IndexFormat = struct
     | 'k' -> kind ?colorise fmt id
     | 't' -> ty   ?colorise fmt id
     | 'd' -> doc  ?colorise fmt id
+    | 'D' -> doc  ~escaped:true ?colorise fmt id
     | 'l' -> loc  ?root ?colorise fmt id
     | 's' -> loc  ?root ~intf:true ?colorise fmt id
     | 'f' -> file ?colorise fmt id
@@ -298,7 +302,7 @@ module Print = struct
 
   let ty = make IndexFormat.ty
 
-  let doc = make IndexFormat.doc
+  let doc ?escaped = make (IndexFormat.doc ?escaped)
 
   let loc ?root ?intf = make (IndexFormat.loc ?root ?intf)
 
