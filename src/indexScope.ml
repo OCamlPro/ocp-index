@@ -72,6 +72,12 @@ module Stream = struct
     Lexing.(pos1.pos_lnum, pos1.pos_cnum - pos1.pos_bol, pos2.pos_cnum - pos1.pos_cnum)
 end
 
+(* type lazy_stream = { token: token; stream: stream; next: lazy_stream Lazy.t } *)
+
+(* let rec lazy_stream stream = *)
+(*   let token, stream = next stream in *)
+(*   { token; stream; next = lazy (lazy_stream stream) } *)
+
 let close_def stream = match Stream.previous stream with
   | AMPERSAND | AMPERAMPER | BARBAR | BEGIN | COLONCOLON | COLONEQUAL | COMMA
   | DO | DOWNTO | ELSE | EQUAL | GREATER | IF | IN | INFIXOP0 _ | INFIXOP1 _
@@ -102,11 +108,20 @@ let rec skip_to_next_paren stream =
 
 (* - Now for the interesting stuff - *)
 
-type scope = Def | Block | Paren | Brace
+type scope = Def
+           | Block
+           | Brace
+           | Ty
+           | Expr
+           | Patt
 
-type env = Alias of string * string list | Open of string list
+type env = Alias of string * string list
+         | Open of string list
+         | Bind_val of string
+         | Bind_ty of string
+         | Bind_cstr of string
 
-type t = (scope * env list) list
+type t = ((stream -> bool) * scope * env list) list
 
 let empty = []
 
@@ -155,6 +170,10 @@ let parse_functor stream =
         end
     | _ -> parse_error in
   aux stream
+
+let parse_pattern t stop stream0 =
+  let tok, stream = Stream.next stream0 in
+  if stop tok stream then (t,tok,stream) else
 
 let parse t stream0 =
   let tok, stream = Stream.next stream0 in
@@ -208,6 +227,85 @@ let parse t stream0 =
        | _ -> t, stream)
   | _ -> t, stream
 
+let parse_top t stream0 =
+  let tok, stream = Stream.next stream0 in
+  match tok with
+  | STRUCT | SIG | BEGIN | OBJECT ->
+      (function {tok = END} -> true | _ -> false),
+      (Block, []) :: t,
+      stream
+  | LET ->
+      let isrec, stream = match Stream.next stream with
+        | REC, stream -> true, stream
+        | _ -> false, stream
+      in
+      (function {tok = EQUAL} -> true | _ -> false),
+      
+      (Def, []) :: t, stream
+  | VAL -> (Def, []) :: t, stream
+  | TYPE -> (Ty, []) :: t, stream
+  | END -> close t Block, stream
+  | LPAREN -> (Paren, []) :: t, stream
+  | RPAREN -> close t Paren, stream
+  | LBRACE ->
+      (match parse_path stream with
+       | [], stream -> (Brace, []) :: t, stream
+       | path, stream -> (Brace, [Open path]) :: t, stream)
+  | RBRACE -> close t Brace, stream
+  | OPEN ->
+      let t = if Stream.previous stream = LET then t else maybe_close t Def in
+      let path, stream = parse_path stream in
+      push t (Open path), stream
+  | INCLUDE ->
+      let path, stream = parse_path stream in
+      push t (Open path), stream
+  | LET when close_def stream -> (Def, []) :: maybe_close t Def, stream
+  | MODULE ->
+      let t = if close_def stream then maybe_close t Def else t in
+      let ident, stream = match Stream.next stream with
+        | UIDENT u, stream -> u, stream
+        | TYPE, stream1 -> (match Stream.next stream1 with
+            | UIDENT u, stream -> u, stream
+            | _ -> "", stream)
+        | _ -> "", stream in
+      let functor_pre_args, stream = parse_functor_args stream in
+      let top_def, stream =
+        match Stream.next stream with
+        | EQUAL, stream1 ->
+            begin match parse_path stream1 with
+              | []  , _      -> [],   stream
+              | path, stream -> path, stream
+            end
+        | _ -> [], stream (* todo *)
+      in
+      let functor_post_args, stream =
+        match Stream.next stream with
+        | EQUAL, stream -> parse_functor stream
+        | _ -> [], stream in
+      let aliases = functor_pre_args @ functor_post_args in
+      let t = if top_def <> [] then push t (Alias (ident, top_def)) else t in
+      (Def, Open [ident] :: aliases) :: t, stream
+  | UIDENT _ -> (* Module.( ... ) *)
+      let path, stream = parse_path stream0 in
+      (match Stream.next_two stream with
+       | DOT, LPAREN, stream -> (Paren, [Open path]) :: t, stream
+       | _ -> t, stream)
+  | _ -> t, stream
+
+let rec parse t stream =
+  match t with
+  | [] -> parse_top t stream
+  | (stop, scope, env) :: parent when stop stream -> parse parent stream
+  | (_, Def, _) :: _ -> parse_def t stream
+  | (_, Block, _) :: _ -> parse_block t stream
+  | (_, Brace, _) :: _ -> parse_record t stream
+  | (_, Ty, _) :: _ -> parse_ty t stream
+  | (_, Expr, _) :: _ -> parse_expr t stream
+  | (_, Patt, _) :: _ -> parse_patt t stream
+
+
+  match t, Stream.next stream with
+  | Block
 
 let pos_after line col pos =
   let open Lexing in
