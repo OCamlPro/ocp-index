@@ -5,6 +5,6 @@ PKG re
 PKG ocp-indent
 
 S src/
-B _obuild/*
+B _obuild/**
 
 FLG -w -40
