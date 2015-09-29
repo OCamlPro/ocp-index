@@ -3,7 +3,7 @@ LIB = ocp-index-lib
 
 VERSION := $(shell awk -F'[(,)]' '/AC_INIT/ { print $$3 }' configure.ac)
 
-OCAMLBUILD = ocamlbuild -pkg compiler-libs.common -pkg ocp-indent-lib -use-ocamlfind
+OCAMLBUILD = ocamlbuild -pkg compiler-libs.common -pkg ocp-indent.lib -use-ocamlfind
 
 UNAME := $(shell uname)
 ifeq (WIN,$(findstring WIN,$(UNAME)))
