@@ -236,6 +236,19 @@ let qualify_ty_in_sig_item (parents:parents) =
 
 (* -- end -- *)
 
+let with_path_loc ?srcpath loc =
+  match srcpath with
+  | None -> loc
+  | Some path ->
+      let with_path_pos pos =
+        let open Lexing in
+        if not (Filename.is_relative pos.pos_fname) then pos
+        else {pos with pos_fname = Filename.concat path pos.pos_fname}
+      in
+      let open Location in
+      {loc with loc_start = with_path_pos loc.loc_start;
+                loc_end = with_path_pos loc.loc_end }
+
 let loc_of_sig_item = function
   | Types.Sig_value (_,descr) -> descr.Types.val_loc
   | Types.Sig_type (_,descr,_) -> descr.Types.type_loc
@@ -323,14 +336,14 @@ let trie_of_type_decl ?comments info ty_decl =
       comments
 
 let rec trie_of_sig_item
-    ?comments implloc_trie (parents:parents) (orig_file:orig_file) path
-    sig_item next
+    ?comments ?srcpath implloc_trie (parents:parents) (orig_file:orig_file)
+    path sig_item next
   =
   let id = id_of_sig_item sig_item in
-  let loc = loc_of_sig_item sig_item in
+  let loc = with_path_loc ?srcpath (loc_of_sig_item sig_item) in
   let nextloc = match next with
     | None -> Location.none
-    | Some n -> loc_of_sig_item n
+    | Some n -> with_path_loc ?srcpath (loc_of_sig_item n)
   in
   let doc, comments =
     match comments with
@@ -387,7 +400,7 @@ let rec trie_of_sig_item
           foldl_next
             (fun (t,comments) sign next ->
                let chlds,comments =
-                 trie_of_sig_item ?comments implloc_trie
+                 trie_of_sig_item ?comments ?srcpath implloc_trie
                    ((path, lazy t) :: parents) orig_file path sign next
                in
                List.fold_left Trie.append t chlds, comments)
@@ -543,11 +556,12 @@ let load_loc_impl parents filename cmt_contents =
   let chrono = timer () in
   match cmt_sign cmt_contents with
   | Some sign ->
+      let srcpath = cmt_contents.Cmt_format.cmt_builddir in
       let t =
         foldl_next
           (fun t sig_item next ->
              let chld, _comments =
-               trie_of_sig_item (lazy None) parents (Cmt filename)
+               trie_of_sig_item ~srcpath (lazy None) parents (Cmt filename)
                  [] sig_item next
              in
              List.fold_left Trie.append t chld)
@@ -660,12 +674,14 @@ let load_cmt ?(qualify=false) root t modul orig_file =
          ) and lazy_t = lazy (
            match cmt_sign info with
            | Some sign ->
+               let srcpath = info.Cmt_format.cmt_builddir in
                let t, _trailing_comments =
                  foldl_next
                    (fun (t,comments) sig_item next ->
                       let parents = [[modul], lazy t; [], root] in
                       let chld, comments =
-                        trie_of_sig_item ?comments implloc_trie parents orig_file
+                        trie_of_sig_item ?comments ~srcpath
+                          implloc_trie parents orig_file
                           [modul] sig_item next
                       in
                       List.fold_left Trie.append t chld, comments)
