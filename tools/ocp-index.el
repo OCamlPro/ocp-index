@@ -201,7 +201,7 @@
 (defun ocp-index-completion-company-doc-buffer (candidate)
   (let ((doc (cdr-safe (assoc :doc (cdr (assoc candidate ocp-index-completion-data))))))
     (company-doc-buffer doc)))
- 
+
 (defun ocp-index-completion-company-docsig (candidate)
   (cdr-safe (assoc :type (cdr (assoc candidate ocp-index-completion-data)))))
 
@@ -212,7 +212,7 @@
   "Return the location of the definition of CANDIDATE as (FILE . LINE)."
   (let* ((output (ocp-index-run "locate" candidate))
          (loc (car (split-string output "\n" t))))
-    (when (and loc (string-match "^\\([^:]*\\):\\([0-9]\+\\):\\([0-9]\+\\)$" loc))
+    (when (and loc (string-match "^\\(.*\\):\\([0-9]\+\\):\\([0-9]\+\\)$" loc))
       (let ((file (match-string 1 loc))
             (line (string-to-number (match-string 2 loc))))
         (cons file line)))))
@@ -243,9 +243,9 @@ this function to present completions to the user."
 (defun ocp-index-setup-completion-at-point ()
   (add-hook 'completion-at-point-functions
             'ocp-index-completion-at-point nil 'local))
-  
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  
+
 (defun ocp-index-print-type (ident)
   "Display the type of an ocaml identifier in the echo area using ocp-index.\
    Call twice to show the enclosing type of field records, variants and methods"
@@ -289,7 +289,7 @@ and greps in any OCaml source files from there. "
       (grep (format "%s %s" ocp-grep-path query)))))
 
 (defun ocp-index-jump-to-loc (loc other-window)
-  (if (string-match "^\\([^:]*\\):\\([0-9-]\+\\):\\([0-9-]\+\\)$" loc)
+  (if (string-match "^\\(.*\\):\\([0-9-]\+\\):\\([0-9-]\+\\)$" loc)
       (let ((file   (match-string 1 loc))
             (line   (string-to-number (match-string 2 loc)))
             (column (string-to-number (match-string 3 loc)))
