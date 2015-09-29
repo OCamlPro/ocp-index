@@ -240,6 +240,11 @@ let with_path_loc ?srcpath loc =
   match srcpath with
   | None -> loc
   | Some path ->
+      let path =
+        (* Some magic to get the real source when using ocamlbuild *)
+        if Filename.basename path = "_build" then Filename.dirname path
+        else path
+      in
       let with_path_pos pos =
         let open Lexing in
         if not (Filename.is_relative pos.pos_fname) then pos
