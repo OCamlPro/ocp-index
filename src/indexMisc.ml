@@ -110,12 +110,20 @@ let unique_subdirs ?(skip = fun _ -> false) dir_list =
   in
   remove_dups (List.fold_left subdirs [] dir_list)
 
+let read_all_lines path =
+  let ic = open_in path in
+  let rec loop acc =
+    match input_line ic with
+    | l -> loop (l :: acc)
+    | exception End_of_file -> close_in ic; acc
+  in
+  loop []
 
 (* - Project root finding - *)
 
 let build_roots = (* by increasing order of priority *)
   [ "_darcs"; ".hg"; ".git";
-    "jengaroot.ml"; "omakeroot"; "_build"; "_obuild" ]
+    "jengaroot.ml"; "omakeroot"; "_build"; "_obuild"; ".ocp-index" ]
 
 let find_build_dir path =
   let ( / ) = Filename.concat in

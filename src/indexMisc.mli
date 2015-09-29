@@ -43,6 +43,8 @@ val parent_type: IndexTypes.info -> IndexTypes.info option
     If directory basename verifies [skip], it is not descended nor returned. *)
 val unique_subdirs: ?skip:(string -> bool) -> string list -> string list
 
+val read_all_lines: string -> string list
+
 (** An heuristic to guess where the root directory of the current project.
     Returns (project_root, build_dir) *)
 val project_root: ?path:string -> unit -> string option * string option
