@@ -1,6 +1,6 @@
 opam-version: "1.2"
 name: "ocp-index"
-version: "1.1.3"
+version: "1.1.4"
 maintainer: "louis.gesbert@ocamlpro.com"
 authors: [
   "Louis Gesbert"

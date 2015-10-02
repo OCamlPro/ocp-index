@@ -1,3 +1,9 @@
+## 1.1.4
+* emacs: more interactive ocp-grep call (C-c /) ; better printing of type/doc
+* use `cmt_builddir` information to more reliably point to the sources
+* improved and extended format-strings and formatting options
+* Some basic handling of distributive {Mod.x; y}
+
 ## 1.1.3
 * some small elisp improvements
 * add '%e' format string for enclosing type definition (useful to get "other variants", "other fields"). Repeat C-c C-t in emacs mode to use.
