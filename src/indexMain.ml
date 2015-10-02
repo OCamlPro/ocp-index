@@ -19,6 +19,18 @@ open Cmdliner
 
 let common_opts = IndexOptions.common_opts ()
 
+let man = [
+  `S "COPYRIGHT";
+  `P "Ocp-index is written by Louis Gesbert <louis.gesbert@ocamlpro.com>, \
+      copyright OCamlPro 2013-2014, \
+      distributed under the terms of the LGPL v3 with linking exception. \
+      Full source available at $(i,https://github.com/OCamlPro/ocp-index)";
+  `S "BUGS";
+  `P "Bugs are tracked at $(i,https://github.com/OCamlPro/ocp-index/issues).";
+  `S "SEE ALSO";
+  `P "ocp-grep, ocp-browser";
+]
+
 let default_cmd =
   let man = [
     `S "DESCRIPTION";
@@ -27,7 +39,7 @@ let default_cmd =
         It gathers information from .cmi (like ocamlbrowser) and \
         .cmt/cmti files, including structure, location, type, and ocamldoc \
         comments when available."
-  ]
+  ] @ man
   in
   let doc = "Explore the interfaces of installed OCaml libraries." in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_opts)),
@@ -58,18 +70,6 @@ let format_man =
         match, with the usual OCaml escapes plus the following sequences \
         interpreted:" ] @
   List.map (fun (k, s) -> `I (Printf.sprintf "$(b,%s)" k, s)) formats
-
-let man = [
-  `S "COPYRIGHT";
-  `P "Ocp-index is written by Louis Gesbert <louis.gesbert@ocamlpro.com>, \
-      copyright OCamlPro 2013-2014, \
-      distributed under the terms of the LGPL v3 with linking exception. \
-      Full source available at $(i,https://github.com/OCamlPro/ocp-index)";
-  `S "BUGS";
-  `P "Bugs are tracked at $(i,https://github.com/OCamlPro/ocp-index/issues).";
-  `S "SEE ALSO";
-  `P "ocp-grep, ocp-browser";
-]
 
 let complete_cmd =
   let man = [
