@@ -38,7 +38,12 @@ let default_cmd =
         OCaml, for command-line or integrated use (e.g. for completion). \
         It gathers information from .cmi (like ocamlbrowser) and \
         .cmt/cmti files, including structure, location, type, and ocamldoc \
-        comments when available."
+        comments when available.";
+    `S "USING AN .ocp-index FILE";
+    `P "Instead of passing a list of include directories using the \
+        $(b,`-I') option, it is also possible to pass them using a \
+        file named $(b, .ocp-index) placed at the root of the project \
+        directory.  It should be"
   ] @ man
   in
   let doc = "Explore the interfaces of installed OCaml libraries." in
