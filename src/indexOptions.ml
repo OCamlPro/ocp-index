@@ -65,7 +65,7 @@ let default_filter = [ `V ; `E ; `C ; `M ; `K ]
 
 let filter_to_string l =
   let pp = function
-    | `V -> "v" | `E -> "b" | `C -> "c"
+    | `V -> "v" | `E -> "e" | `C -> "c"
     | `M -> "m" | `K -> "k" | `S -> "s"
     | `T -> "t"
   in
