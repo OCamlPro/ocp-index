@@ -113,11 +113,12 @@ let unique_subdirs ?(skip = fun _ -> false) dir_list =
 let read_all_lines path =
   let ic = open_in path in
   let acc = ref [] in
-  let rec loop () =
-    let l = input_line ic in
-    acc := l :: !acc
-  in
-  try loop (); assert false with End_of_file -> !acc
+  try
+    while true do
+      acc := input_line ic :: !acc
+    done;
+    assert false
+  with End_of_file -> !acc
 
 (* - Project root finding - *)
 

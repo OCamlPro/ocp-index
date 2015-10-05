@@ -44,13 +44,14 @@ let default_cmd =
         called $(b, .ocp-index) placed at the root of the project directory. \
         Currently only the list of include directories can be specified in this way. \
         Each line of the .ocp-index file should be of the form";
-    `P "I <dir>";
-    `P "where <dir> is the name of a directory where ocp-index should look for \
-        .cmt[i] files. Typically this way of specifying include directories would \
+    `P "I \"<dir>\"";
+    `P "where \"<dir>\" is the name of a directory (between double quotes) \
+        where ocp-index should look for .cmt[i] files. Typically this way \
+        of specifying include directories would \
         be used in conjunction with the $(b,--no-recursive) options in order to \
         speed up directory scanning in those environments where the default \
         method is not fast enough (e.g. Cygwin).  One can generate such a file by running";
-    `P "find . -name '*.cmt*' -exec dirname {} \\\\; | sort | uniq > .ocp-index"
+    `P "find . -name '*.cmt*' -exec dirname {} \\\\; | sort | uniq | sed 's/.*/I \"&\"/g' > .ocp-index"
   ] @ man
   in
   let doc = "Explore the interfaces of installed OCaml libraries." in

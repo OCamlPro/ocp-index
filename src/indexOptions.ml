@@ -254,10 +254,20 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
       | None -> ocamllib
       | Some d -> d :: ocamllib
     in
-    let dirs = match root with
-    | Some root when Sys.file_exists (Filename.concat root ".ocp-index") ->
-        dirs @ List.map (fun dir -> Filename.concat root dir) (IndexMisc.read_all_lines (Filename.concat root ".ocp-index"))
-    | _ -> dirs
+    let dirs =
+      let extra_dirs = match root with
+        | Some root ->
+            let make_absolute path = if Filename.is_relative path then Filename.concat root path else path in
+            let dot_ocp_index = Filename.concat root ".ocp-index" in
+            if Sys.file_exists dot_ocp_index then begin
+              let l = IndexMisc.read_all_lines dot_ocp_index in
+              List.map (fun s -> Scanf.sscanf s "I %S" make_absolute) l
+            end
+            else
+              []
+        | _ -> []
+      in
+      dirs @ extra_dirs
     in
     if dirs = [] then
       failwith "Failed to guess OCaml / opam lib dirs. Please use `-I'";
