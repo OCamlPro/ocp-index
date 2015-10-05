@@ -84,7 +84,9 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
       Arg.(value & flag & info ["no-opamlib"] ~doc);
     in
     let arg =
-      let doc = "OCaml directories to load the libraries from." in
+      let doc = "OCaml directories to load the libraries from. \
+                 By default, the directories are traversed recursively. \
+                 This can be changed by passing the $(b,--no-recursive) option." in
       Arg.(value & opt_all (list string) [] & info ["I"] ~docv:"DIRS" ~doc)
     in
     let set_default no_stdlib no_opamlib includes =
