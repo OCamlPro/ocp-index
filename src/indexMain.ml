@@ -40,10 +40,17 @@ let default_cmd =
         .cmt/cmti files, including structure, location, type, and ocamldoc \
         comments when available.";
     `S "USING AN .ocp-index FILE";
-    `P "Instead of passing a list of include directories using the \
-        $(b,`-I') option, it is also possible to pass them using a \
-        file named $(b, .ocp-index) placed at the root of the project \
-        directory.  It should be"
+    `P "It is possible to specify some of the options for ocp-index in a file \
+        called $(b, .ocp-index) placed at the root of the project directory. \
+        Currently only the list of include directories can be specified in this way. \
+        Each line of the .ocp-index file should be of the form";
+    `P "I <dir>";
+    `P "where <dir> is the name of a directory where ocp-index should look for \
+        .cmt[i] files. Typically this way of specifying include directories would \
+        be used in conjunction with the $(b,--no-recursive) options in order to \
+        speed up directory scanning in those environments where the default \
+        method is not fast enough (e.g. Cygwin).  One can generate such a file by running";
+    `P "find . -name '*.cmt*' -exec dirname {} \\\\; | sort | uniq > .ocp-index"
   ] @ man
   in
   let doc = "Explore the interfaces of installed OCaml libraries." in
