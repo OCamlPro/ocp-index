@@ -267,7 +267,7 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
             end
             else
               []
-        | _ -> []
+        | None -> []
       in
       dirs @ extra_dirs
     in
