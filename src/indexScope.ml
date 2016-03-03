@@ -14,21 +14,25 @@
 
 (* - Input stream handling - *)
 
-open Approx_lexer
+open Approx_lexer.Simple
+
+module Region = Nstream.Region
+module Position = Nstream.Position
+module Nstream = Nstream.Simple
 
 module Stream = struct
   type stream =
     { nstream: Nstream.t;
       last: token;
       before_last: token;
-      region: Pos.Region.t;
+      region: Region.t;
       stop: Lexing.position -> bool }
 
   let of_nstream ?(stop=fun _ -> false) nstream = {
     nstream;
     last = COMMENT;
     before_last = COMMENT;
-    region = Pos.Region.zero;
+    region = Region.zero;
     stop;
   }
 
@@ -43,7 +47,7 @@ module Stream = struct
     in
     match Nstream.next stream.nstream with
     | Some ({Nstream.token; region}, nstream) ->
-        if stream.stop (Pos.Region.snd region)
+        if stream.stop (Region.snd region)
         then EOF, shift stream EOF region
         else token, shift {stream with nstream} token region
     | _ -> EOF, shift stream EOF stream.region
@@ -67,8 +71,8 @@ module Stream = struct
   let token stream = stream.last
 
   let pos stream =
-    let pos1 = Pos.Region.fst stream.region in
-    let pos2 = Pos.Region.snd stream.region in
+    let pos1 = Region.fst stream.region in
+    let pos2 = Region.snd stream.region in
     Lexing.(pos1.pos_lnum, pos1.pos_cnum - pos1.pos_bol, pos2.pos_cnum - pos1.pos_cnum)
 end
 

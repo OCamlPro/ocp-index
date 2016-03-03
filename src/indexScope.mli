@@ -30,13 +30,13 @@ val read_string: string -> t
 (** Lower-level function for processing on the environment at every token.
     The position is given in the form [(line, column, length)] *)
 val fold:
-  ('a -> t -> Approx_lexer.token -> (int * int * int) -> 'a) -> 'a ->
+  ('a -> t -> Approx_lexer.Simple.token -> (int * int * int) -> 'a) -> 'a ->
   ?init:env list -> ?stop:(Lexing.position -> bool) -> in_channel
   -> 'a
 
 (** The same from a string *)
 val fold_string:
-  ('a -> t -> Approx_lexer.token -> (int * int * int) -> 'a) -> 'a ->
+  ('a -> t -> Approx_lexer.Simple.token -> (int * int * int) -> 'a) -> 'a ->
   ?init:env list -> ?stop:(Lexing.position -> bool) -> string
   -> 'a
 

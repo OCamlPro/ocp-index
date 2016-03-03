@@ -12,6 +12,9 @@
 (*                                                                        *)
 (**************************************************************************)
 
+module Region = Nstream.Region
+module Nstream = Nstream.Simple
+
 module Grep : sig
 
   (* * [ident path, filename, input channel, [line, column, length]]
@@ -25,7 +28,8 @@ module Grep : sig
   val strings_re: Re.re -> string -> in_channel -> (int * int * int) list
 
 end = struct
-  open Approx_tokens
+
+  open Approx_lexer.Simple
 
   let curpath_update cp tok =
     let id = function
@@ -135,10 +139,10 @@ end = struct
     let ns = Nstream.of_channel ch in
     let rec aux ns matches =
       match Nstream.next ns with
-      | Some ({Nstream.token=STRING _} as tok, ns) ->
-          let s = Lazy.force (tok.Nstream.substr) in
+      | Some ({Nstream.token=STRING} as tok, ns) ->
+          let s = tok.Nstream.substr in
           let s = String.sub s 1 (String.length s - 2) in (* remove "" *)
-          let pos = Pos.Region.fst tok.Nstream.region in
+          let pos = Region.fst tok.Nstream.region in
           let orig_line, orig_col =
             Lexing.(pos.pos_lnum, pos.pos_cnum - pos.pos_bol + 1)
           in
