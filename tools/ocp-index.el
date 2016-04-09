@@ -56,7 +56,7 @@
       (popup-delete ac-menu)
       (setq ac-menu))))
 
-;; Completion
+;; Completion aux functions
 
 (defvar ac-ocp-index-current-doc nil)
 
@@ -181,6 +181,60 @@
   (add-to-list 'ac-modes 'tuareg-mode)
   (add-to-list 'ac-modes 'caml-mode))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; get and print indent details ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun ocp-index-get-info (path)
+  (let*
+      ((format "((:kind . \"%k\")(:path . \"%p\")(:type . \"%t\")(:doc . \"%D\")(:parent . \"%e\"))")
+       (output (ocp-index-run "print" path format "--separate"))
+       (els (concat "(" output ")"))
+       (res (read-from-string els)))
+    (car-safe res)))
+
+(defun ocp-index-format-info (i)
+  "Extracts a formatted info string from an element of the
+   structure read from ocp-index (e.g. through
+   ocp-index-get-info, or a run with --sexp)"
+  (let*
+      ((kind (cdr (assoc :kind i)))
+       (name (cdr (assoc :path i)))
+       (type (cdr (assoc :type i)))
+       (doc (cdr (assoc :doc i)))
+       (propertize (lambda (a b c) a)))
+    (format
+     "%s %s: %s%s"
+     (propertize kind 'face 'font-lock-keyword-face)
+     (propertize name 'face 'font-lock-variable-name-face)
+     (propertize type 'face 'font-lock-type-face)
+     (if (string= doc "") ""
+       (propertize (concat "\n> " doc)
+                   'face 'font-lock-doc-face)))))
+
+(defun ocp-index-print-info (ident)
+  "Display the type and doc of an ocaml identifier in the echo area using
+   ocp-index.
+   Call twice to show the enclosing type of field records, variants and methods"
+  (interactive (let ((default (ocp-index-symbol-at-point)))
+                 (list
+                  (read-string
+                   (format "type ident (%s): " default) nil nil default))))
+  (let*
+      ((infos (ocp-index-get-info ident))
+       (parents (cl-remove-if (lambda (i) (string= "" (cdr (assoc :parent i))))
+                              infos))
+       (msg
+        (if (not infos) "No definition found"
+          (if (and parents (equal last-command this-command))
+              (mapconcat (lambda (i) (cdr (assoc :parent i))) parents "\n")
+            (mapconcat 'ocp-index-format-info infos "\n")))))
+    (display-message-or-buffer msg "*ocp-index*")))
+
+(defun ocp-index-print-info-at-point ()
+  (interactive nil)
+  (ocp-index-print-info (ocp-index-symbol-at-point)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; completion-at-point support ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -190,29 +244,33 @@
 
 (defun ocp-index-completion-candidates (prefix)
   "Return the data for completion of PREFIX."
-  (let* ((output (ocp-index-run "complete" "--sexp" prefix))
-         (data (car-safe (read-from-string output))))
+  (let* ((format "(\"%q\" (:path . \"%p\")(:type . \"%t\")(:kind . \"%k\")(:doc . \"%D\")(:loc . \"%l\"))")
+         (output (ocp-index-run "complete" "--separate" "--format" format prefix))
+         (data (car-safe (read-from-string (concat "(" output ")")))))
     (setq ocp-index-completion-data data)))
 
 (defun ocp-index-completion-exit-function (candidate state)
   "Print the type of CANDIDATE in the echo area."
-  (let ((ret (cdr (assoc :type (assoc candidate ocp-index-completion-data)))))
-    (if ret (message "%s: %s" candidate ret))))
+  (let ((info (cdr-safe (assoc candidate ocp-index-completion-data))))
+    (when info (message (ocp-index-format-info info)))))
 
 (defun ocp-index-completion-company-doc-buffer (candidate)
-  (let ((doc (cdr-safe (assoc :doc (cdr (assoc candidate ocp-index-completion-data))))))
-    (company-doc-buffer doc)))
+  (let ((info (cdr-safe (assoc candidate ocp-index-completion-data))))
+    (when info
+      (company-doc-buffer (ocp-index-format-info info)))))
 
 (defun ocp-index-completion-company-docsig (candidate)
-  (cdr-safe (assoc :type (cdr (assoc candidate ocp-index-completion-data)))))
+  (let ((info (cdr (assoc candidate ocp-index-completion-data))))
+    (when info
+      (message (ocp-index-format-info info)))))
 
 (defun ocp-index-completion-annotation-function (candidate)
   (concat " " (cdr (assoc :kind (cdr (assoc candidate ocp-index-completion-data))))))
 
 (defun ocp-index-completion-company-location (candidate)
   "Return the location of the definition of CANDIDATE as (FILE . LINE)."
-  (let* ((output (ocp-index-run "locate" candidate))
-         (loc (car (split-string output "\n" t))))
+  (let ((loc
+         (cdr (assoc :loc (cdr (assoc candidate ocp-index-completion-data))))))
     (when (and loc (string-match "^\\(.*\\):\\([0-9]\+\\):\\([0-9]\+\\)$" loc))
       (let ((file (match-string 1 loc))
             (line (string-to-number (match-string 2 loc))))
@@ -245,56 +303,16 @@ this function to present completions to the user."
   (add-hook 'completion-at-point-functions
             'ocp-index-completion-at-point nil 'local))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun ocp-index-get-info (path)
-  (let*
-      ((format "((:kind . \"%k\")(:name . \"%p\")(:type . \"%t\")(:doc . \"%D\")(:parent . \"%e\"))")
-       (output (ocp-index-run "print" path format "--separate"))
-       (els (concat "(" output ")"))
-       (res (read-from-string els)))
-    (car-safe res)))
-
-(defun ocp-index-print-info (ident)
-  "Display the type and doc of an ocaml identifier in the echo area using
-   ocp-index.
-   Call twice to show the enclosing type of field records, variants and methods"
-  (interactive (let ((default (ocp-index-symbol-at-point)))
-                 (list
-                  (read-string
-                   (format "type ident (%s): " default) nil nil default))))
-  (let*
-      ((infos (ocp-index-get-info ident))
-       (parents (cl-remove-if (lambda (i) (string= "" (cdr (assoc :parent i))))
-                              infos))
-       (msg
-        (if (not infos) "No definition found"
-          (if (and parents (equal last-command this-command))
-              (mapconcat (lambda (i) (cdr (assoc :parent i))) parents "\n")
-            (mapconcat
-             (lambda (i)
-               (let*
-                   ((kind (cdr (assoc :kind i)))
-                    (name (cdr (assoc :name i)))
-                    (type (cdr (assoc :type i)))
-                    (doc (cdr (assoc :doc i))))
-                 (format
-                  "%s %s: %s%s"
-                  (propertize kind 'face 'font-lock-keyword-face)
-                  (propertize name 'face 'font-lock-variable-name-face)
-                  (propertize type 'face 'font-lock-type-face)
-                  (if (string= doc "") ""
-                    (propertize (concat "\n> " doc)
-                                'face 'font-lock-doc-face)))))
-             infos "\n")))))
-    (display-message-or-buffer msg "*ocp-index*")))
+;;;;;;;;;;;;;;
+;; grepping ;;
+;;;;;;;;;;;;;;
 
 (defun ocp-index-try-expand-symbol-at-point ()
   (interactive nil)
   (let ((ident (ocp-index-symbol-at-point)))
     (when ident
-      (let* ((path  (ocp-index-run "print" ident "%p"))
-             (path  (replace-regexp-in-string "\n\+$" "" path)))
+      (let* ((path (ocp-index-run "print" ident "\"%p\""))
+             (path (car-safe (car (read-from-string (concat "(" path ")"))))))
         (if (string= path "") ident path)))))
 
 (defun ocp-index-grep (query)
@@ -316,6 +334,10 @@ and greps in any OCaml source files from there. "
     (if (string-match-p "\".*\"" query)
         (grep (format "%s -e %s" ocp-grep-path query))
       (grep (format "%s %s" ocp-grep-path query)))))
+
+;;;;;;;;;;;;;
+;; jumping ;;
+;;;;;;;;;;;;;
 
 (defun ocp-index-jump-to-loc (loc other-window)
   (if (string-match "^\\(.*\\):\\([0-9-]\+\\):\\([0-9-]\+\\)$" loc)
@@ -348,10 +370,6 @@ and greps in any OCaml source files from there. "
           (cdr locs))
       (message "No definition found")
       nil)))
-
-(defun ocp-index-print-info-at-point ()
-  (interactive nil)
-  (ocp-index-print-info (ocp-index-symbol-at-point)))
 
 (defun ocp-index-jump (name sig other-window)
   (if (and (eq (car-safe last-command) name)
