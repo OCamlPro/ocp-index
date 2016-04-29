@@ -28,6 +28,7 @@ let mktype name ?(params=[]) ?(def=Otyp_abstract) doc = {
         otype_params  = List.map (fun v -> v,(true,true)) params;
         otype_type    = def;
         otype_private = Asttypes.Public;
+        otype_immediate = false ;
         otype_cstrs   = [] }, Orec_not));
   loc_sig = Lazy.from_val Location.none;
   loc_impl = Lazy.from_val Location.none;
@@ -46,6 +47,7 @@ let mkvariant name parent params = {
         otype_type    = (match params with [] -> Otyp_sum []
                                          | l  -> Otyp_tuple l);
         otype_private = Asttypes.Public;
+        otype_immediate = false ;
         otype_cstrs   = [] }, Orec_not));
   loc_sig = Lazy.from_val Location.none;
   loc_impl = Lazy.from_val Location.none;

@@ -221,6 +221,7 @@ let qualify_ty (parents:parents) ty =
     | Otyp_module (str, strl, tylist) ->
         Otyp_module (str, strl, List.map aux tylist)
     | Otyp_open -> Otyp_open
+    | Otyp_attribute (ty,attr) -> Otyp_attribute (aux ty, attr)
   in
   aux ty
 
@@ -233,7 +234,7 @@ let qualify_ty_in_sig_item (parents:parents) =
         otype_type  = qual out_type_decl.otype_type;
         otype_cstrs = List.map (fun (ty1,ty2) -> qual ty1, qual ty2)
                           out_type_decl.otype_cstrs }, rc)
-  | Osig_value (str, ty, str2) -> Osig_value (str, qual ty, str2)
+  | Osig_value o -> Osig_value {o with oval_type = qual o.oval_type}
   | Osig_typext (constr, es) ->
       Osig_typext ({ constr with
         oext_args = List.map qual constr.oext_args }, es)
@@ -303,7 +304,7 @@ let doc_of_attributes attrs =
   match List.find (fun ({Location.txt},_) -> txt = doc_loc_id) attrs with
   | _, PStr [{pstr_desc = Pstr_eval ({pexp_desc},_)}] ->
       (match pexp_desc with
-       | Pexp_constant (Const_string (s,_)) -> Some s
+       | Pexp_constant (Pconst_string (s,_)) -> Some s
        | _ -> debug "Unexpected ocaml.doc docstring format"; None)
   | _ -> None
   | exception Not_found -> None
@@ -322,6 +323,7 @@ let trie_of_type_decl ?comments info ty_decl =
                 otype_params  = [];
                 otype_type    = ty;
                 otype_private = Asttypes.Public;
+                otype_immediate = false ;
                 otype_cstrs   = []; }, Outcometree.Orec_not)
           in
           let doc = doc_of_attributes ld_attributes in
@@ -365,6 +367,7 @@ let trie_of_type_decl ?comments info ty_decl =
                 otype_params  = [];
                 otype_type    = params;
                 otype_private = Asttypes.Public;
+                otype_immediate = false ;
                 otype_cstrs   = []; }, Outcometree.Orec_not)
           in
           let doc = doc_of_attributes cd_attributes in
@@ -530,6 +533,7 @@ let rec trie_of_sig_item
                     otype_params  = [];
                     otype_type    = ty;
                     otype_private = Asttypes.Public;
+                    otype_immediate = false ;
                     otype_cstrs   = []; }, Outcometree.Orec_not)
               in
               Trie.add t (string_to_key lbl)
