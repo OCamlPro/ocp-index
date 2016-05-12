@@ -57,12 +57,28 @@ let string_to_key s =
 
 let key_to_string l =
   let rec aux n = function
+#if OCAML_VERSION >= "4.02"
+    | [] -> Bytes.create n
+#else
     | [] -> String.create n
+#endif
     | c::r ->
         let s = aux (n+1) r in
-        s.[n] <- if c = dot then '.' else c; s
+#if OCAML_VERSION >= "4.02"
+  Bytes.set s n
+#else
+  s.[n] <-
+#endif
+    (if c = dot then '.' else c);
+        s
   in
-  aux 0 l
+  let s = aux 0 l in
+#if OCAML_VERSION >= "4.02"
+    Bytes.to_string s
+#else
+    s
+#endif
+
 
 let modpath_to_key ?(enddot=true) path =
   List.fold_right (fun p acc ->
@@ -70,15 +86,12 @@ let modpath_to_key ?(enddot=true) path =
       string_to_key p @ acc) path []
 
 let key_to_modpath l =
-  let rec aux n = function
-    | [] -> if n > 0 then [String.create n] else []
-    | '\000'::r -> String.create n :: aux 0 r
-    | c::r ->
-        match aux (n+1) r with
-        | s::_ as p -> s.[n] <- c; p
-        | [] -> assert false
-  in
-  aux 0 l
+  let rec aux acc1 acc2 = function
+    | '\000'::r -> aux [] (acc1::acc2) r
+    | c::r -> aux (c::acc1) acc2 r
+    | [] -> if acc1 = [] then acc2 else acc1::acc2
+   in
+   List.rev_map (fun l -> key_to_string (List.rev l)) (aux [] [] l)
 
 let modpath_to_string path = String.concat "." path
 
@@ -86,6 +99,9 @@ let parent_type id =
   match id.IndexTypes.kind with
   | Field parent | Variant parent | Method parent -> Some parent
   | Type | Value | Exception | Module | ModuleType | Class
+#if OCAML_VERSION >= "4.02"
+  | OpenType
+#endif
   | ClassType | Keyword -> None
 
 
