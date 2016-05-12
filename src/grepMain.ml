@@ -14,12 +14,12 @@
 
 module Grep : sig
 
-  (** [ident path, filename, input channel, [line, column, length]]
+  (* * [ident path, filename, input channel, [line, column, length]]
       Finds occurence of given ident in an opened file.
       Results are in reverse order. *)
   val ident: string list -> string -> in_channel -> (int * int * int) list
 
-  (** [regex, filename, input channel, [line, column, length]]
+  (* * [regex, filename, input channel, [line, column, length]]
       Finds matches of a regexp in the strings of an opened ocaml file.
       Results are in reverse order. *)
   val strings_re: Re.re -> string -> in_channel -> (int * int * int) list
@@ -85,7 +85,14 @@ end = struct
         Filename.basename
           (try Filename.chop_extension f with Invalid_argument _ -> f)
       in
+#if OCAML_VERSION >= "4.03"
       String.mapi (function 0 -> Char.uppercase_ascii | _ -> fun x -> x) s
+#elif OCAML_VERSION >= "4.02"
+      String.mapi (function 0 -> Char.uppercase | _ -> fun x -> x) s
+#else
+      s.[0] <- Char.uppercase s.[0];
+      s
+#endif
     in
     let f (curpath, lookfor, last_scope, acc) scope tok pos =
       let lookfor =
@@ -319,4 +326,3 @@ let () =
 (* idea: single utility to color parts of source with syntactic context:
    pattern, expr, type, topexpr, module, record ...
    Could be used for better completion, analysis etc.*)
-

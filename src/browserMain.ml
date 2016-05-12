@@ -11,12 +11,15 @@ let rec eq l1 l2 = match l1, l2 with
     {LibIndex. path = path2 ; name = name2 } :: t2 ->
       path1 = path2 && name1 = name2 && eq t1 t2
 
-(** Provide an association LibIndex.kind -> tag (= string) -> style
+(* * Provide an association LibIndex.kind -> tag (= string) -> style
     In order to encode styles in [Format.tag]. *)
 let kind_to_tag, tag_to_style, register_ressource =
   let h = Hashtbl.create 11 in
   let kind_to_tag = function
-    | LibIndex.Type | OpenType -> "Type"
+#if OCAML_VERSION >= "4.03"
+    | LibIndex.OpenType
+#endif
+    | LibIndex.Type -> "Type"
     | Value -> "Value"
     | Exception -> "Exception"
     | Field _  -> "Field"
@@ -407,7 +410,7 @@ class virtual line_editor = object(self)
 end
 
 
-(** Strip one path level.
+(* * Strip one path level.
 
     Do the following transformation:
     "Foo.Bar."    -> "Foo."
@@ -553,7 +556,7 @@ let size (str : LTerm_text.t) =
   if fst str.(last) <> newline then incr rows ;
   {LTerm_geom. rows = !rows ; cols = !cols }
 
-(** The show box shows the result of a research.
+(* * The show box shows the result of a research.
 
     [content] is a list zipper positioned at the focused element.
     Left and right lists are elements before and after the focus.
@@ -785,7 +788,7 @@ let event_handler (cbox : #completion_box) (sbox:#show_box) options show_help =
       true
   | _ -> false
 
-(** Express the result as an event mapped on the content of the completion box.
+(* * Express the result as an event mapped on the content of the completion box.
 *)
 let show_completion show_box input =
   let zipper n l =
