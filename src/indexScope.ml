@@ -21,14 +21,14 @@ module Stream = struct
     { nstream: Nstream.t;
       last: token;
       before_last: token;
-      region: Pos.Region.t;
+      region: Nstream.Region.t;
       stop: Lexing.position -> bool }
 
   let of_nstream ?(stop=fun _ -> false) nstream = {
     nstream;
-    last = COMMENT;
-    before_last = COMMENT;
-    region = Pos.Region.zero;
+    last = EOL;
+    before_last = EOL;
+    region = Nstream.Region.zero;
     stop;
   }
 
@@ -38,12 +38,23 @@ module Stream = struct
         region;
         last = tok;
         before_last = match stream.last with
-          | COMMENT -> stream.before_last
+          | COMMENT_OPEN_EOL
+          | COMMENT_OPEN
+          | COMMENT_OPEN_CLOSE
+          | COMMENT_VERB_OPEN
+          | COMMENT_CODE_OPEN
+          | COMMENT_CONTENT
+          | COMMENT_CLOSE
+          | COMMENT_VERB_CLOSE
+          | COMMENT_CODE_CLOSE
+          | ESCAPED_EOL
+          | EOL
+          | SPACES -> stream.before_last
           | tok -> tok; }
     in
     match Nstream.next stream.nstream with
     | Some ({Nstream.token; region}, nstream) ->
-        if stream.stop (Pos.Region.snd region)
+        if stream.stop (Nstream.Region.snd region)
         then EOF, shift stream EOF region
         else token, shift {stream with nstream} token region
     | _ -> EOF, shift stream EOF stream.region
@@ -67,8 +78,8 @@ module Stream = struct
   let token stream = stream.last
 
   let pos stream =
-    let pos1 = Pos.Region.fst stream.region in
-    let pos2 = Pos.Region.snd stream.region in
+    let pos1 = Nstream.Region.fst stream.region in
+    let pos2 = Nstream.Region.snd stream.region in
     Lexing.(pos1.pos_lnum, pos1.pos_cnum - pos1.pos_bol, pos2.pos_cnum - pos1.pos_cnum)
 end
 
