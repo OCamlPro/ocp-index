@@ -29,9 +29,12 @@ let mktype name ?(params=[]) ?(def=Otyp_abstract) doc = {
         otype_params  = List.map (fun v -> v,(true,true)) params;
         otype_type    = def;
         otype_private = Asttypes.Public;
-#if OCAML_VERSION >= "4.03"
-      otype_immediate = false ;
-#endif
+  #if OCAML_VERSION >= "4.03"
+        otype_immediate = false;
+    #if OCAML_VERSION >= "4.04"
+        otype_unboxed = false;
+    #endif
+  #endif
         otype_cstrs   = [] }, Orec_not));
 #else
       (name,List.map (fun v -> v,(true,true)) params,def,Asttypes.Public,[]),
@@ -55,9 +58,12 @@ let mkvariant name parent params = {
         otype_type    = (match params with [] -> Otyp_sum []
                                          | l  -> Otyp_tuple l);
         otype_private = Asttypes.Public;
-#if OCAML_VERSION >= "4.03"
+  #if OCAML_VERSION >= "4.03"
         otype_immediate = false ;
-#endif
+    #if OCAML_VERSION >= "4.04"
+        otype_unboxed = false;
+    #endif
+  #endif
         otype_cstrs   = [] }, Orec_not));
 #else
   ty = Some (Osig_type (("", [],

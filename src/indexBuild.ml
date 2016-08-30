@@ -385,9 +385,12 @@ let trie_of_type_decl ?comments info ty_decl =
                 otype_params  = [];
                 otype_type    = ty;
                 otype_private = Asttypes.Public;
-#if OCAML_VERSION >= "4.03"
-                otype_immediate = false ;
-#endif
+  #if OCAML_VERSION >= "4.03"
+                otype_immediate = false;
+    #if OCAML_VERSION >= "4.04"
+                otype_unboxed = false;
+    #endif
+  #endif
                 otype_cstrs   = []; }), Outcometree.Orec_not)
           in
           let doc = doc_of_attributes ld_attributes in
@@ -454,9 +457,12 @@ let trie_of_type_decl ?comments info ty_decl =
                 otype_params  = [];
                 otype_type    = params;
                 otype_private = Asttypes.Public;
-#if OCAML_VERSION >= "4.03"
-                otype_immediate = false ;
-#endif
+  #if OCAML_VERSION >= "4.03"
+                otype_immediate = false;
+    #if OCAML_VERSION >= "4.04"
+                otype_unboxed = false;
+    #endif
+  #endif
                 otype_cstrs   = []; }), Outcometree.Orec_not)
           in
           let doc = doc_of_attributes cd_attributes in
@@ -615,10 +621,20 @@ let rec trie_of_sig_item
 #if OCAML_VERSION >= "4.02"
     | Types.Sig_module (_,{ Types.md_type =
                               Types.Mty_ident sig_ident
-                            | Types.Mty_alias sig_ident},_)
+  #if OCAML_VERSION >= "4.04"
+                            | Types.Mty_alias (_, sig_ident)
+  #else
+                            | Types.Mty_alias sig_ident
+  #endif
+                          },_)
     | Types.Sig_modtype (_,{ Types.mtd_type =
                                Some ( Types.Mty_ident sig_ident
-                                    | Types.Mty_alias sig_ident) }) ->
+  #if OCAML_VERSION >= "4.04"
+                                    | Types.Mty_alias (_, sig_ident)
+  #else
+                                    | Types.Mty_alias sig_ident
+  #endif
+                                    ) }) ->
 #else
     | Types.Sig_module (_,Types.Mty_ident sig_ident,_)
     | Types.Sig_modtype (_,Types.Modtype_manifest
@@ -663,10 +679,13 @@ let rec trie_of_sig_item
                     otype_params  = [];
                     otype_type    = ty;
                     otype_private = Asttypes.Public;
-#if OCAML_VERSION >= "4.03"
-                otype_immediate = false ;
-#endif
-                otype_cstrs   = []; }), Outcometree.Orec_not)
+  #if OCAML_VERSION >= "4.03"
+                    otype_immediate = false;
+    #if OCAML_VERSION >= "4.04"
+                    otype_unboxed = false;
+    #endif
+  #endif
+                    otype_cstrs   = []; }), Outcometree.Orec_not)
 #else
                 Outcometree.Osig_type
                   (("", [], ty, Asttypes.Public, []), Outcometree.Orec_not)
