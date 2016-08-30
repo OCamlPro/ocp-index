@@ -1,4 +1,4 @@
-AC_INIT(ocp-index,1.1.4)
+AC_INIT(ocp-index,1.1.5)
 AC_COPYRIGHT(Copyright 2014 OcamlPro SAS)
 
 AC_CONFIG_MACRO_DIR([m4])

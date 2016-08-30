@@ -1,3 +1,8 @@
+## 1.1.5
+* Use preprocessing for compatibility with multiple OCaml versions
+* Add compatibility with OCaml 4.03, 4.04
+* Improve support for completion in Emacs using company-mode
+
 ## 1.1.4
 * emacs: more interactive ocp-grep call (C-c /) ; better printing of type/doc
 * use `cmt_builddir` information to more reliably point to the sources
