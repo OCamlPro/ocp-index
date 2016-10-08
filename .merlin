@@ -3,6 +3,7 @@ PKG lambda-term
 PKG cmdliner
 PKG re
 PKG ocp-indent
+PKG spelll
 
 S src/
 B _obuild/**

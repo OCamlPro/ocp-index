@@ -24,10 +24,15 @@ depends: [
   "re"
   "cmdliner"
 ]
-depopts: "lambda-term"
+depopts: [
+  "lambda-term"
+  "spelll"
+]
 conflicts: "lambda-term" {< "1.7"}
 available: [ocaml-version >= "4.01.0" ]
-messages: "For ocp-browser, please also install package lambda-term" {! lambda-term:installed}
+messages: [
+  "For ocp-browser, please also install package lambda-term" {! lambda-term:installed}
+]
 post-messages:
   "This package requires additional configuration for use in editors. Either install package 'user-setup', or manually:
 

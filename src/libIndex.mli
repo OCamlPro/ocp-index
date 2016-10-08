@@ -93,6 +93,9 @@ val alias: ?cleanup_path:bool -> t -> string list -> string list -> t
 (** Returns all bindings in the trie *)
 val all: t -> info list
 
+(** Fold on every binding in the trie *)
+val fold_all : t -> ('a -> info -> 'a) -> 'a -> 'a
+
 (** Lookup an identifier in a trie (eg. [option] or [List.map]) *)
 val get: t -> string -> info
 

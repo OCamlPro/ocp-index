@@ -7,6 +7,9 @@ ifneq ($(has_cmdliner),no)
   ifneq ($(has_lambdaTerm),no)
     PROJECTS := $(PROJECTS) ocp-browser
   endif
+  ifneq ($(has_spelll),no)
+    PROJECTS := $(PROJECTS) ocp-search
+  endif
 endif
 
 OCPBUILD_ARGS =

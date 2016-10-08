@@ -45,3 +45,13 @@ begin program "ocp-browser"
                 ]
   requires = [ "ocp-index-lib" "unix" "cmdliner" "lambda-term" ]
 end
+
+begin program "ocp-search"
+  sort = false
+  files = [
+    "indexOptions.mli"
+    "indexOptions.ml" (pp = "ocp-pp")
+    "searchMain.ml" (pp = "ocp-pp")
+  ]
+  requires = [ "unix" "cmdliner" "ocp-index-lib" "spelll" ]
+end

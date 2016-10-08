@@ -43,6 +43,11 @@ let trie_to_list trie =
     (fun acc _path values -> List.rev_append (filter_visible values) acc)
     trie []
 
+let fold_all t f acc =
+  Trie.fold0
+    (fun acc _path values -> List.fold_left f acc values)
+    t acc
+
 let all t =
   trie_to_list t
 

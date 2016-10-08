@@ -15,6 +15,7 @@ if test "$OCAML_PKG_cmdliner" = "no"; then
 fi
 
 AC_CHECK_OCAML_PKG([lambda-term])
+AC_CHECK_OCAML_PKG([spelll])
 
 AC_CONFIG_FILES(
   Makefile.config
