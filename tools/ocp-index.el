@@ -149,7 +149,7 @@
            (path   (cdr (assoc :path info)))
            (kind   (cdr (assoc :kind info)))
            (type   (cdr (assoc :type info))))
-      (message (format "%s %s: %s" kind path type)))))
+      (message "%s %s: %s" kind path type))))
 
 (defun ac-ocp-index-init ()
   (setq ac-ocp-index-current-doc nil))
@@ -243,7 +243,7 @@
   "The completion data for the last completed prefix.")
 
 (defun ocp-index-completion-candidates (prefix)
-  "Return the data for completion of PREFIX."
+  "Sets the data for completion of PREFIX in variable ocp-index-completion-data."
   (let* ((format "(\"%q\" (:path . \"%p\")(:type . \"%t\")(:kind . \"%k\")(:doc . \"%D\")(:loc . \"%l\"))")
          (output (ocp-index-run "complete" "--separate" "--format" format prefix))
          (data (car-safe (read-from-string (concat "(" output ")")))))
@@ -252,7 +252,7 @@
 (defun ocp-index-completion-exit-function (candidate state)
   "Print the type of CANDIDATE in the echo area."
   (let ((info (cdr-safe (assoc candidate ocp-index-completion-data))))
-    (when info (message (ocp-index-format-info info)))))
+    (when info (message "%s" (ocp-index-format-info info)))))
 
 (defun ocp-index-completion-company-doc-buffer (candidate)
   (let ((info (cdr-safe (assoc candidate ocp-index-completion-data))))
@@ -262,7 +262,7 @@
 (defun ocp-index-completion-company-docsig (candidate)
   (let ((info (cdr (assoc candidate ocp-index-completion-data))))
     (when info
-      (message (ocp-index-format-info info)))))
+      (message "%s" (ocp-index-format-info info)))))
 
 (defun ocp-index-completion-annotation-function (candidate)
   (concat " " (cdr (assoc :kind (cdr (assoc candidate ocp-index-completion-data))))))
@@ -352,7 +352,7 @@ and greps in any OCaml source files from there. "
           (when (>= line 0) (forward-line (1- line)))
           (when (>= column 0) (forward-char column))
           (when other-window (switch-to-buffer-other-window last-buffer))))
-    (message (replace-regexp-in-string "\n\+$" "" loc))))
+    (message "%s" (replace-regexp-in-string "\n\+$" "" loc))))
 
 (defun ocp-index-jump-to-definition (ident sig other-window)
   "Jump to the definition of an ocaml identifier using ocp-index"
