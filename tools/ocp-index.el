@@ -3,6 +3,7 @@
 
 (provide 'ocp-index)
 (require 'cl)
+(require 'eldoc)
 
 ;; Customize defs
 
@@ -93,7 +94,7 @@
   (interactive nil)
   (if ocp-index-debug
       (progn (message "ocp-index debug mode disabled")
-	     (setq ocp-index-debug nil))
+             (setq ocp-index-debug nil))
     (message "ocp-index debug mode enabled")
     (setq ocp-index-debug t)))
 
@@ -410,14 +411,44 @@ and greps in any OCaml source files from there. "
   (if ocp-index-use-auto-complete (ocp-index-setup-auto-complete))
   (ocp-index-setup-completion-at-point))
 
+;; eldoc
+(defvar ocp-index-last-result nil)
+(defun display-message-or-buffer-tostring (msg &rest _)
+  (setq ocp-index-last-result
+        (let ((result (ocp-index-join-string msg)))
+          (if (string-match "No definition found\\|keyword\\.*" result)
+              ""
+            result))))
+
+(defun ocp-index-join-string (str)
+  (with-temp-buffer
+    (insert str)
+    (let ((fill-column 1000))
+      (fill-paragraph nil))
+    (buffer-substring (point-min) (point-max))))
+
+(defun ocp-index-eldoc-function ()
+  (condition-case nil
+      (cl-letf (((symbol-function 'display-message-or-buffer)
+                 #'display-message-or-buffer-tostring))
+        (ocp-index-print-info-at-point))
+    (error "")))
+
 (define-minor-mode ocp-index-mode
   "OCaml auto-completion, documentation and source browsing using ocp-index"
   :group 'ocp-index
   :keymap ocp-index-keymap
-  (if ocp-index-mode
-      (ocp-index-setup-completion)
-    (when ocp-index-use-auto-complete (auto-complete-mode -1)))
-  )
+  (cond (ocp-index-mode
+         (add-function :before-until (local 'eldoc-documentation-function)
+                       #'ocp-index-eldoc-function)
+         (eldoc-mode 1)
+         (ocp-index-setup-completion))
+        (t
+         (remove-function (local 'eldoc-documentation-function)
+                          #'ocp-index-eldoc-function)
+         (cl-letf (((symbol-function 'message) #'ignore))
+           (eldoc-mode -1))
+         (when ocp-index-use-auto-complete (auto-complete-mode -1)))))
 
 (add-hook 'tuareg-mode-hook 'ocp-index-mode t)
 (add-hook 'caml-mode-hook 'ocp-index-mode t)
