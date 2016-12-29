@@ -425,7 +425,7 @@ and greps in any OCaml source files from there. "
     (insert str)
     (let ((fill-column 1000))
       (fill-paragraph nil))
-    (buffer-substring (point-min) (point-max))))
+    (buffer-string)))
 
 (defun ocp-index-eldoc-function ()
   (condition-case nil
