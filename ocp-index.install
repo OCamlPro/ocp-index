@@ -10,6 +10,8 @@ lib: [
   "_obuild/ocp-index-lib/ocp-index-lib.cmxa" {"lib/ocp-index-lib.cmxa"}
   "_obuild/ocp-index-lib/libIndex.cmi" {"lib/libIndex.cmi"}
   "_obuild/ocp-index-lib/libIndex.cmti" {"lib/libIndex.cmti"}
+  "_obuild/ocp-index-lib/indexTypes.cmi" {"lib/indexTypes.cmi"}
+  "_obuild/ocp-index-lib/indexTypes.cmt" {"lib/indexTypes.cmt"}
   "_obuild/ocp-index-lib/indexScope.cmi" {"lib/indexScope.cmi"}
   "_obuild/ocp-index-lib/indexScope.cmti" {"lib/indexScope.cmti"}
 ]
