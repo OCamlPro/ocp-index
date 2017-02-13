@@ -217,7 +217,7 @@
        (propertize (concat "\n> " doc)
                    'face 'font-lock-doc-face)))))
 
-(defun ocp-index-print-info (ident)
+(defun ocp-index-print-info (ident display-function)
   "Display the type and doc of an ocaml identifier in the echo area using
    ocp-index.
    Call twice to show the enclosing type of field records, variants and methods"
@@ -234,11 +234,15 @@
           (if (and parents (equal last-command this-command))
               (mapconcat (lambda (i) (cdr (assoc :parent i))) parents "\n")
             (mapconcat 'ocp-index-format-info infos "\n")))))
-    (display-message-or-buffer msg "*ocp-index*")))
+    (funcall display-function msg)))
+
+(defun ocp-index-print-info-at-point-display-function (msg)
+  (display-message-or-buffer msg "*ocp-index*"))
 
 (defun ocp-index-print-info-at-point ()
   (interactive nil)
-  (ocp-index-print-info (ocp-index-symbol-at-point)))
+  (ocp-index-print-info (ocp-index-symbol-at-point)
+                        'ocp-index-print-info-at-point-display-function))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; completion-at-point support ;;
@@ -416,16 +420,15 @@ and greps in any OCaml source files from there. "
   (ocp-index-setup-completion-at-point))
 
 ;; eldoc
-(defun display-message-or-buffer-tostring (msg &rest _)
+(defun ocp-index-eldoc-function-display-function (msg)
   (if (string-match "No definition found\\|keyword\\.*" msg)
       ""
     msg))
 
 (defun ocp-index-eldoc-function ()
   (condition-case nil
-      (cl-letf (((symbol-function 'display-message-or-buffer)
-                 #'display-message-or-buffer-tostring))
-        (ocp-index-print-info-at-point))
+      (ocp-index-print-info (ocp-index-symbol-at-point)
+                            'ocp-index-eldoc-function-display-function)
     (error "")))
 
 (define-minor-mode ocp-index-mode
