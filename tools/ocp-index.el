@@ -417,17 +417,9 @@ and greps in any OCaml source files from there. "
 
 ;; eldoc
 (defun display-message-or-buffer-tostring (msg &rest _)
-  (let ((result (ocp-index-join-string msg)))
-    (if (string-match "No definition found\\|keyword\\.*" result)
-        ""
-      result)))
-
-(defun ocp-index-join-string (str)
-  (with-temp-buffer
-    (insert str)
-    (let ((fill-column 1000))
-      (fill-paragraph nil))
-    (buffer-string)))
+  (if (string-match "No definition found\\|keyword\\.*" msg)
+      ""
+    msg))
 
 (defun ocp-index-eldoc-function ()
   (condition-case nil
