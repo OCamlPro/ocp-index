@@ -416,13 +416,11 @@ and greps in any OCaml source files from there. "
   (ocp-index-setup-completion-at-point))
 
 ;; eldoc
-(defvar ocp-index-last-result nil)
 (defun display-message-or-buffer-tostring (msg &rest _)
-  (setq ocp-index-last-result
-        (let ((result (ocp-index-join-string msg)))
-          (if (string-match "No definition found\\|keyword\\.*" result)
-              ""
-            result))))
+  (let ((result (ocp-index-join-string msg)))
+    (if (string-match "No definition found\\|keyword\\.*" result)
+        ""
+      result)))
 
 (defun ocp-index-join-string (str)
   (with-temp-buffer
