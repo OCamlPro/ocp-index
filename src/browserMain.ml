@@ -521,7 +521,7 @@ class completion_box options exit =
 
     (** Only insert chars that are valid in OCaml identifiers. *)
     method! is_valid_char  x = try match UChar.char_of x with
-      | 'a'..'z' | 'A'..'Z' | '1'..'9' | '_' | '\'' | '#'
+      | 'a'..'z' | 'A'..'Z' | '0'..'9' | '_' | '\'' | '#'
       | '!'|'$'|'%'|'&'|'*'|'+'|'-'|'.'|'/'
       | ':'|'<'|'='|'>'|'?'|'@'|'^'|'|'|'~'
         -> true
