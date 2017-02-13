@@ -49,6 +49,10 @@
   "*If set, use `auto-complete' for completion."
   :group 'ocp-index :type 'boolean)
 
+(defcustom ocp-index-use-eldoc nil
+  "*If set, use `eldoc-mode'."
+  :group 'ocp-index :type 'boolean)
+
 ;; auto-complete bug workaround (complete at EOF in text mode)
 (defun ocp-index-enable-ac-workaround ()
   (defun ac-menu-delete ()
@@ -441,13 +445,15 @@ and greps in any OCaml source files from there. "
   (cond (ocp-index-mode
          (add-function :before-until (local 'eldoc-documentation-function)
                        #'ocp-index-eldoc-function)
-         (eldoc-mode 1)
+         (when ocp-index-use-eldoc
+           (eldoc-mode 1))
          (ocp-index-setup-completion))
         (t
          (remove-function (local 'eldoc-documentation-function)
                           #'ocp-index-eldoc-function)
-         (cl-letf (((symbol-function 'message) #'ignore))
-           (eldoc-mode -1))
+         (when ocp-index-use-eldoc
+           (cl-letf (((symbol-function 'message) #'ignore))
+             (eldoc-mode -1)))
          (when ocp-index-use-auto-complete (auto-complete-mode -1)))))
 
 (add-hook 'tuareg-mode-hook 'ocp-index-mode t)
