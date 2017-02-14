@@ -76,7 +76,7 @@ the type is printed in the echo area)."
       (while (looking-back "\\<\\([A-Z][a-zA-Z0-9_']*\.\\)*[a-zA-Z0-9_']*"
                            (line-beginning-position) nil)
         (goto-char (match-beginning 0)))
-      (when (looking-at "[a-zA-Z0-9_'.]*[a-zA-Z0-9_']")
+      (when (looking-at "[a-zA-Z0-9_'.]+")
         (cons (match-beginning 0) (match-end 0))))))
 
 (defun ocp-index-completion-prefix-start ()
