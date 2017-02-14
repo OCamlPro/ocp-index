@@ -4,6 +4,7 @@
 (provide 'ocp-index)
 (require 'cl)
 (require 'eldoc)
+(require 'auto-complete nil t)
 
 ;; Customize defs
 
@@ -25,7 +26,7 @@
 
 (defcustom ocp-index-override-auto-complete-defaults t
   "*If set, auto-complete defaults will be reset to a sane setting in ocaml
-   buffers. Disable if you prefer to configure auto-complete yourself."
+ buffers. Disable if you prefer to configure auto-complete yourself."
   :group 'ocp-index :type 'boolean)
 
 (defcustom ocp-index-auto-complete-workaround t
@@ -39,15 +40,15 @@
 
 (defcustom ocp-index-show-help t
   "*If set, show the documentation bubble after completion (otherwise,
-   the type is printed in the echo area)."
+the type is printed in the echo area)."
   :group 'ocp-index :type 'boolean)
 
-(defvar ocp-index-has-auto-complete
-  (require 'auto-complete nil t))
-
-(defcustom ocp-index-use-auto-complete ocp-index-has-auto-complete
-  "*If set, use `auto-complete' for completion."
-  :group 'ocp-index :type 'boolean)
+(defcustom ocp-index-completion-style nil
+  "*The kind of completion method used."
+  :group 'ocp-index
+  :type '(choice
+          (const :tag "completion-at-point" nil)
+          (const :tag "auto-complete" ocp-index-completion-style-ac)))
 
 (defcustom ocp-index-use-eldoc nil
   "*If set, use `eldoc-mode'."
@@ -402,7 +403,9 @@ and greps in any OCaml source files from there. "
 
 (defun ocp-index-complete ()
   (interactive)
-  (if ocp-index-use-auto-complete (auto-complete) (completion-at-point)))
+  (cl-case ocp-index-completion-style
+    ('ocp-index-completion-style-ac (auto-complete))
+    (otherwise (completion-at-point))))
 
 (defvar ocp-index-keymap
   (let ((map (make-sparse-keymap)))
@@ -416,7 +419,8 @@ and greps in any OCaml source files from there. "
     map))
 
 (defun ocp-index-setup-completion ()
-  (if ocp-index-use-auto-complete (ocp-index-setup-auto-complete))
+  (when (eq ocp-index-completion-style 'ocp-index-completion-style-ac)
+    (ocp-index-setup-auto-complete))
   (ocp-index-setup-completion-at-point))
 
 ;; eldoc
@@ -447,7 +451,8 @@ and greps in any OCaml source files from there. "
          (when ocp-index-use-eldoc
            (cl-letf (((symbol-function 'message) #'ignore))
              (eldoc-mode -1)))
-         (when ocp-index-use-auto-complete (auto-complete-mode -1)))))
+         (when (eq ocp-index-completion-style 'ocp-index-completion-style-ac)
+           (auto-complete-mode -1)))))
 
 (add-hook 'tuareg-mode-hook 'ocp-index-mode t)
 (add-hook 'caml-mode-hook 'ocp-index-mode t)
