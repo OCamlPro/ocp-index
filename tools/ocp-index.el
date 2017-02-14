@@ -110,10 +110,11 @@ the type is printed in the echo area)."
       ((current-module (upcase-initials
                         (file-name-nondirectory
                          (file-name-sans-extension (buffer-file-name)))))
-       (cmd (list* cmd ocp-index-options
+       (cmd (list* cmd
                    "--full-open" current-module
                    "--context" ":"
-                   args)))
+                   (append (split-string ocp-index-options)
+                           args))))
     (when ocp-index-debug
       (message "%s" (mapconcat
                      (lambda (s) (format "%S" s))
