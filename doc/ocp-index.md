@@ -108,12 +108,12 @@ let b:did_ftplugin_after = 1
 
 call ocpindex#init()
 
-nmap <buffer> K         <Plug>(ocpindex-echo-type)
+nmap <buffer> K         <Plug>(ocpindex-print)
 nmap <buffer> <C-]>     <Plug>(ocpindex-jump)
 nmap <buffer> <C-t>     <Plug>(ocpindex-jump-back)
 ```
 You get:
-- `K` Echo type information of the identifier under the cursor
+- `K` Echo type information and documentation of the identifier under the cursor
 - `C-]` Push the current position to the jump stack and jump to the definition of the identifier under the cursor
 - `C-t` Pop the previons position from the jump stack and jump back there
 - `C-x C-o` Omni completion
