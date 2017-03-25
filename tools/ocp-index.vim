@@ -110,6 +110,13 @@ function! ocpindex#jump_back()
     call setpos('.', pos)
 endfunction
 
+function! ocpindex#print()
+    let cookie = s:env_enter()
+    let word = expand('<cword>')
+    call s:env_leave(cookie)
+    echo substitute(s:ocp_index('print', word), '\n*$', "", "")
+endfunction
+
 nnoremap <silent> <Plug>(ocpindex-echo-type)
 \       :<C-u>call ocpindex#echo_type()<CR>
 
@@ -118,6 +125,9 @@ nnoremap <silent> <Plug>(ocpindex-jump)
 
 nnoremap <silent> <Plug>(ocpindex-jump-back)
 \       :<C-u>call ocpindex#jump_back()<CR>
+
+nnoremap <silent> <Plug>(ocpindex-print)
+\       :<C-u>call ocpindex#print()<CR>
 
 if !exists("g:ocpindex_program")
     let g:ocpindex_program = "ocp-index"
