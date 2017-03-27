@@ -4,6 +4,8 @@
 (provide 'ocp-index)
 (require 'cl)
 (require 'eldoc)
+(require 'auto-complete nil t)
+(require 'ivy nil t)
 
 ;; Customize defs
 
@@ -25,7 +27,7 @@
 
 (defcustom ocp-index-override-auto-complete-defaults t
   "*If set, auto-complete defaults will be reset to a sane setting in ocaml
-   buffers. Disable if you prefer to configure auto-complete yourself."
+ buffers. Disable if you prefer to configure auto-complete yourself."
   :group 'ocp-index :type 'boolean)
 
 (defcustom ocp-index-auto-complete-workaround t
@@ -39,14 +41,19 @@
 
 (defcustom ocp-index-show-help t
   "*If set, show the documentation bubble after completion (otherwise,
-   the type is printed in the echo area)."
+the type is printed in the echo area)."
   :group 'ocp-index :type 'boolean)
 
-(defvar ocp-index-has-auto-complete
-  (require 'auto-complete nil t))
+(defcustom ocp-index-completion-style nil
+  "*The kind of completion method used."
+  :group 'ocp-index
+  :type '(choice
+          (const :tag "completion-at-point" nil)
+          (const :tag "auto-complete" ocp-index-completion-style-ac)
+          (const :tag "ivy" ocp-index-completion-style-ivy)))
 
-(defcustom ocp-index-use-auto-complete ocp-index-has-auto-complete
-  "*If set, use `auto-complete' for completion."
+(defcustom ocp-index-use-eldoc nil
+  "*If set, use `eldoc-mode'."
   :group 'ocp-index :type 'boolean)
 
 ;; auto-complete bug workaround (complete at EOF in text mode)
@@ -69,7 +76,7 @@
       (while (looking-back "\\<\\([A-Z][a-zA-Z0-9_']*\.\\)*[a-zA-Z0-9_']*"
                            (line-beginning-position) nil)
         (goto-char (match-beginning 0)))
-      (when (looking-at "[a-zA-Z0-9_'.]*[a-zA-Z0-9_']")
+      (when (looking-at "[a-zA-Z0-9_'.]+")
         (cons (match-beginning 0) (match-end 0))))))
 
 (defun ocp-index-completion-prefix-start ()
@@ -103,10 +110,11 @@
       ((current-module (upcase-initials
                         (file-name-nondirectory
                          (file-name-sans-extension (buffer-file-name)))))
-       (cmd (list* cmd ocp-index-options
+       (cmd (list* cmd
                    "--full-open" current-module
                    "--context" ":"
-                   args)))
+                   (append (split-string ocp-index-options)
+                           args))))
     (when ocp-index-debug
       (message "%s" (mapconcat
                      (lambda (s) (format "%S" s))
@@ -213,7 +221,7 @@
        (propertize (concat "\n> " doc)
                    'face 'font-lock-doc-face)))))
 
-(defun ocp-index-print-info (ident)
+(defun ocp-index-print-info (ident display-function)
   "Display the type and doc of an ocaml identifier in the echo area using
    ocp-index.
    Call twice to show the enclosing type of field records, variants and methods"
@@ -230,11 +238,15 @@
           (if (and parents (equal last-command this-command))
               (mapconcat (lambda (i) (cdr (assoc :parent i))) parents "\n")
             (mapconcat 'ocp-index-format-info infos "\n")))))
-    (display-message-or-buffer msg "*ocp-index*")))
+    (funcall display-function msg)))
+
+(defun ocp-index-print-info-at-point-display-function (msg)
+  (display-message-or-buffer msg "*ocp-index*"))
 
 (defun ocp-index-print-info-at-point ()
   (interactive nil)
-  (ocp-index-print-info (ocp-index-symbol-at-point)))
+  (ocp-index-print-info (ocp-index-symbol-at-point)
+                        'ocp-index-print-info-at-point-display-function))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; completion-at-point support ;;
@@ -394,7 +406,10 @@ and greps in any OCaml source files from there. "
 
 (defun ocp-index-complete ()
   (interactive)
-  (if ocp-index-use-auto-complete (auto-complete) (completion-at-point)))
+  (cl-case ocp-index-completion-style
+    ('ocp-index-completion-style-ac (auto-complete))
+    ('ocp-index-completion-style-ivy (ocp-index-ivy-completion-at-point))
+    (otherwise (completion-at-point))))
 
 (defvar ocp-index-keymap
   (let ((map (make-sparse-keymap)))
@@ -408,31 +423,76 @@ and greps in any OCaml source files from there. "
     map))
 
 (defun ocp-index-setup-completion ()
-  (if ocp-index-use-auto-complete (ocp-index-setup-auto-complete))
+  (when (eq ocp-index-completion-style 'ocp-index-completion-style-ac)
+    (ocp-index-setup-auto-complete))
   (ocp-index-setup-completion-at-point))
 
 ;; eldoc
-(defvar ocp-index-last-result nil)
-(defun display-message-or-buffer-tostring (msg &rest _)
-  (setq ocp-index-last-result
-        (let ((result (ocp-index-join-string msg)))
-          (if (string-match "No definition found\\|keyword\\.*" result)
-              ""
-            result))))
-
-(defun ocp-index-join-string (str)
-  (with-temp-buffer
-    (insert str)
-    (let ((fill-column 1000))
-      (fill-paragraph nil))
-    (buffer-string)))
+(defun ocp-index-eldoc-function-display-function (msg)
+  (if (string-match "No definition found\\|keyword\\.*" msg)
+      ""
+    msg))
 
 (defun ocp-index-eldoc-function ()
   (condition-case nil
-      (cl-letf (((symbol-function 'display-message-or-buffer)
-                 #'display-message-or-buffer-tostring))
-        (ocp-index-print-info-at-point))
+      (ocp-index-print-info (ocp-index-symbol-at-point)
+                            'ocp-index-eldoc-function-display-function)
     (error "")))
+
+;; Ivy
+(defun ocp-index-ivy-completion-at-point ()
+  "Completion at point using `ivy'."
+  (interactive)
+  (let ((bounds (ocp-index-bounds-of-symbol-at-point)))
+    (when bounds
+      (ocp-index-ivy-completion-at-point--driver (car bounds) (cdr bounds)))))
+
+(defun ocp-index-ivy-completion-at-point--driver (lo hi)
+  "Replace region between LO and HI, using candidates taken with
+input betweem LO and the current point."
+  (setq ivy-completion-beg lo)
+  (setq ivy-completion-end hi)
+  (ocp-index-completion-candidates (buffer-substring lo (point)))
+  (let ((ivy-format-function 'ocp-index-ivy-format)
+        (minibuffer-allow-text-properties t))
+    (ivy-read "ocaml completion: " ocp-index-completion-data
+              :caller 'ocp-index-ivy-completion-at-point--driver
+              :action #'ocp-index-ivy-completion-in-region-action)))
+
+(defun ocp-index-ivy-completion-in-region-action (str)
+  (ivy-completion-in-region-action (car str)))
+
+(defun ocp-index-ivy-documentation-select (symbol)
+  (let* ((info (cdr (assoc-string symbol ocp-index-completion-data)))
+         (kind (cdr (assoc :kind info)))
+         (path (propertize (cdr (assoc :path info)) 'face 'font-lock-variable-name-face))
+         (type (propertize (cdr (assoc :type info)) 'face 'font-lock-type-face))
+         (doc (cdr (assoc :doc info))))
+    (ivy--add-face
+     (if doc
+         (format "%s %s: %s\n%s" kind path type (propertize doc 'face 'font-lock-doc-face))
+       (format "%s %s: %s" kind path type))
+     'ivy-minibuffer-match-face-4)))
+
+(defun ocp-index-ivy-documentation-nonselect (symbol)
+  (let* ((info (cdr (assoc-string symbol ocp-index-completion-data)))
+         (path (cdr (assoc :path info)))
+         (kind (cdr (assoc :kind info)))
+         (path (propertize path 'face 'font-lock-variable-name-face)))
+    (format "%s %s" kind path)))
+
+(defun ocp-index-ivy-format (cands)
+  (ivy--format-function-generic
+   #'ocp-index-ivy-documentation-select
+   #'ocp-index-ivy-documentation-nonselect
+   cands
+   "\n"))
+
+(and (fboundp 'ivy-set-actions)
+     (ivy-set-actions
+      'ocp-index-ivy-completion-at-point--driver
+      '(("d" (lambda (x) (ocp-index-jump-to-definition (car x) nil t)) "go to definition")
+        ("i" (lambda (x) (ocp-index-jump-to-definition (car x) t t)) "go to interface"))))
 
 (define-minor-mode ocp-index-mode
   "OCaml auto-completion, documentation and source browsing using ocp-index"
@@ -441,14 +501,17 @@ and greps in any OCaml source files from there. "
   (cond (ocp-index-mode
          (add-function :before-until (local 'eldoc-documentation-function)
                        #'ocp-index-eldoc-function)
-         (eldoc-mode 1)
+         (when ocp-index-use-eldoc
+           (eldoc-mode 1))
          (ocp-index-setup-completion))
         (t
          (remove-function (local 'eldoc-documentation-function)
                           #'ocp-index-eldoc-function)
-         (cl-letf (((symbol-function 'message) #'ignore))
-           (eldoc-mode -1))
-         (when ocp-index-use-auto-complete (auto-complete-mode -1)))))
+         (when ocp-index-use-eldoc
+           (cl-letf (((symbol-function 'message) #'ignore))
+             (eldoc-mode -1)))
+         (when (eq ocp-index-completion-style 'ocp-index-completion-style-ac)
+           (auto-complete-mode -1)))))
 
 (add-hook 'tuareg-mode-hook 'ocp-index-mode t)
 (add-hook 'caml-mode-hook 'ocp-index-mode t)
