@@ -1,0 +1,11 @@
+(jbuild_version 1)
+
+(library
+ ((name        indexLib)
+  (public_name ocp-index.lib)
+  (preprocess  (action (with-stdout-to ${@} (run ocp-pp ${<}))))
+  (libraries   (compiler-libs
+                compiler-libs.common
+                ocp-indent.lexer
+                ocp-indent.utils))
+  (wrapped     false)))

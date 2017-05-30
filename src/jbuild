@@ -1,0 +1,56 @@
+(jbuild_version 1)
+
+(library
+ ((name        indexOptions)
+  (modules     indexOptions)
+  (libraries   (cmdliner ocp-index.lib))
+  (preprocess  (action (with-stdout-to ${@} (run ocp-pp ${<}))))))
+
+(executable
+ ((public_name ocp-index)
+  (package     ocp-index)
+  (name        indexMain)
+  (modules     indexMain)
+  (preprocess  (action (with-stdout-to ${@} (run ocp-pp ${<}))))
+  (libraries   (unix ocp-index.lib cmdliner indexOptions))))
+
+(executable
+ ((public_name ocp-grep)
+  (package     ocp-index)
+  (name        grepMain)
+  (modules     grepMain)
+  (preprocess  (action (with-stdout-to ${@} (run ocp-pp ${<}))))
+  (libraries   (unix ocp-index.lib re re.posix cmdliner))))
+
+(executable
+ ((public_name ocp-browser)
+  (package     ocp-browser)
+  (name        browserMain)
+  (modules     browserMain)
+  (preprocess  (action (with-stdout-to ${@} (run ocp-pp ${<}))))
+  (libraries   (unix lambda-term ocp-index.lib cmdliner indexOptions))))
+
+(rule
+ ((targets (ocp-index.1))
+  (deps    (indexMain.exe))
+  (action  (with-stdout-to ${@} (run ${<} --help=groff)))))
+
+(rule
+ ((targets (ocp-grep.1))
+  (deps    (grepMain.exe))
+  (action  (with-stdout-to ${@} (run ${<} --help=groff)))))
+
+(rule
+ ((targets (ocp-browser.1))
+  (deps    (browserMain.exe))
+  (action  (with-stdout-to ${@} (run ${<} --help=groff)))))
+
+(install
+ ((package ocp-index)
+  (section man)
+  (files   (ocp-index.1 ocp-grep.1))))
+
+(install
+ ((package ocp-browser)
+  (section man)
+  (files   (ocp-browser.1))))

@@ -1,20 +1,28 @@
-## 1.1.5
+### 1.1.6
+* Fixed escaping issue in tuareg doc mode
+* Emacs mode: support eldoc
+* Vim mode: add info printing on 'K'
+* Split ocp-browser into a separate opam package
+* Move build system to jbuilder and reorganise source tree
+
+### 1.1.5
 * Use preprocessing for compatibility with multiple OCaml versions
 * Add compatibility with OCaml 4.03, 4.04
 * Improve support for completion in Emacs using company-mode
 
-## 1.1.4
+### 1.1.4
 * emacs: more interactive ocp-grep call (C-c /) ; better printing of type/doc
 * use `cmt_builddir` information to more reliably point to the sources
 * improved and extended format-strings and formatting options
 * Some basic handling of distributive {Mod.x; y}
 
-## 1.1.3
+### 1.1.3
 * some small elisp improvements
-* add '%e' format string for enclosing type definition (useful to get "other variants", "other fields"). Repeat C-c C-t in emacs mode to use.
+* add '%e' format string for enclosing type definition (useful to get "other
+  variants", "other fields"). Repeat C-c C-t in emacs mode to use.
 * compatible with new 4.02.3 doc attached to the parse-tree (4.02 branch)
 
-## 1.1.2
+### 1.1.2
 * much improved vim script
 * better output formatting
 * give location of full modules (previously, only values within the module had
@@ -25,12 +33,12 @@
 * ocp-browser: add global toggle with Alt-a
 * fixed some cases of recursive lookup within the same file
 
-## 1.1.1
+### 1.1.1
 * fixed comment association for modules and one-per-line values
 * better errors on cmi/cmt from incompatible compiler versions
 * fixed version reporting
 
-## 1.1.0
+### 1.1.0
 * completely rewritten ocp-browser by Gabriel Radanne
 * supports OCaml 4.02 (with git branching)
 * respect file loading order, which avoids some lookup loop bugs
@@ -38,14 +46,14 @@
 * fixed handling of functors
 * get implementation positions through module aliases
 
-## 1.0.3
+### 1.0.3
 * improved emacs mode, now supporting both auto-comlete and company
 * fixed return value of ocp-grep
 * added '--format' to the complete command
 * fixed some case of laziness that could fail with some nested module aliases
 * better man-page
 
-## 1.0.2
+### 1.0.2
 * much more expressive command-line option "print" to access more known info
 * cleaner command-line include options
 * ocp-grep can now search in program strings (with -s "string" or -e "regex")
@@ -57,7 +65,7 @@
 * emacs: completion mode without auto-complete (contribution by Nicolas Ojeda Bar)
 * emacs: show bubble on completed ident for quicker doc access
 
-## 1.0.1
+### 1.0.1
 * add the ocp-grep tool, looking for uses of a given fully-qualified identifier in a source tree
 * better vim mode contributed by Anyakichi
 * fixed default lookup path
