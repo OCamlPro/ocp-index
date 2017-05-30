@@ -3,7 +3,6 @@
 
 (provide 'ocp-index)
 (require 'cl)
-(require 'eldoc)
 
 ;; Customize defs
 
@@ -47,6 +46,10 @@
 
 (defcustom ocp-index-use-auto-complete ocp-index-has-auto-complete
   "*If set, use `auto-complete' for completion."
+  :group 'ocp-index :type 'boolean)
+
+(defcustom ocp-index-use-eldoc nil
+  "*If set, automatically enable `eldoc' with ocp-index."
   :group 'ocp-index :type 'boolean)
 
 ;; auto-complete bug workaround (complete at EOF in text mode)
@@ -438,17 +441,14 @@ and greps in any OCaml source files from there. "
   "OCaml auto-completion, documentation and source browsing using ocp-index"
   :group 'ocp-index
   :keymap ocp-index-keymap
-  (cond (ocp-index-mode
-         (add-function :before-until (local 'eldoc-documentation-function)
-                       #'ocp-index-eldoc-function)
-         (eldoc-mode 1)
-         (ocp-index-setup-completion))
-        (t
-         (remove-function (local 'eldoc-documentation-function)
-                          #'ocp-index-eldoc-function)
-         (cl-letf (((symbol-function 'message) #'ignore))
-           (eldoc-mode -1))
-         (when ocp-index-use-auto-complete (auto-complete-mode -1)))))
+  (if ocp-index-mode
+      (progn
+        (add-function :before-until (local 'eldoc-documentation-function)
+                      #'ocp-index-eldoc-function)
+        (ocp-index-setup-completion))
+    (remove-function (local 'eldoc-documentation-function)
+                     #'ocp-index-eldoc-function)
+    (when ocp-index-use-auto-complete (auto-complete-mode -1))))
 
 (add-hook 'tuareg-mode-hook 'ocp-index-mode t)
 (add-hook 'caml-mode-hook 'ocp-index-mode t)
