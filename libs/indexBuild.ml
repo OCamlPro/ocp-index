@@ -280,9 +280,16 @@ let with_path_loc ?srcpath loc =
   | None -> loc
   | Some path ->
       let path =
-        (* Some magic to get the real source when using ocamlbuild *)
-        if Filename.basename path = "_build" then Filename.dirname path
-        else path
+        (* Some magic to get the real source when using jbuilder or
+           ocamlbuild *)
+        let lpath = string_split Filename.dir_sep.[0] path in
+        let rec aux = function
+          | "_build" :: "default" :: r -> r
+          | "_build" :: r -> r
+          | p :: r -> p :: aux r
+          | [] -> []
+        in
+        String.concat Filename.dir_sep (aux lpath)
       in
       let with_path_pos pos =
         let open Lexing in
