@@ -443,8 +443,9 @@ and greps in any OCaml source files from there. "
   :keymap ocp-index-keymap
   (if ocp-index-mode
       (progn
-        (add-function :before-until (local 'eldoc-documentation-function)
-                      #'ocp-index-eldoc-function)
+        (when ocp-index-use-eldoc
+          (add-function :before-until (local 'eldoc-documentation-function)
+                        #'ocp-index-eldoc-function))
         (ocp-index-setup-completion))
     (remove-function (local 'eldoc-documentation-function)
                      #'ocp-index-eldoc-function)
