@@ -12,7 +12,7 @@ tags: [ "org:ocamlpro" "org:typerex" ]
 dev-repo: "https://github.com/OCamlPro/ocp-index.git"
 build: ["jbuilder" "build" "-p" name "-j" jobs]
 depends: [
-  "ocp-pp"
+  "ocp-pp" {build}
   "jbuilder" {build}
   "ocp-index" {= "1.1.6"}
   "cmdliner"
