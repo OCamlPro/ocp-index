@@ -13,7 +13,7 @@ dev-repo: "https://github.com/OCamlPro/ocp-index.git"
 build: ["jbuilder" "build" "-p" name]
 depends: [
   "ocp-pp"
-  "jbuilder"
+  "jbuilder" {build}
   "ocp-indent" {>= "1.4.2"}
   "re"
   "cmdliner"
