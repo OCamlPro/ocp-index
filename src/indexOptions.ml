@@ -37,9 +37,7 @@ let filter opt info =
   let open LibIndex in
   let kinds = opt.filter in
   match info.kind with
-#if OCAML_VERSION >= "4.02"
   | OpenType
-#endif
   | Type -> kinds.t
   | Value | Method _ -> kinds.v
   | Exception -> kinds.e
