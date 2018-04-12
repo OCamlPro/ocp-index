@@ -1,7 +1,6 @@
+open Lwt.Infix
 open Lwt_react
 open CamomileLibraryDyn.Camomile
-
-let (>>=) = Lwt.(>>=)
 
 (* LibIndex.info contains lazy values, we need a specialized equality. *)
 let rec eq l1 l2 = match l1, l2 with
@@ -173,6 +172,7 @@ let load_bindings () =
 
 
 (** Line editor *)
+
 (* Delicate mix between LTerm_read_line.engine and LTerm_edit.edit *)
 (* Should go into lambda-term. *)
 let newline = UChar.of_char '\n'
@@ -537,7 +537,7 @@ class completion_box options exit =
   end
 
 
-(** Count the size took by a text. *)
+(* Count the size took by a text. *)
 let size (str : LTerm_text.t) =
   let last = Array.length str - 1 in
   let rows = ref 0 in
@@ -556,7 +556,7 @@ let size (str : LTerm_text.t) =
   if fst str.(last) <> newline then incr rows ;
   {LTerm_geom. rows = !rows ; cols = !cols }
 
-(* * The show box shows the result of a research.
+(** The show box shows the result of a research.
 
     [content] is a list zipper positioned at the focused element.
     Left and right lists are elements before and after the focus.
@@ -713,13 +713,13 @@ class frame_info options = object
 end
 
 
-(** The list of non-modules kinds. *)
+(* The list of non-modules kinds. *)
 let value_kind_char_list = List.map UChar.of_char ['t';'e';'c';'k';'v']
 
-(** The list of modules kinds. *)
+(* The list of modules kinds. *)
 let modules_kind_char_list = List.map UChar.of_char ['m';'s']
 
-(** The list of all kinds. *)
+(* The list of all kinds. *)
 let kind_char_list = value_kind_char_list @ modules_kind_char_list
 
 let event_handler (cbox : #completion_box) (sbox:#show_box) options show_help =
