@@ -453,6 +453,23 @@ let index_of_biggest_prefix s l =
       end
   in loop 0 min_int None l
 
+(* Filter out module names of the form "Foo__bar" when Foo exists. *)
+module SSet = Set.Make(String)
+let filter_completion l =
+  let re_double_undescore = Re.(compile @@ str "__") in
+  let aux (s,l) ({LibIndex. name ; kind } as h) =
+    match kind with
+    | Module ->
+        begin match Re.split re_double_undescore name with
+          | base_name :: _ when SSet.mem base_name s -> (s, l)
+          | _ -> (SSet.add name s, h::l)
+          | exception Not_found -> (SSet.add name s, h::l)
+        end
+    | _ ->
+        (s, h::l)
+  in
+  List.rev @@ snd @@ List.fold_left aux (SSet.empty, []) l
+
 (* Sort the list of completions. *)
 let sort_completion l =
   let cmp
@@ -513,6 +530,7 @@ class completion_box options exit =
           ~filter:(IndexOptions.filter options)
           (Zed_rope.to_string content)
         |> sort_completion
+        |> filter_completion
       in
       set_completion_info response ;
       let completions =
