@@ -453,6 +453,18 @@ let index_of_biggest_prefix s l =
       end
   in loop 0 min_int None l
 
+(* Sort the list of completions. *)
+let sort_completion l =
+  let cmp
+      {LibIndex. file = f1; loc_impl = lazy {loc_start = l1}}
+      {LibIndex. file = f2; loc_impl = lazy {loc_start = l2}} =
+    let name_of_file (LibIndex.Cmi s | Cmt s | Cmti s) = s in
+    let i = String.compare (name_of_file f1) (name_of_file f2) in
+    if i <> 0 then i
+    else compare l1 l2
+  in
+  List.sort cmp l
+
 (** Mono line input with completion for a LibIndex.path. *)
 class completion_box options exit =
 
@@ -500,6 +512,7 @@ class completion_box options exit =
           options.IndexOptions.lib_info
           ~filter:(IndexOptions.filter options)
           (Zed_rope.to_string content)
+        |> sort_completion
       in
       set_completion_info response ;
       let completions =
