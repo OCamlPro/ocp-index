@@ -10,10 +10,10 @@ bug-reports: "https://github.com/OCamlPro/ocp-index/issues"
 license: "LGPL-2.1 with OCaml linking exception"
 tags: [ "org:ocamlpro" "org:typerex" ]
 dev-repo: "https://github.com/OCamlPro/ocp-index.git"
-build: ["jbuilder" "build" "-p" name]
+build: ["jbuilder" "build" "-p" name "-j" jobs]
 depends: [
-  "ocp-pp"
-  "jbuilder"
+  "ocp-pp" {build}
+  "jbuilder" {build}
   "ocp-indent" {>= "1.4.2"}
   "re" {>= "1.7.2"}
   "cmdliner"
