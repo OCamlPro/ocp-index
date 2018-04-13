@@ -31,7 +31,7 @@ Options:
 * `-O` consider given module as open
 * `-F` open the given module, not limiting to its exported interface
 * `--context` automatically open/bind modules according to the given source file position.
-* `--root` specify the root of the current project, for finding cmt files and source lookups. It's generally safe to let ocp-indent guess.
+* `--root` specify the root of the current project, for finding cmt files and source lookups. It's generally safe to let ocp-index guess.
 
 * output format: `--color`, `--show`/`--hide` to control the kinds of idents to
   display
