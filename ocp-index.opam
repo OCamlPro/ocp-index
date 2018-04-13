@@ -15,7 +15,7 @@ depends: [
   "ocp-pp"
   "jbuilder"
   "ocp-indent" {>= "1.4.2"}
-  "re"
+  "re" {>= "1.7.2"}
   "cmdliner"
 ]
 available: [ocaml-version >= "4.01.0" ]

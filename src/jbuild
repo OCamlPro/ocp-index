@@ -4,7 +4,9 @@
  ((name        indexOptions)
   (modules     indexOptions)
   (libraries   (cmdliner ocp-index.lib))
-  (preprocess  (action (with-stdout-to ${@} (run ocp-pp ${<}))))))
+  (preprocess  (action (with-stdout-to ${@} (run ocp-pp ${<}))))
+  (flags (:standard -w "-9"))
+))
 
 (executable
  ((public_name ocp-index)
@@ -12,7 +14,9 @@
   (name        indexMain)
   (modules     indexMain)
   (preprocess  (action (with-stdout-to ${@} (run ocp-pp ${<}))))
-  (libraries   (unix ocp-index.lib cmdliner indexOptions))))
+  (libraries   (unix ocp-index.lib cmdliner indexOptions))
+  (flags (:standard -w "-9"))
+))
 
 (executable
  ((public_name ocp-grep)
@@ -20,7 +24,9 @@
   (name        grepMain)
   (modules     grepMain)
   (preprocess  (action (with-stdout-to ${@} (run ocp-pp ${<}))))
-  (libraries   (unix ocp-index.lib re re.posix cmdliner))))
+  (libraries   (unix ocp-index.lib re re.posix cmdliner))
+  (flags (:standard -w "-9"))
+))
 
 (executable
  ((public_name ocp-browser)
@@ -28,7 +34,9 @@
   (name        browserMain)
   (modules     browserMain)
   (preprocess  (action (with-stdout-to ${@} (run ocp-pp ${<}))))
-  (libraries   (unix lambda-term ocp-index.lib cmdliner indexOptions))))
+  (libraries   (unix re lambda-term ocp-index.lib cmdliner indexOptions))
+  (flags (:standard -w "-9"))
+))
 
 (rule
  ((targets (ocp-index.1))

@@ -286,8 +286,8 @@ let grep_file finder color file =
 let grep pattern files color strings regexp =
   if strings || regexp then
     let re =
-      Re_posix.compile
-        (if regexp then Re_posix.re pattern else Re.str pattern)
+      Re.Posix.compile
+        (if regexp then Re.Posix.re pattern else Re.str pattern)
     in
     List.fold_left
       (fun found f -> grep_file (Grep.strings_re re) color f || found)
