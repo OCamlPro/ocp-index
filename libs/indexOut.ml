@@ -64,9 +64,7 @@ module IndexFormat = struct
   let color =
     let f kind fstr fmt =
       let colorcode = match kind with
-#if OCAML_VERSION >= "4.02"
         | OpenType
-#endif
         | Type -> "\027[36m"
         | Value -> "\027[1m"
         | Exception -> "\027[33m"
@@ -95,9 +93,7 @@ module IndexFormat = struct
 
   let kind ?(colorise = no_color) fmt id =
     match id.kind with
-#if OCAML_VERSION >= "4.02"
     | OpenType -> Format.pp_print_string fmt "opentype"
-#endif
     | Type -> Format.pp_print_string fmt "type"
     | Value -> Format.pp_print_string fmt "val"
     | Exception -> Format.pp_print_string fmt "exception"
@@ -172,17 +168,9 @@ module IndexFormat = struct
     | Osig_class (_,_,_,ctyp,_)
     | Osig_class_type (_,_,_,ctyp,_) ->
         !Oprint.out_class_type fmt ctyp
-#if OCAML_VERSION >= "4.02"
     | Osig_typext ({ oext_args = [] }, _) ->
-#else
-    | Osig_exception (_,[]) ->
-#endif
         Format.pp_print_char fmt '-'
-#if OCAML_VERSION >= "4.02"
     | Osig_typext ({ oext_args }, _) ->
-#else
-    | Osig_exception (_,oext_args) ->
-#endif
         list ~paren:true
           !Oprint.out_type
           (fun fmt () ->

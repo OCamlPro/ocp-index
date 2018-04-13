@@ -37,18 +37,14 @@ let orig_file_name = function
 
 let equal_kind k1 k2 = match k1,k2 with
   | Type,Type | Value,Value | Exception,Exception
-#if OCAML_VERSION >= "4.02"
   | OpenType,OpenType
-#endif
   | Field _,Field _ | Variant _,Variant _ | Method _,Method _
   | Module,Module | ModuleType,ModuleType
   | Class,Class | ClassType,ClassType
   | Keyword,Keyword ->
       true
   | Type,_ | Value,_ | Exception,_
-#if OCAML_VERSION >= "4.02"
   | OpenType,_
-#endif
   | Field _,_ | Variant _,_ | Method _,_
   | Module,_ | ModuleType,_
   | Class,_ | ClassType,_
@@ -152,13 +148,8 @@ let ty_of_sig_item =
   function
   | Types.Sig_value(id, decl) -> tree_of_value_description id decl
   | Types.Sig_type(id, decl, rs) -> tree_of_type_declaration id decl rs
-#if OCAML_VERSION >= "4.02"
   | Types.Sig_typext(id, decl, es) -> tree_of_extension_constructor id decl es
   | Types.Sig_module(id, { Types.md_type }, rs) -> tree_of_module id md_type rs
-#else
-  | Types.Sig_exception(id, decl) -> tree_of_exception_declaration id decl
-  | Types.Sig_module(id, mty, rs) -> tree_of_module id mty rs
-#endif
   | Types.Sig_modtype(id, decl) -> tree_of_modtype_declaration id decl
   | Types.Sig_class(id, decl, rs) -> tree_of_class_declaration id decl rs
   | Types.Sig_class_type(id, decl, rs) -> tree_of_cltype_declaration id decl rs
@@ -231,9 +222,7 @@ let qualify_ty (parents:parents) ty =
     | Otyp_poly (str, ty) -> Otyp_poly (str, aux ty)
     | Otyp_module (str, strl, tylist) ->
         Otyp_module (str, strl, List.map aux tylist)
-#if OCAML_VERSION >= "4.02"
     | Otyp_open -> Otyp_open
-#endif
 #if OCAML_VERSION >= "4.03"
     | Otyp_attribute (ty,attr) -> Otyp_attribute (aux ty, attr)
 #endif
@@ -245,17 +234,11 @@ let qualify_ty_in_sig_item (parents:parents) =
   let open Outcometree in
   function
 
-#if OCAML_VERSION >= "4.02"
   | Osig_type (out_type_decl, rc) ->
       Osig_type ({ out_type_decl with
         otype_type  = qual out_type_decl.otype_type;
         otype_cstrs = List.map (fun (ty1,ty2) -> qual ty1, qual ty2)
             out_type_decl.otype_cstrs }, rc)
-#else
-  | Osig_type ((str, list, ty, priv, tylist2), rc) ->
-      Osig_type ((str, list, qual ty, priv,
-        List.map (fun (ty1,ty2) -> qual ty1, qual ty2) tylist2), rc)
-#endif
 
 #if OCAML_VERSION >= "4.03"
   | Osig_value o -> Osig_value {o with oval_type = qual o.oval_type}
@@ -263,13 +246,9 @@ let qualify_ty_in_sig_item (parents:parents) =
   | Osig_value (str, ty, str2) -> Osig_value (str, qual ty, str2)
 #endif
 
-#if OCAML_VERSION >= "4.02"
   | Osig_typext (constr, es) ->
       Osig_typext ({ constr with
                      oext_args = List.map qual constr.oext_args }, es)
-#else
-  | Osig_exception (str, tylist) -> Osig_exception (str, List.map qual tylist)
-#endif
 
   | out_sig -> out_sig (* don't get down in modules, classes and their types *)
 
@@ -303,31 +282,16 @@ let with_path_loc ?srcpath loc =
 let loc_of_sig_item = function
   | Types.Sig_value (_,descr) -> descr.Types.val_loc
   | Types.Sig_type (_,descr,_) -> descr.Types.type_loc
-#if OCAML_VERSION >= "4.02"
   | Types.Sig_typext (_,descr,_) -> descr.Types.ext_loc
   | Types.Sig_module (_,descr,_) -> descr.Types.md_loc
   | Types.Sig_modtype (_,descr) -> descr.Types.mtd_loc
   | Types.Sig_class (_,descr,_) -> descr.Types.cty_loc
   | Types.Sig_class_type (_,descr,_) -> descr.Types.clty_loc
-#else
-  | Types.Sig_exception (_,descr) -> descr.Types.exn_loc
-  (* Sadly the Types tree doesn't contain locations for those. This means we
-     won't associate comments easily either (todo...) *)
-  | Types.Sig_module _
-  | Types.Sig_modtype _
-  | Types.Sig_class _
-  | Types.Sig_class_type _
-    -> Location.none
-#endif
 
 let id_of_sig_item = function
   | Types.Sig_value (id,_)
   | Types.Sig_type (id,_,_)
-#if OCAML_VERSION >= "4.02"
   | Types.Sig_typext (id,_,_)
-#else
-  | Types.Sig_exception (id,_)
-#endif
   | Types.Sig_module (id,_,_)
   | Types.Sig_modtype (id,_)
   | Types.Sig_class (id,_,_)
@@ -337,18 +301,13 @@ let id_of_sig_item = function
 let kind_of_sig_item = function
   | Types.Sig_value _ -> Value
   | Types.Sig_type _ -> Type
-#if OCAML_VERSION >= "4.02"
   | Types.Sig_typext (_, _, Types.Text_exception) -> Exception
   | Types.Sig_typext _ -> OpenType
-#else
-  | Types.Sig_exception _ -> Exception
-#endif
   | Types.Sig_module _ -> Module
   | Types.Sig_modtype _ -> ModuleType
   | Types.Sig_class _ -> Class
   | Types.Sig_class_type _ -> ClassType
 
-#if OCAML_VERSION >= "4.02"
 let attrs_of_sig_item = function
   | Types.Sig_value (_,descr) -> descr.Types.val_attributes
   | Types.Sig_type (_,descr,_) -> descr.Types.type_attributes
@@ -373,17 +332,13 @@ let doc_of_attributes attrs =
        | _ -> debug "Unexpected ocaml.doc docstring format"; None)
   | _ -> None
   with Not_found -> None
-#endif
 
 let trie_of_type_decl ?comments info ty_decl =
   match ty_decl.Types.type_kind with
   | Types.Type_abstract -> [], comments
-#if OCAML_VERSION >= "4.02"
   | Types.Type_open -> [], comments
-#endif
   | Types.Type_record (fields,_repr) ->
       List.map
-#if OCAML_VERSION >= "4.02"
         (fun { Types.ld_id; ld_type; ld_attributes } ->
           let ty = Printtyp.tree_of_typexp false ld_type in
           let ty =
@@ -401,15 +356,6 @@ let trie_of_type_decl ?comments info ty_decl =
                 otype_cstrs   = []; }), Outcometree.Orec_not)
           in
           let doc = doc_of_attributes ld_attributes in
-#else
-        (fun (ld_id, _mutable, ty_expr) ->
-          let ty = Printtyp.tree_of_typexp false ty_expr in
-           let ty =
-            Outcometree.Osig_type
-              (("", [], ty, Asttypes.Public, []), Outcometree.Orec_not)
-           in
-           let doc = None in
-#endif
           string_to_key ld_id.Ident.name,
           Trie.create ~value:{
             path = info.path;
@@ -426,11 +372,7 @@ let trie_of_type_decl ?comments info ty_decl =
       comments
   | Types.Type_variant variants ->
       List.map
-#if OCAML_VERSION >= "4.02"
         (fun { Types.cd_id; cd_args; cd_attributes } ->
-#else
-        (fun (cd_id, cd_args, _constraints) ->
-#endif
           let ty =
             let params = match cd_args with
 #if OCAML_VERSION >= "4.03"
@@ -458,7 +400,6 @@ let trie_of_type_decl ?comments info ty_decl =
                          id = param.Types.id }
 #endif
             in
-#if OCAML_VERSION >= "4.02"
             Outcometree.Osig_type (Outcometree.({
                 otype_name    = "";
                 otype_params  = [];
@@ -473,12 +414,6 @@ let trie_of_type_decl ?comments info ty_decl =
                 otype_cstrs   = []; }), Outcometree.Orec_not)
           in
           let doc = doc_of_attributes cd_attributes in
-#else
-            Outcometree.Osig_type
-              (("", [], params, Asttypes.Public, []), Outcometree.Orec_not)
-           in
-           let doc = None in
-#endif
           string_to_key cd_id.Ident.name,
           Trie.create ~value:{
             path = info.path;
@@ -535,16 +470,10 @@ let rec trie_of_sig_item
     | Some n -> with_path_loc ?srcpath (loc_of_sig_item n)
   in
   let doc, comments =
-#if OCAML_VERSION >= "4.02"
     match doc_of_attributes (attrs_of_sig_item sig_item), comments with
     | Some s, _ -> lazy (Some s), comments
     | None, None -> lazy None, None
     | None, Some comments ->
-#else
-    match comments with
-    | None -> lazy None, None
-    | Some comments ->
-#endif
         let assoc = lazy (
           associate_comment (Lazy.force comments) loc nextloc
         ) in
@@ -577,7 +506,6 @@ let rec trie_of_sig_item
   in
   (* ignore functor arguments *)
   let rec sig_item_contents = function
-#if OCAML_VERSION >= "4.02"
     | Types.Sig_module
         (id, ({Types.md_type = Types.Mty_functor (_,_,s)} as funct), is_rec) ->
         let funct = {funct with Types.md_type = s} in
@@ -586,26 +514,13 @@ let rec trie_of_sig_item
         (id, ({Types.mtd_type = Some (Types.Mty_functor (_,_,s))} as funct)) ->
         let funct = {funct with Types.mtd_type = Some s} in
         sig_item_contents (Types.Sig_modtype (id, funct))
-#else
-    | Types.Sig_module (id, Types.Mty_functor (_,_,s), is_rec) ->
-        sig_item_contents (Types.Sig_module (id, s, is_rec))
-     | Types.Sig_modtype
-        (id, Types.Modtype_manifest (Types.Mty_functor (_,_,s))) ->
-        sig_item_contents
-          (Types.Sig_modtype (id, Types.Modtype_manifest s))
-#endif
     | si -> si
   in
   (* read module / class contents *)
   let children, comments =
     match sig_item_contents sig_item with
-#if OCAML_VERSION >= "4.02"
     | Types.Sig_module (id,{ Types.md_type = Types.Mty_signature sign },_)
     | Types.Sig_modtype (id,{ Types.mtd_type = Some (Types.Mty_signature sign) })
-#else
-    | Types.Sig_module (id,Types.Mty_signature sign,_)
-    | Types.Sig_modtype (id,Types.Modtype_manifest (Types.Mty_signature sign))
-#endif
       ->
         let path = path @ [id.Ident.name] in
         let children_comments = lazy (
@@ -625,7 +540,6 @@ let rec trie_of_sig_item
           | Some _, lazy (_, comments) -> comments
         in
         children, comments
-#if OCAML_VERSION >= "4.02"
     | Types.Sig_module (_,{ Types.md_type =
                               Types.Mty_ident sig_ident
   #if OCAML_VERSION >= "4.04"
@@ -642,11 +556,6 @@ let rec trie_of_sig_item
                                     | Types.Mty_alias sig_ident
   #endif
                                     ) }) ->
-#else
-    | Types.Sig_module (_,Types.Mty_ident sig_ident,_)
-    | Types.Sig_modtype (_,Types.Modtype_manifest
-                           (Types.Mty_ident sig_ident)) ->
-#endif
         let sig_path = path_of_ocaml sig_ident in
         let children = lazy (
           (* Only keep the children, don't override the module reference *)
@@ -658,29 +567,20 @@ let rec trie_of_sig_item
     | Types.Sig_class_type (id,{Types.clty_type=cty},_)
       ->
         let rec get_clsig = function
-#if OCAML_VERSION >= "4.02"
           | Types.Cty_constr (_,_,cty) | Types.Cty_arrow (_,_,cty) ->
-#else
-          | Types.Cty_constr (_,_,cty) | Types.Cty_fun (_,_,cty) ->
-#endif
               get_clsig cty
           | Types.Cty_signature clsig -> clsig
         in
         let clsig = get_clsig cty in
         let path = path@[id.Ident.name] in
         let (fields, _) =
-#if OCAML_VERSION >= "4.02"
           Ctype.flatten_fields (Ctype.object_fields clsig.Types.csig_self)
-#else
-          Ctype.flatten_fields (Ctype.object_fields clsig.Types.cty_self)
-#endif
         in
         lazy (List.fold_left (fun t (lbl,_,ty_expr) ->
             if lbl = "*dummy method*" then t else
               let _ = Printtyp.reset_and_mark_loops ty_expr in
               let ty = Printtyp.tree_of_typexp false ty_expr in
               let ty =
-#if OCAML_VERSION >= "4.02"
                 Outcometree.Osig_type (Outcometree.({
                     otype_name    = "";
                     otype_params  = [];
@@ -693,10 +593,6 @@ let rec trie_of_sig_item
     #endif
   #endif
                     otype_cstrs   = []; }), Outcometree.Orec_not)
-#else
-                Outcometree.Osig_type
-                  (("", [], ty, Asttypes.Public, []), Outcometree.Orec_not)
-#endif
               in
               Trie.add t (string_to_key lbl)
                 { path = path;
@@ -725,7 +621,6 @@ let rec trie_of_sig_item
     :: siblings,
     comments
 
-#if OCAML_VERSION >= "4.02"
 (* These four functions go through the typedtree to extract includes *)
 let rec lookup_trie_of_module_expr parents t path = function
   | Typedtree.Tmod_ident (incpath,{ Location.txt = _lid}) ->
@@ -865,7 +760,6 @@ let cmt_includes parents t path cmt_contents =
   | Cmt_format.Interface sign ->
       get_includes_sig parents t path sign
   | _ -> Trie.empty
-#endif
 
 (* Can work in a subtree (t doesn't have to be the root) *)
 let qualify_type_idents parents t =
@@ -937,10 +831,8 @@ let load_loc_impl parents filename cmt_contents =
           sign
       in
       debug " %.3fs\n%!" (chrono());
-#if OCAML_VERSION >= "4.02"
       let includes = cmt_includes parents t [] cmt_contents in
       let t = add_locs ~locs:includes t in
-#endif
       Some t
   | _ ->
       debug " %.3fs\n%!" (chrono());
@@ -1067,7 +959,6 @@ let load_cmt ?(qualify=false) root t modul orig_file =
          debug " %.3fs\n%!" (chrono());
          t
        ) in
-#if OCAML_VERSION >= "4.02"
        let children = lazy (
          let includes =
            cmt_includes [[modul], children; [], root]
@@ -1075,7 +966,6 @@ let load_cmt ?(qualify=false) root t modul orig_file =
          in
          add_locs ~locs:includes (Lazy.force children)
        ) in
-#endif
        let loc_sig, loc_impl =
          let of_info i = match i.Cmt_format.cmt_sourcefile with
            | Some f -> Location.in_file f

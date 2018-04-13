@@ -36,9 +36,7 @@ type info = { path: string list;
 (** The kind of elements that can be stored in the trie *)
 and kind =
   | Type | Value | Exception
-#if OCAML_VERSION >= "4.02"
   | OpenType
-#endif
   | Field of info | Variant of info
   | Method of info
   | Module | ModuleType

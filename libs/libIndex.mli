@@ -45,9 +45,7 @@ type info = IndexTypes.info = private {
 (** The kind of elements that can be stored in the trie *)
 and kind = IndexTypes.kind = private
   | Type | Value | Exception
-#if OCAML_VERSION >= "4.02"
   | OpenType
-#endif
   | Field of info | Variant of info
   | Method of info
   | Module | ModuleType

@@ -57,27 +57,15 @@ let string_to_key s =
 
 let key_to_string l =
   let rec aux n = function
-#if OCAML_VERSION >= "4.02"
     | [] -> Bytes.create n
-#else
-    | [] -> String.create n
-#endif
     | c::r ->
         let s = aux (n+1) r in
-#if OCAML_VERSION >= "4.02"
   Bytes.set s n
-#else
-  s.[n] <-
-#endif
     (if c = dot then '.' else c);
         s
   in
   let s = aux 0 l in
-#if OCAML_VERSION >= "4.02"
     Bytes.to_string s
-#else
-    s
-#endif
 
 
 let modpath_to_key ?(enddot=true) path =
@@ -99,9 +87,7 @@ let parent_type id =
   match id.IndexTypes.kind with
   | Field parent | Variant parent | Method parent -> Some parent
   | Type | Value | Exception | Module | ModuleType | Class
-#if OCAML_VERSION >= "4.02"
   | OpenType
-#endif
   | ClassType | Keyword -> None
 
 
