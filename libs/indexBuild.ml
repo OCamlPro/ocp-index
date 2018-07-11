@@ -356,12 +356,13 @@ let trie_of_type_decl ?comments info ty_decl =
                 otype_cstrs   = []; }), Outcometree.Orec_not)
           in
           let doc = doc_of_attributes ld_attributes in
-          string_to_key ld_id.Ident.name,
+          let id_name = Ident.name ld_id in
+          string_to_key id_name,
           Trie.create ~value:{
             path = info.path;
             orig_path = info.path;
             kind = Field info;
-            name = ld_id.Ident.name;
+            name = id_name;
             ty = Some ty;
             loc_sig = info.loc_sig;
             loc_impl = info.loc_impl;
@@ -381,6 +382,9 @@ let trie_of_type_decl ?comments info ty_decl =
                      Printtyp.tree_of_typexp false
                        { Types. desc = Types.Ttuple l;
                          level = param.Types.level;
+#if OCAML_VERSION >= "4.07"                         
+                         scope = None;
+#endif                         
                          id = param.Types.id }
               | Cstr_record params ->
                   Outcometree.Otyp_record (
@@ -414,12 +418,13 @@ let trie_of_type_decl ?comments info ty_decl =
                 otype_cstrs   = []; }), Outcometree.Orec_not)
           in
           let doc = doc_of_attributes cd_attributes in
-          string_to_key cd_id.Ident.name,
+          let id_name = Ident.name cd_id in
+          string_to_key id_name,
           Trie.create ~value:{
             path = info.path;
             orig_path = info.path;
             kind = Variant info;
-            name = cd_id.Ident.name;
+            name = id_name;
             ty = Some ty;
             loc_sig = info.loc_sig;
             loc_impl = info.loc_impl;
@@ -455,7 +460,7 @@ let lookup_parents (parents:parents) path sig_path =
   lookup parents
 
 let rec path_of_ocaml = function
-  | Path.Pident id -> [id.Ident.name]
+  | Path.Pident id -> [Ident.name id]
   | Path.Pdot (path, s, _) -> path_of_ocaml path @ [s]
   | Path.Papply (p1, _p2) -> path_of_ocaml p1
 
@@ -487,7 +492,7 @@ let rec trie_of_sig_item
       | lazy None -> loc
       | lazy (Some t) ->
           try
-            let path = List.tl path @ [id.Ident.name] in
+            let path = List.tl path @ [Ident.name id] in
             let key = modpath_to_key ~enddot:false path in
             let c =
               List.find (has_kind kind) (Trie.find_all t key)
@@ -495,7 +500,7 @@ let rec trie_of_sig_item
             Lazy.force c.loc_impl
           with Not_found -> Location.none
     ) in
-  let info = {path; orig_path = path; kind; name = id.Ident.name; ty;
+  let info = {path; orig_path = path; kind; name = Ident.name id; ty;
               loc_sig; loc_impl; doc; file = orig_file}
   in
   let siblings, comments = (* read fields / variants ... *)
@@ -522,7 +527,7 @@ let rec trie_of_sig_item
     | Types.Sig_module (id,{ Types.md_type = Types.Mty_signature sign },_)
     | Types.Sig_modtype (id,{ Types.mtd_type = Some (Types.Mty_signature sign) })
       ->
-        let path = path @ [id.Ident.name] in
+        let path = path @ [Ident.name id] in
         let children_comments = lazy (
           foldl_next
             (fun (t,comments) sign next ->
@@ -560,7 +565,7 @@ let rec trie_of_sig_item
         let children = lazy (
           (* Only keep the children, don't override the module reference *)
           Trie.graft_lazy Trie.empty []
-            (lazy (lookup_parents parents (path@[id.Ident.name]) sig_path))
+            (lazy (lookup_parents parents (path@[Ident.name id]) sig_path))
         ) in
         children, comments
     | Types.Sig_class (id,{Types.cty_type=cty},_)
@@ -572,7 +577,7 @@ let rec trie_of_sig_item
           | Types.Cty_signature clsig -> clsig
         in
         let clsig = get_clsig cty in
-        let path = path@[id.Ident.name] in
+        let path = path@[Ident.name id] in
         let (fields, _) =
           Ctype.flatten_fields (Ctype.object_fields clsig.Types.csig_self)
         in
@@ -610,10 +615,10 @@ let rec trie_of_sig_item
     | _ ->
         lazy Trie.empty, comments
   in
-  let name = id.Ident.name in
+  let name = Ident.name id in
   if String.length name > 0 && name.[0] = '#' then [], comments
   else
-    (string_to_key id.Ident.name,
+    (string_to_key name,
      Trie.create
        ~value:info
        ~children:(lazy [dot, Lazy.force children])
@@ -635,10 +640,11 @@ let rec lookup_trie_of_module_expr parents t path = function
   | Typedtree.Tmod_apply ({ mod_desc = Typedtree.Tmod_functor(id,_,_,f) },
                           { mod_desc = Typedtree.Tmod_ident (arg,_)
                                      | Typedtree.Tmod_constraint ({mod_desc = Typedtree.Tmod_ident (arg,_)},_,_,_)  },_) ->
+      let id_name = Ident.name id in
       let t = lookup_trie_of_module_expr parents t path f.Typedtree.mod_desc in
-      debug "Grafting %s at %s\n" id.Ident.name (modpath_to_string (path_of_ocaml arg));
+      debug "Grafting %s at %s\n" id_name (modpath_to_string (path_of_ocaml arg));
       let functor_arg = lazy (lookup_parents parents (path_of_ocaml arg) path) in
-      Trie.graft_lazy t (modpath_to_key [id.Ident.name]) functor_arg
+      Trie.graft_lazy t (modpath_to_key [id_name]) functor_arg
   | _ -> t
 let rec extract_includes_from_submodule_sig parents t path name = function
   | Typedtree.Tmty_signature sign ->
@@ -665,13 +671,14 @@ and get_includes_impl parents t path ttree_struct =
     | Typedtree.Tmod_apply ({ mod_desc = Typedtree.Tmod_functor(id,_,_,f) },
                             { mod_desc = Typedtree.Tmod_ident (arg,_)
                                        | Typedtree.Tmod_constraint ({mod_desc = Typedtree.Tmod_ident (arg,_)},_,_,_)  },_) ->
-        debug "Grafting %s at %s\n" id.Ident.name (modpath_to_string (path_of_ocaml arg));
+        let id_name = Ident.name id in
+        debug "Grafting %s at %s\n" id_name (modpath_to_string (path_of_ocaml arg));
         let functor_arg = lazy (
           lookup_parents
             ((path, lazy t)::parents) (path_of_ocaml arg) (path@[name])
         ) in
         extract_submodule_impl
-          (Trie.graft_lazy t (modpath_to_key [id.Ident.name]) functor_arg)
+          (Trie.graft_lazy t (modpath_to_key [id_name]) functor_arg)
           name f.Typedtree.mod_desc
     | Typedtree.Tmod_functor (_,_,_,e)
     | Typedtree.Tmod_constraint (e,_,_,_) ->
@@ -689,15 +696,15 @@ and get_includes_impl parents t path ttree_struct =
           overriding_merge t sub
       | Typedtree.Tstr_module
           { Typedtree.mb_id = id; mb_expr = { Typedtree.mod_desc } } ->
-          extract_submodule_impl t id.Ident.name mod_desc
+          extract_submodule_impl t (Ident.name id) mod_desc
       | Typedtree.Tstr_recmodule l ->
           List.fold_left
             (fun t { Typedtree.mb_id; mb_expr = { Typedtree.mod_desc } } ->
-               extract_submodule_impl t mb_id.Ident.name mod_desc)
+               extract_submodule_impl t (Ident.name mb_id) mod_desc)
             t l
       | Typedtree.Tstr_modtype
           { Typedtree.mtd_id = id; mtd_type = Some { Typedtree.mty_desc = e } } ->
-          extract_includes_from_submodule_sig parents t path id.Ident.name e
+          extract_includes_from_submodule_sig parents t path (Ident.name id) e
       | _ -> t)
     t ttree_struct.Typedtree.str_items
 and get_includes_sig parents t path ttree_sig =
@@ -725,12 +732,12 @@ and get_includes_sig parents t path ttree_sig =
       | Typedtree.Tsig_modtype
           { Typedtree.mtd_id = id; mtd_type = Some { Typedtree.mty_desc } } ->
           extract_includes_from_submodule_sig parents t path
-            id.Ident.name mty_desc
+            (Ident.name id) mty_desc
       | Typedtree.Tsig_recmodule l ->
           List.fold_left
             (fun t { Typedtree.md_id; md_type = { Typedtree.mty_desc } } ->
                extract_includes_from_submodule_sig parents t path
-                 md_id.Ident.name mty_desc)
+                 (Ident.name md_id) mty_desc)
             t l
       | _ -> t)
     t ttree_sig.Typedtree.sig_items
