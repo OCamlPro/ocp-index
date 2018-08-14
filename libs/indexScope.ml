@@ -201,10 +201,14 @@ let parse t stream0 =
       let aliases = functor_pre_args @ functor_post_args in
       let t = if top_def <> [] then push t (Alias (ident, top_def)) else t in
       (Def, Open [ident] :: aliases) :: t, stream
-  | UIDENT _ -> (* Module.( ... ) *)
+  | UIDENT _ -> (* Module.( ... ) or Module.{ ... } *)
       let path, stream = parse_path stream0 in
       (match Stream.next_two stream with
        | DOT, LPAREN, stream -> (Paren, [Open path]) :: t, stream
+       | DOT, LBRACE, stream ->
+           (match parse_path stream with
+            | [], stream -> (Brace, [Open path]) :: t, stream
+            | path2, stream -> (Brace, [Open path; Open path2]) :: t, stream)
        | _ -> t, stream)
   | _ -> t, stream
 
