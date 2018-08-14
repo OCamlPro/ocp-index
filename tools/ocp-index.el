@@ -103,9 +103,10 @@
 
 (defun ocp-index-args (cmd &rest args)
   (let*
-      ((current-module (upcase-initials
-                        (file-name-nondirectory
-                         (file-name-sans-extension (buffer-file-name)))))
+      ((file (file-name-nondirectory
+                        (file-name-sans-extension (buffer-file-name))))
+       (current-module (concat (upcase (substring file 0 1))
+                               (substring file 1)))
        (cmd (list* cmd ocp-index-options
                    "--full-open" current-module
                    "--context" ":"
