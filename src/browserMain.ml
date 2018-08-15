@@ -881,6 +881,7 @@ let main options =
   let comp = new frame_info options in
   let input = new completion_box options exit in
   comp#set input ;
+  comp#set_label "Press alt+h for help" ;
   root#add ~expand:false comp ;
 
   let show_box = new show_box (colorise options) in
