@@ -692,7 +692,10 @@ class show_box color = object (self)
 
         draw_left start formatted_left ;
         LTerm_draw.draw_styled ctx start 3 text_focus ;
-        let doc_hint_char = if extra_info then '-' else '+' in
+        (* XXX: This will force all .LibIndex.doc that the cursor passes ! *)
+        let doc_hint_char = match Lazy.force focus.LibIndex.doc with
+          | Some _ -> if extra_info then '-' else '+'
+          | None -> ' ' in
         LTerm_draw.draw_char ctx start 0 @@ CamomileLibrary.UChar.of_char doc_hint_char ;
         LTerm_draw.draw_char ctx start 1 @@ CamomileLibrary.UChar.of_char '>' ;
         draw_right (start + size_focus) formatted_right
