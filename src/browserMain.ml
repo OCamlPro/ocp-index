@@ -620,7 +620,7 @@ class show_box color = object (self)
   val mutable printed_entries = (0,0)
   method printed_entries = printed_entries
 
-  val mutable extra_info = false
+  val mutable extra_info = true
   method toogle_extra_info =
     extra_info <- not extra_info
 
