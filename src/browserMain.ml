@@ -628,7 +628,7 @@ class show_box color = object (self)
     let {LTerm_geom. rows ; cols } =
       LTerm_geom.size_of_rect self#allocation
     in
-    let cols = cols - 2 in
+    let cols = cols - 3 in
     match content with
     | _, [] -> ()
     | left, focus :: right -> begin
@@ -672,13 +672,13 @@ class show_box color = object (self)
         let rec draw_left pos = function
           | [] -> ()
           | (text, size) :: t ->
-              LTerm_draw.draw_styled ctx (pos-size) 2 text ;
+              LTerm_draw.draw_styled ctx (pos-size) 3 text ;
               draw_left (pos-size) t
         in
         let rec draw_right pos = function
           | [] -> ()
           | (text, size) :: t ->
-              LTerm_draw.draw_styled ctx pos 2 text ;
+              LTerm_draw.draw_styled ctx pos 3 text ;
               draw_right (pos + size) t
         in
 
@@ -691,8 +691,13 @@ class show_box color = object (self)
         in
 
         draw_left start formatted_left ;
-        LTerm_draw.draw_styled ctx start 2 text_focus ;
-        LTerm_draw.draw_char ctx start 0 @@ CamomileLibrary.UChar.of_char '>' ;
+        LTerm_draw.draw_styled ctx start 3 text_focus ;
+        (* XXX: This will force all .LibIndex.doc that the cursor passes ! *)
+        let doc_hint_char = match Lazy.force focus.LibIndex.doc with
+          | Some _ -> if extra_info then '-' else '+'
+          | None -> ' ' in
+        LTerm_draw.draw_char ctx start 0 @@ CamomileLibrary.UChar.of_char doc_hint_char ;
+        LTerm_draw.draw_char ctx start 1 @@ CamomileLibrary.UChar.of_char '>' ;
         draw_right (start + size_focus) formatted_right
       end
 
