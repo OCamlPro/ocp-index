@@ -1093,7 +1093,11 @@ let load paths =
   let t = load_dirs t paths in
   debug "Modules directory loaded in %.3fs (%d files in %d directories)...\n"
     (chrono()) !debug_file_counter !debug_dir_counter;
+#if OCAML_VERSION >= "4.07"
+  open_module ~cleanup_path:true t ["Stdlib"]
+#else
   open_module ~cleanup_path:true t ["Pervasives"]
+#endif
 
 let fully_open_module ?(cleanup_path=false) t path =
   let base_path = match path with
