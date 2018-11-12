@@ -1,3 +1,10 @@
+### 1.1.7
+* Support for OCaml 4.07
+* Drop support for OCaml < 4.02
+* Emacs mode: fix a few issues (capitalisation of filenames)
+* ocp-browser: sort output, add hints and show doc by default, skip `Foo__bar`
+  when `Foo` exists
+
 ### 1.1.6
 * Fixed escaping issue in tuareg doc mode
 * Emacs mode: support eldoc
