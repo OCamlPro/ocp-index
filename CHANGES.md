@@ -1,3 +1,6 @@
+### 1.1.8
+* Fix lazy loading regression in 1.1.7
+
 ### 1.1.7
 * Support for OCaml 4.07
 * Drop support for OCaml < 4.02
