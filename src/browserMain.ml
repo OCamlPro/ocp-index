@@ -473,12 +473,13 @@ let filter_completion l =
 (* Sort the list of completions. *)
 let sort_completion l =
   let cmp
-      {LibIndex. file = f1; loc_impl = lazy {loc_start = l1}}
-      {LibIndex. file = f2; loc_impl = lazy {loc_start = l2}} =
+      {LibIndex. file = f1; loc_impl = l1}
+      {LibIndex. file = f2; loc_impl = l2} =
     let name_of_file (LibIndex.Cmi s | Cmt s | Cmti s) = s in
     let i = String.compare (name_of_file f1) (name_of_file f2) in
     if i <> 0 then i
-    else compare l1 l2
+    else
+      compare (Lazy.force l1).loc_start (Lazy.force l2).loc_start
   in
   List.sort cmp l
 
