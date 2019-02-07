@@ -3,7 +3,7 @@
 (library
  ((name        indexLib)
   (public_name ocp-index.lib)
-  (preprocess  (action (with-stdout-to ${@} (run ocp-pp ${<}))))
+  (preprocess  (action (run ocp-pp ${<})))
   (libraries   (compiler-libs
                 compiler-libs.common
                 ocp-indent.lexer
