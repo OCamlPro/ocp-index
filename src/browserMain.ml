@@ -1,6 +1,6 @@
 open Lwt.Infix
 open Lwt_react
-open CamomileLibraryDyn.Camomile
+open CamomileLibraryDefault.Camomile
 
 (* LibIndex.info contains lazy values, we need a specialized equality. *)
 let rec eq l1 l2 = match l1, l2 with
