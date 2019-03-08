@@ -18,6 +18,12 @@ open Outcometree
 (* List and doc taken from
    http://caml.inria.fr/pub/docs/manual-ocaml/manual034.html (4.00.1) *)
 
+#if OCAML_VERSION >= "4.08"
+  let n s = {printed_name = s}
+#else
+  let n s = s
+#endif
+
 let mktype name ?(params=[]) ?(def=Otyp_abstract) doc = {
   path = [];
   orig_path = [];
@@ -109,7 +115,7 @@ let ilist =
   mktype "list"
     ~params:["'a"]
     ~def:(Otyp_sum ["[]", [], None;
-                    "::", [var "a"; constr ~params:["a"] "list"], None])
+                    "::", [var "a"; constr ~params:["a"] (n "list")], None])
     "The type of lists whose elements have type 'a."
 
 let ioption =
@@ -152,25 +158,25 @@ let types = [
 let variants = [
   mkvariant "true" ibool [];
   mkvariant "false" ibool [];
-  mkvariant "::" ilist [var "a"; constr ~params:["a"] "list"];
+  mkvariant "::" ilist [var "a"; constr ~params:["a"] (n "list")];
   mkvariant "[]" ilist [];
   mkvariant "Some" ioption [var "a"];
   mkvariant "None" ioption [];
 ]
 
 let exceptions = [
-  mkexn "Match_failure" [constr "string"; constr "int"; constr "int"]
+  mkexn "Match_failure" [constr (n "string"); constr (n "int"); constr (n "int")]
     "Exception raised when none of the cases of a pattern-matching apply. \
      The arguments are the location of the match keyword in the source code \
      (file name, line number, column number).";
-  mkexn "Assert_failure" [constr "string"; constr "int"; constr "int"]
+  mkexn "Assert_failure" [constr (n "string"); constr (n "int"); constr (n "int")]
     "Exception raised when an assertion fails. The arguments are the \
      location of the assert keyword in the source code (file name, line \
      number, column number).";
-  mkexn "Invalid_argument" [constr "string"]
+  mkexn "Invalid_argument" [constr (n "string")]
     "Exception raised by library functions to signal that the given \
      arguments do not make sense.";
-  mkexn "Failure" [constr "string"]
+  mkexn "Failure" [constr (n "string")]
     "Exception raised by library functions to signal that they are undefined \
      on the given arguments.";
   mkexn "Not_found" []
@@ -183,7 +189,7 @@ let exceptions = [
     "Exception raised by the bytecode interpreter when the evaluation stack \
      reaches its maximal size. This often indicates infinite or excessively \
      deep recursion in the user’s program.";
-  mkexn "Sys_error" [constr "string"]
+  mkexn "Sys_error" [constr (n "string")]
     "Exception raised by the input/output functions to report an operating \
      system error.";
   mkexn "End_of_file" []
@@ -196,7 +202,7 @@ let exceptions = [
     "A special case of Sys_error raised when no I/O is possible on a \
      non-blocking I/O channel.";
   mkexn "Undefined_recursive_module"
-    [constr "string"; constr "int"; constr "int"]
+    [constr (n "string"); constr (n "int"); constr (n "int")]
     "Exception raised when an ill-founded recursive module definition is \
      evaluated. The arguments are the location of the definition in the \
      source code (file name, line number, column number).";
