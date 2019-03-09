@@ -1,3 +1,7 @@
+### 1.1.9
+* Support for OCaml 4.08
+* Fix issue with latest dune that led to silently compiling dummy binaries
+
 ### 1.1.8
 * Fix lazy loading regression in 1.1.7
 
