@@ -593,7 +593,7 @@ let rec trie_of_sig_item
          is_rec)
       ->
         let funct = {funct with Types.md_type = s} in
-        sig_item_contents (Types.Sig_module (id, presence, funct, is_rec, visibility))
+        sig_item_contents (Types.Sig_module (id, funct, is_rec))
 #endif
     | Types.Sig_modtype
 #if OCAML_VERSION >= "4.08"
