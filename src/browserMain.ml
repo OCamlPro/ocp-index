@@ -177,6 +177,13 @@ let load_bindings () =
 (* Should go into lambda-term. *)
 let newline = UChar.of_char '\n'
 
+let zchar_of_uchar ch =
+    Zed_char.of_uChars  [ch;]
+    |> function
+       | (Some t, _) -> t
+       | _ ->  raise @@ Failure (
+           "Fail to get a Zed_char.t from "
+           ^ (CamomileLibrary.UChar.int_of ch |> string_of_int))
 
 class virtual line_editor = object(self)
   inherit LTerm_widget.t "edit"
@@ -231,7 +238,8 @@ class virtual line_editor = object(self)
                   | { control = false; meta = false;
                       shift = false; code = Char ch } ->
                       Zed_macro.add self#macro
-                        (Edit (LTerm_edit.Zed (Zed_edit.Insert ch)));
+                        (Edit (LTerm_edit.Zed (Zed_edit.Insert
+                          (zchar_of_uchar ch))));
                       let b = self#is_valid_char ch in
                       if b then self#insert ch ;
                       b
@@ -285,7 +293,7 @@ class virtual line_editor = object(self)
     (*** Drawing ***)
 
     (* Initialises points with the text style and spaces. *)
-    fill ctx (UChar.of_char ' ');
+    fill ctx (zchar_of_uchar (UChar.of_char ' '));
     fill_style ctx style;
 
     (*** Text drawing ***)
@@ -295,7 +303,7 @@ class virtual line_editor = object(self)
         draw_eoi (row + 1)
       else
         let char, zip = Zed_rope.Zip.next zip in
-        if char = newline then begin
+        if char = (zchar_of_uchar newline) then begin
           let row = row + 1 in
           if row < size.rows then begin_line row zip
         end else begin
@@ -313,7 +321,7 @@ class virtual line_editor = object(self)
         draw_eoi (row + 1)
       else
         let char, zip = Zed_rope.Zip.next zip in
-        if char = newline then
+        if char = (zchar_of_uchar newline) then
           begin_line row zip
         else
           skip_eol row zip
@@ -325,7 +333,7 @@ class virtual line_editor = object(self)
         draw_eoi (row + 1)
       else
         let char, zip = Zed_rope.Zip.next zip in
-        if char = newline then begin
+        if char = (zchar_of_uchar newline) then begin
           let row = row + 1 in
           if row < size.rows then begin_line row zip
         end else
@@ -430,7 +438,9 @@ let strip_path_level text context =
     let underscore = UChar.of_char '_' in
     (* If the last char is a dot, we want to skip it, otherwise, we don't care.*)
     let zip = Z.make_b text 1 in
-    let i = Z.(offset (find_b ( fun x -> x = dot || x = underscore) zip)) in
+    let i = Z.(offset (find_b (fun x ->
+                                x = (zchar_of_uchar dot)
+                                || (x = zchar_of_uchar underscore)) zip)) in
     let len = Zed_rope.length text in
     let previous_pos = Zed_edit.position context in
 
@@ -521,7 +531,15 @@ class completion_box options exit =
         S.fold (fun _ (x,_) -> let x' = !r in r := x ; x') "" @@
           S.changes @@ S.l2
           (fun l i -> try List.nth l i with _ -> ("",""))
-          self#completion_words self#completion_index
+          (S.map
+            (fun l ->
+              List.map
+                (fun (a, b) -> (
+                  Zed_string.to_utf8 a,
+                  Zed_string.to_utf8 b))
+                l)
+            self#completion_words)
+          self#completion_index
 
     method! completion =
       let content = self#eval in
@@ -529,7 +547,7 @@ class completion_box options exit =
         LibIndex.complete
           options.IndexOptions.lib_info
           ~filter:(IndexOptions.filter options)
-          (Zed_rope.to_string content)
+          (Zed_rope.to_string content |> Zed_string.to_utf8)
         |> sort_completion
         |> filter_completion
       in
@@ -547,7 +565,7 @@ class completion_box options exit =
 
       let prev_comp = S.value previous_completion in
       let index = index_of_biggest_prefix prev_comp completions in
-      self#set_completion ?index 0 completions
+      self#set_completion ?index 0 (completions |> List.map (fun (a, b) -> (Zed_string.of_utf8 a, Zed_string.of_utf8 b)))
 
     method completion_info = completion_info
 
@@ -576,7 +594,7 @@ let size (str : LTerm_text.t) =
   let cols = ref 0 in
   let current_col = ref 0 in
   for i = 0 to last do
-    if fst str.(i) = newline then begin
+    if fst str.(i) = (zchar_of_uchar newline) then begin
       incr rows ;
       cols := max !cols !current_col ;
       current_col := 0 ;
@@ -585,7 +603,7 @@ let size (str : LTerm_text.t) =
       incr current_col
   done ;
   (* Don't count a potential last newline twice *)
-  if fst str.(last) <> newline then incr rows ;
+  if fst str.(last) <> (zchar_of_uchar newline) then incr rows ;
   {LTerm_geom. rows = !rows ; cols = !cols }
 
 (** The show box shows the result of a research.
@@ -697,8 +715,8 @@ class show_box color = object (self)
         let doc_hint_char = match Lazy.force focus.LibIndex.doc with
           | Some _ -> if extra_info then '-' else '+'
           | None -> ' ' in
-        LTerm_draw.draw_char ctx start 0 @@ CamomileLibrary.UChar.of_char doc_hint_char ;
-        LTerm_draw.draw_char ctx start 1 @@ CamomileLibrary.UChar.of_char '>' ;
+        LTerm_draw.draw_char ctx start 0 @@ (zchar_of_uchar @@ CamomileLibrary.UChar.of_char doc_hint_char) ;
+        LTerm_draw.draw_char ctx start 1 @@ (zchar_of_uchar @@ CamomileLibrary.UChar.of_char '>') ;
         draw_right (start + size_focus) formatted_right
       end
 
