@@ -23,4 +23,5 @@ depends: [
   "ocp-index" {= version}
   "cmdliner"
   "lambda-term"
+  "zed" { >= "2.0.0" }
 ]

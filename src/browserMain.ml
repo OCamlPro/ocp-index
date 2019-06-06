@@ -175,7 +175,7 @@ let load_bindings () =
 
 (* Delicate mix between LTerm_read_line.engine and LTerm_edit.edit *)
 (* Should go into lambda-term. *)
-let newline = UChar.of_char '\n'
+let newline = Zed_char.unsafe_of_char '\n'
 
 
 class virtual line_editor = object(self)
@@ -231,7 +231,7 @@ class virtual line_editor = object(self)
                   | { control = false; meta = false;
                       shift = false; code = Char ch } ->
                       Zed_macro.add self#macro
-                        (Edit (LTerm_edit.Zed (Zed_edit.Insert ch)));
+                        (Edit (LTerm_edit.Zed (Zed_edit.Insert (Zed_char.unsafe_of_uChar ch))));
                       let b = self#is_valid_char ch in
                       if b then self#insert ch ;
                       b
@@ -285,7 +285,7 @@ class virtual line_editor = object(self)
     (*** Drawing ***)
 
     (* Initialises points with the text style and spaces. *)
-    fill ctx (UChar.of_char ' ');
+    fill ctx (Zed_char.unsafe_of_char ' ');
     fill_style ctx style;
 
     (*** Text drawing ***)
@@ -426,8 +426,8 @@ let strip_path_level text context =
   if Zed_rope.is_empty text then ()
   else begin
     let module Z = Zed_rope.Zip in
-    let dot = UChar.of_char '.' in
-    let underscore = UChar.of_char '_' in
+    let dot = Zed_char.unsafe_of_char '.' in
+    let underscore = Zed_char.unsafe_of_char '_' in
     (* If the last char is a dot, we want to skip it, otherwise, we don't care.*)
     let zip = Z.make_b text 1 in
     let i = Z.(offset (find_b ( fun x -> x = dot || x = underscore) zip)) in
@@ -440,12 +440,12 @@ let strip_path_level text context =
   end
 
 let index_of_biggest_prefix s l =
-  let len_s = Zed_utf8.length s in
+  let len_s = Zed_string.length s in
   let rec loop k len_acc n_acc = function
     | [] -> n_acc
     | (h,_)::t -> begin
-        if Zed_utf8.starts_with s h then
-          let len_h = Zed_utf8.length h in
+        if Zed_string.starts_with ~prefix:s h then
+          let len_h = Zed_string.length h in
           if len_h = len_s then Some k (* We won't find bigger. *)
           else if len_h > len_acc then loop (k + 1) len_h (Some k) t
           else loop (k + 1) len_acc n_acc t
@@ -514,13 +514,14 @@ class completion_box options exit =
 
     (* We maintain the last item under the cursor in order to try
        to restore a "good" index after completion. *)
-    val mutable previous_completion = S.const ""
+    val mutable previous_completion = S.const (Zed_string.of_utf8 "")
     initializer
-      let r = ref "" in
+      let r = ref (Zed_string.of_utf8 "") in
       previous_completion <-
-        S.fold (fun _ (x,_) -> let x' = !r in r := x ; x') "" @@
-          S.changes @@ S.l2
-          (fun l i -> try List.nth l i with _ -> ("",""))
+        S.fold (fun _ (x,_) -> let x' = !r in r := x ; x') (Zed_string.of_utf8 "") @@
+        S.changes @@ S.l2
+          (fun l i -> try List.nth l i with _ ->
+              (Zed_string.of_utf8 "", Zed_string.of_utf8 ""))
           self#completion_words self#completion_index
 
     method! completion =
@@ -529,7 +530,7 @@ class completion_box options exit =
         LibIndex.complete
           options.IndexOptions.lib_info
           ~filter:(IndexOptions.filter options)
-          (Zed_rope.to_string content)
+          (Zed_string.to_utf8 (Zed_rope.to_string content))
         |> sort_completion
         |> filter_completion
       in
@@ -541,7 +542,7 @@ class completion_box options exit =
           | _ -> ""
         in
         List.map
-          (fun x -> LibIndex.Print.path ~short:true x, suffix x)
+          (fun x -> Zed_string.of_utf8 (LibIndex.Print.path ~short:true x), Zed_string.of_utf8 (suffix x))
           response
       in
 
@@ -697,8 +698,8 @@ class show_box color = object (self)
         let doc_hint_char = match Lazy.force focus.LibIndex.doc with
           | Some _ -> if extra_info then '-' else '+'
           | None -> ' ' in
-        LTerm_draw.draw_char ctx start 0 @@ CamomileLibrary.UChar.of_char doc_hint_char ;
-        LTerm_draw.draw_char ctx start 1 @@ CamomileLibrary.UChar.of_char '>' ;
+        LTerm_draw.draw_char ctx start 0 @@ Zed_char.unsafe_of_char doc_hint_char ;
+        LTerm_draw.draw_char ctx start 1 @@ Zed_char.unsafe_of_char '>' ;
         draw_right (start + size_focus) formatted_right
       end
 
