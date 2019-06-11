@@ -104,7 +104,8 @@
 (defun ocp-index-args (cmd &rest args)
   (let*
       ((file (file-name-nondirectory
-                        (file-name-sans-extension (buffer-file-name))))
+                        (file-name-sans-extension
+                         (or (buffer-file-name) (buffer-name)))))
        (current-module (concat (upcase (substring file 0 1))
                                (substring file 1)))
        (cmd (list* cmd ocp-index-options
