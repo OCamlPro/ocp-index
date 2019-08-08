@@ -124,7 +124,7 @@ end = struct
     let match_re s =
       let rec aux acc pos =
         let ofs =
-          try Some (Re.get_ofs (Re.exec ~pos re s) 0) with Not_found -> None
+          try Some (Re.Group.offset (Re.exec ~pos re s) 0) with Not_found -> None
         in
         match ofs with
         | None -> acc
