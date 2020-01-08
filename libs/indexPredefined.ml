@@ -35,7 +35,11 @@ let mktype name ?(params=[]) ?(def=Otyp_abstract) doc = {
         otype_type    = def;
         otype_private = Asttypes.Public;
   #if OCAML_VERSION >= "4.03"
+    #if OCAML_VERSION >= "4.10"
+        otype_immediate = Type_immediacy.Unknown;
+    #else
         otype_immediate = false;
+    #endif
     #if OCAML_VERSION >= "4.04"
         otype_unboxed = false;
     #endif
@@ -59,7 +63,11 @@ let mkvariant name parent params = {
                                          | l  -> Otyp_tuple l);
         otype_private = Asttypes.Public;
   #if OCAML_VERSION >= "4.03"
+    #if OCAML_VERSION >= "4.10"
+        otype_immediate = Type_immediacy.Unknown;
+    #else
         otype_immediate = false ;
+    #endif
     #if OCAML_VERSION >= "4.04"
         otype_unboxed = false;
     #endif
