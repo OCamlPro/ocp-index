@@ -453,7 +453,7 @@ let index_of_biggest_prefix s l =
   let rec loop k len_acc n_acc = function
     | [] -> n_acc
     | (h,_)::t -> begin
-        if Zed_string.starts_with ~prefix:s h then
+        if Zed_string.starts_with ~prefix:h s then
           let len_h = Zed_string.length h in
           if len_h = len_s then Some k (* We won't find bigger. *)
           else if len_h > len_acc then loop (k + 1) len_h (Some k) t
