@@ -437,7 +437,8 @@ let strip_path_level text context =
     let dot = Zed_char.unsafe_of_char '.' in
     let underscore = Zed_char.unsafe_of_char '_' in
     (* If the last char is a dot, we want to skip it, otherwise, we don't care.*)
-    let zip = Z.make_b text 1 in
+    let zip = Z.make_b text 0 in
+    let _, zip = Z.prev zip in
     let i = Z.(offset (find_b ( fun x -> x = dot || x = underscore) zip)) in
     let len = Zed_rope.length text in
     let previous_pos = Zed_edit.position context in
