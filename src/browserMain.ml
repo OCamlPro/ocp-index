@@ -72,14 +72,22 @@ let load_style () =
     Lwt.return ()
     )
 
+#if OCAML_VERSION >= "4.08"
+let pp_open_tag fmt tag = Format.pp_open_stag fmt (Format.String_tag tag)
+let pp_close_tag = Format.pp_close_stag
+#else
+let pp_open_tag = Format.pp_open_tag
+let pp_close_tag = Format.pp_close_tag
+#endif
+
 (** Similar to {!LTerm_text.pp_with_style} but with no typing restriction. *)
 let pp_with_style to_style =
   fun style fstr fmt ->
     let tag = to_style style in
-    Format.pp_open_tag fmt tag;
+    pp_open_tag fmt tag;
     Format.kfprintf
       (fun fmt ->
-         Format.pp_close_tag fmt ())
+         pp_close_tag fmt ())
       fmt fstr
 
 let colorise opts =
@@ -719,9 +727,9 @@ let rec pp_print_list ?(pp_sep = Format.pp_print_cut) pp_v ppf = function
 let pp_kinds fmt options =
   let pp_kind fmt (c, hash, b) =
     if b then (
-      Format.pp_open_tag fmt "Enabled" ;
+      pp_open_tag fmt "Enabled" ;
       pp_with_style (fun x -> x) hash "%s" fmt c ;
-      Format.pp_close_tag fmt ()
+      pp_close_tag fmt ()
     ) else
       pp_with_style (fun x -> x) "Disabled" "%s" fmt c ;
   in
