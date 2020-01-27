@@ -406,7 +406,11 @@ let trie_of_type_decl ?comments info ty_decl =
                 otype_type    = ty;
                 otype_private = Asttypes.Public;
   #if OCAML_VERSION >= "4.03"
+    #if OCAML_VERSION >= "4.10"
+                otype_immediate = Type_immediacy.Unknown;
+    #else
                 otype_immediate = false;
+    #endif
     #if OCAML_VERSION >= "4.04"
                 otype_unboxed = false;
     #endif
@@ -470,7 +474,11 @@ let trie_of_type_decl ?comments info ty_decl =
                 otype_type    = params;
                 otype_private = Asttypes.Public;
   #if OCAML_VERSION >= "4.03"
+    #if OCAML_VERSION >= "4.10"
+                otype_immediate = Type_immediacy.Unknown;
+    #else
                 otype_immediate = false;
+    #endif
     #if OCAML_VERSION >= "4.04"
                 otype_unboxed = false;
     #endif
@@ -582,7 +590,11 @@ let rec trie_of_sig_item
     | Types.Sig_module
 #if OCAML_VERSION >= "4.08"
         (id, presence,
+  #if OCAML_VERSION >= "4.10"
+         ({Types.md_type = Types.Mty_functor (_,s)} as funct),
+  #else
          ({Types.md_type = Types.Mty_functor (_,_,s)} as funct),
+  #endif
          is_rec, visibility)
       ->
         let funct = {funct with Types.md_type = s} in
@@ -597,7 +609,11 @@ let rec trie_of_sig_item
 #endif
     | Types.Sig_modtype
 #if OCAML_VERSION >= "4.08"
+  #if OCAML_VERSION >= "4.10"
+      (id, ({Types.mtd_type = Some (Types.Mty_functor (_,s))} as funct), visibility)
+  #else
       (id, ({Types.mtd_type = Some (Types.Mty_functor (_,_,s))} as funct), visibility)
+  #endif
       ->
         let funct = {funct with Types.mtd_type = Some s} in
         sig_item_contents (Types.Sig_modtype (id, funct, visibility))
@@ -703,7 +719,11 @@ let rec trie_of_sig_item
                     otype_type    = ty;
                     otype_private = Asttypes.Public;
   #if OCAML_VERSION >= "4.03"
+    #if OCAML_VERSION >= "4.10"
+                    otype_immediate = Type_immediacy.Unknown;
+    #else
                     otype_immediate = false;
+    #endif
     #if OCAML_VERSION >= "4.04"
                     otype_unboxed = false;
     #endif
@@ -748,7 +768,11 @@ let rec lookup_trie_of_module_expr parents t path = function
   | Typedtree.Tmod_constraint (e,_,_,_)
   (* | Typedtree.Tmod_apply (e,_,_) *) ->
       lookup_trie_of_module_expr parents t path e.mod_desc
+#if OCAML_VERSION >= "4.10"
+  | Typedtree.Tmod_apply ({ mod_desc = Typedtree.Tmod_functor(Typedtree.Named (Some id, _, _),f) },
+#else
   | Typedtree.Tmod_apply ({ mod_desc = Typedtree.Tmod_functor(id,_,_,f) },
+#endif
                           { mod_desc = Typedtree.Tmod_ident (arg,_)
                                      | Typedtree.Tmod_constraint ({mod_desc = Typedtree.Tmod_ident (arg,_)},_,_,_)  },_) ->
       let id_name = Ident.name id in
@@ -765,10 +789,19 @@ let rec extract_includes_from_submodule_sig parents t path name = function
           (Trie.sub t (modpath_to_key [name])) path sign
       ) in
       Trie.graft_lazy t (modpath_to_key [name]) sub_includes
+#if OCAML_VERSION >= "4.10"
+  | Typedtree.Tmty_functor (_,e)
+#else
   | Typedtree.Tmty_functor (_,_,_,e)
+#endif
   | Typedtree.Tmty_with (e,_) ->
       extract_includes_from_submodule_sig parents t path name e.Typedtree.mty_desc
   | _ -> t
+and extract_includes_from_submodule_sig_opt parents t path id mty =
+#if OCAML_VERSION >= "4.10"
+  match id with None -> t | Some id ->
+#endif
+    extract_includes_from_submodule_sig parents t path (Ident.name id) mty
 and get_includes_impl parents t path ttree_struct =
   let rec extract_submodule_impl t name = function
     | Typedtree.Tmod_structure str ->
@@ -779,7 +812,11 @@ and get_includes_impl parents t path ttree_struct =
         ) in
         Trie.graft_lazy t (modpath_to_key [name]) sub_includes
     (* | Typedtree.Tmod_functor (arg_id,_,arg_t,e) *)
+#if OCAML_VERSION >= "4.10"
+    | Typedtree.Tmod_apply ({ mod_desc = Typedtree.Tmod_functor(Typedtree.Named (Some id, _, _),f) },
+#else
     | Typedtree.Tmod_apply ({ mod_desc = Typedtree.Tmod_functor(id,_,_,f) },
+#endif
                             { mod_desc = Typedtree.Tmod_ident (arg,_)
                                        | Typedtree.Tmod_constraint ({mod_desc = Typedtree.Tmod_ident (arg,_)},_,_,_)  },_) ->
         let id_name = Ident.name id in
@@ -791,10 +828,20 @@ and get_includes_impl parents t path ttree_struct =
         extract_submodule_impl
           (Trie.graft_lazy t (modpath_to_key [id_name]) functor_arg)
           name f.Typedtree.mod_desc
+#if OCAML_VERSION >= "4.10"
+    | Typedtree.Tmod_functor (_,e)
+#else
     | Typedtree.Tmod_functor (_,_,_,e)
+#endif
     | Typedtree.Tmod_constraint (e,_,_,_) ->
         extract_submodule_impl t name e.Typedtree.mod_desc
     | _ -> t
+  in
+  let extract_submodule_impl_opt t id mty =
+#if OCAML_VERSION >= "4.10"
+      match id with None -> t | Some id ->
+#endif
+        extract_submodule_impl t (Ident.name id) mty
   in
   List.fold_left (fun t struc_item ->
       match struc_item.Typedtree.str_desc with
@@ -818,12 +865,12 @@ and get_includes_impl parents t path ttree_struct =
           let sub = lookup_parents ((path, lazy t) :: parents) path (path_of_ocaml p) in
           overriding_merge t sub
       | Typedtree.Tstr_module
-          { Typedtree.mb_id = id; mb_expr = { Typedtree.mod_desc } } ->
-          extract_submodule_impl t (Ident.name id) mod_desc
+          { Typedtree.mb_id; mb_expr = { Typedtree.mod_desc } } ->
+          extract_submodule_impl_opt t mb_id mod_desc
       | Typedtree.Tstr_recmodule l ->
           List.fold_left
             (fun t { Typedtree.mb_id; mb_expr = { Typedtree.mod_desc } } ->
-               extract_submodule_impl t (Ident.name mb_id) mod_desc)
+               extract_submodule_impl_opt t mb_id mod_desc)
             t l
       | Typedtree.Tstr_modtype
           { Typedtree.mtd_id = id; mtd_type = Some { Typedtree.mty_desc = e } } ->
@@ -851,7 +898,9 @@ and get_includes_sig parents t path ttree_sig =
           { Typedtree.incl_mod = { Typedtree.mty_desc = e }} ->
           extract_includes t e
       | Typedtree.Tsig_module
-          { Typedtree.md_id = id ; md_type = { Typedtree.mty_desc } }
+          { Typedtree.md_id ; md_type = { Typedtree.mty_desc } } ->
+          extract_includes_from_submodule_sig_opt parents t path
+            md_id mty_desc
       | Typedtree.Tsig_modtype
           { Typedtree.mtd_id = id; mtd_type = Some { Typedtree.mty_desc } } ->
           extract_includes_from_submodule_sig parents t path
@@ -859,8 +908,8 @@ and get_includes_sig parents t path ttree_sig =
       | Typedtree.Tsig_recmodule l ->
           List.fold_left
             (fun t { Typedtree.md_id; md_type = { Typedtree.mty_desc } } ->
-               extract_includes_from_submodule_sig parents t path
-                 (Ident.name md_id) mty_desc)
+               extract_includes_from_submodule_sig_opt parents t path
+                 md_id mty_desc)
             t l
       | _ -> t)
     t ttree_sig.Typedtree.sig_items
