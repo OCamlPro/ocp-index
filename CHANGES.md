@@ -1,3 +1,9 @@
+### 1.2
+
+* Support for OCaml 4.10
+* Support for Zed 2.0
+* Add a help hint in ocp-browser
+
 ### 1.1.9
 * Support for OCaml 4.08
 * Fix issue with latest dune that led to silently compiling dummy binaries
