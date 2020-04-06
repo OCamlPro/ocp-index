@@ -990,7 +990,16 @@ let lookup_loc_impl orig_file =
   | Cmt _ -> None
   | Cmi f | Cmti f ->
       let cmt = Filename.chop_extension f ^ ".cmt" in
-      if not (Sys.file_exists cmt) then None else Some cmt
+      if Sys.file_exists cmt then Some cmt
+      else
+        let dir = Filename.dirname cmt in
+        (* dune 2 puts .cmt under native/ while cmi and cmti are under byte/ *)
+        if Filename.basename dir = "byte" then
+          let ( / ) = Filename.concat in
+          let cmt = Filename.dirname dir / "native" / Filename.basename cmt in
+          if Sys.file_exists cmt then Some cmt
+          else None
+        else None
 
 let load_loc_impl parents filename cmt_contents =
   debug " -Registering %s (for implementation locations)..." filename;
