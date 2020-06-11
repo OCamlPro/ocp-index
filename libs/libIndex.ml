@@ -39,7 +39,7 @@ let filter_visible values =
     [] values
 
 let trie_to_list trie =
-  Trie.fold0
+  IndexTrie.fold0
     (fun acc _path values -> List.rev_append (filter_visible values) acc)
     trie []
 
@@ -47,20 +47,20 @@ let all t =
   trie_to_list t
 
 let filter t f =
-  Trie.fold0
+  IndexTrie.fold0
     (fun acc _path values ->
        List.rev_append (filter_visible (List.filter f values)) acc)
     t []
 
-let get t query = Trie.find t (Misc.string_to_key query)
+let get t query = IndexTrie.find t (Misc.string_to_key query)
 
-let get_all t query = Trie.find_all t (Misc.string_to_key query)
+let get_all t query = IndexTrie.find_all t (Misc.string_to_key query)
 
 let complete t ?filter:(f = fun _ -> true) query =
   let completions =
     filter
-      (Trie.filter_keys ((<>) Misc.dot)
-         (Trie.sub t (Misc.string_to_key query)))
+      (IndexTrie.filter_keys ((<>) Misc.dot)
+         (IndexTrie.sub t (Misc.string_to_key query)))
       f
   in
   let file = function { file = Cmt f | Cmi f | Cmti f } -> f in

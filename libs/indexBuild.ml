@@ -67,12 +67,12 @@ let fix_path_prefix strip new_pfx =
   fun id -> {id with path = List.rev_append rev_pfx (tln strip id.path)}
 
 let overriding_merge t1 t2 =
-  let f = (Trie.filter_keys ((<>) dot) t2) in
-  Trie.fold0
+  let f = (IndexTrie.filter_keys ((<>) dot) t2) in
+  IndexTrie.fold0
     (fun t path values ->
        let t =
-         List.fold_left (fun t v -> Trie.add t path v)
-           (Trie.unset t path) values
+         List.fold_left (fun t v -> IndexTrie.add t path v)
+           (IndexTrie.unset t path) values
        in
        if List.exists (function
            | {kind=Module|ModuleType|Class|ClassType} -> true
@@ -80,29 +80,29 @@ let overriding_merge t1 t2 =
            values
        then
          let subpath = path @ [dot] in
-         Trie.graft_lazy t subpath (lazy (Trie.sub t2 subpath))
+         IndexTrie.graft_lazy t subpath (lazy (IndexTrie.sub t2 subpath))
        else t)
     f
     t1
 
 let open_module ?(cleanup_path=false) t path =
   let strip_path = fix_path_prefix (List.length path) [] in
-  let submodule = Trie.sub t (modpath_to_key path) in
+  let submodule = IndexTrie.sub t (modpath_to_key path) in
   let submodule =
-    if cleanup_path then Trie.map (fun _key -> strip_path) submodule
+    if cleanup_path then IndexTrie.map (fun _key -> strip_path) submodule
     else submodule
   in
-  (* Trie.merge ~values:(fun _ v -> v) t submodule -- keeps hidden values in subtrees *)
+  (* IndexTrie.merge ~values:(fun _ v -> v) t submodule -- keeps hidden values in subtrees *)
   overriding_merge t submodule
 
 let alias ?(cleanup_path=false) t origin alias =
-  let subtree = Trie.sub t (modpath_to_key origin) in
+  let subtree = IndexTrie.sub t (modpath_to_key origin) in
   let subtree =
     let strip_path = fix_path_prefix (List.length origin) alias in
-    if cleanup_path then Trie.map (fun _key -> strip_path) subtree
+    if cleanup_path then IndexTrie.map (fun _key -> strip_path) subtree
     else subtree
   in
-  Trie.graft t (modpath_to_key alias) subtree
+  IndexTrie.graft t (modpath_to_key alias) subtree
 
 (* Pops comments from a list of comments (string * loc) to find the ones that
    are associated to a given location. Also returns the remaining comments after
@@ -192,7 +192,7 @@ let qualify_ty (parents:parents) ty =
     let rec lookup = function
       | [] | ([],_) :: _ -> ident
       | ((path1::pathn), lazy t) :: parents ->
-          if not (List.exists (has_kind Type) (Trie.find_all t key))
+          if not (List.exists (has_kind Type) (IndexTrie.find_all t key))
           then lookup parents
           else
             let rec add_pfx = function
@@ -422,7 +422,7 @@ let trie_of_type_decl ?comments info ty_decl =
           let doc = doc_of_attributes ld_attributes in
           let id_name = Ident.name ld_id in
           string_to_key id_name,
-          Trie.create ~value:{
+          IndexTrie.create ~value:{
             path = info.path;
             orig_path = info.path;
             kind = Field info;
@@ -490,7 +490,7 @@ let trie_of_type_decl ?comments info ty_decl =
           let doc = doc_of_attributes cd_attributes in
           let id_name = Ident.name cd_id in
           string_to_key id_name,
-          Trie.create ~value:{
+          IndexTrie.create ~value:{
             path = info.path;
             orig_path = info.path;
             kind = Variant info;
@@ -517,15 +517,15 @@ let lookup_parents (parents:parents) path sig_path =
           debug "WARN: Module or sig reference %s not found a %s\n"
             (modpath_to_string sig_path)
             (modpath_to_string path);
-        Trie.empty
+        IndexTrie.empty
     | (parentpath, lazy t) :: parents ->
-        let s = Trie.sub t sig_key in
-        if s = Trie.empty then lookup parents else
-          let s = Trie.sub s path_key in
+        let s = IndexTrie.sub t sig_key in
+        if s = IndexTrie.empty then lookup parents else
+          let s = IndexTrie.sub s path_key in
           let rewrite_path =
             fix_path_prefix (List.length parentpath + List.length sig_path) path
           in
-          Trie.map (fun _k v -> rewrite_path v) s
+          IndexTrie.map (fun _k v -> rewrite_path v) s
   in
   lookup parents
 
@@ -569,7 +569,7 @@ let rec trie_of_sig_item
             let path = List.tl path @ [Ident.name id] in
             let key = modpath_to_key ~enddot:false path in
             let c =
-              List.find (has_kind kind) (Trie.find_all t key)
+              List.find (has_kind kind) (IndexTrie.find_all t key)
             in
             Lazy.force c.loc_impl
           with Not_found -> Location.none
@@ -646,8 +646,8 @@ let rec trie_of_sig_item
                  trie_of_sig_item ?comments ?srcpath implloc_trie
                    ((path, lazy t) :: parents) orig_file path sign next
                in
-               List.fold_left Trie.append t chlds, comments)
-            (Trie.empty,comments)
+               List.fold_left IndexTrie.append t chlds, comments)
+            (IndexTrie.empty,comments)
             sign
         ) in
         let children = lazy (fst (Lazy.force children_comments)) in
@@ -688,7 +688,7 @@ let rec trie_of_sig_item
         let sig_path = path_of_ocaml sig_ident in
         let children = lazy (
           (* Only keep the children, don't override the module reference *)
-          Trie.graft_lazy Trie.empty []
+          IndexTrie.graft_lazy IndexTrie.empty []
             (lazy (lookup_parents parents (path@[Ident.name id]) sig_path))
         ) in
         children, comments
@@ -732,7 +732,7 @@ let rec trie_of_sig_item
   #endif
                     otype_cstrs   = []; }), Outcometree.Orec_not)
               in
-              Trie.add t (string_to_key lbl)
+              IndexTrie.add t (string_to_key lbl)
                 { path = path;
                   orig_path = path;
                   kind = Method info;
@@ -742,17 +742,17 @@ let rec trie_of_sig_item
                   loc_impl = loc_impl;
                   doc = lazy None;
                   file = info.file })
-          Trie.empty
+          IndexTrie.empty
           fields),
         comments
     | _ ->
-        lazy Trie.empty, comments
+        lazy IndexTrie.empty, comments
   in
   let name = Ident.name id in
   if String.length name > 0 && name.[0] = '#' then [], comments
   else
     (string_to_key name,
-     Trie.create
+     IndexTrie.create
        ~value:info
        ~children:(lazy [dot, Lazy.force children])
        ())
@@ -781,16 +781,16 @@ let rec lookup_trie_of_module_expr parents t path = function
       let t = lookup_trie_of_module_expr parents t path f.Typedtree.mod_desc in
       debug "Grafting %s at %s\n" id_name (modpath_to_string (path_of_ocaml arg));
       let functor_arg = lazy (lookup_parents parents (path_of_ocaml arg) path) in
-      Trie.graft_lazy t (modpath_to_key [id_name]) functor_arg
+      IndexTrie.graft_lazy t (modpath_to_key [id_name]) functor_arg
   | _ -> t
 let rec extract_includes_from_submodule_sig parents t path name = function
   | Typedtree.Tmty_signature sign ->
       let path = path @ [name] in
       let sub_includes = lazy (
         get_includes_sig ((path, lazy t) :: parents)
-          (Trie.sub t (modpath_to_key [name])) path sign
+          (IndexTrie.sub t (modpath_to_key [name])) path sign
       ) in
-      Trie.graft_lazy t (modpath_to_key [name]) sub_includes
+      IndexTrie.graft_lazy t (modpath_to_key [name]) sub_includes
 #if OCAML_VERSION >= "4.10"
   | Typedtree.Tmty_functor (_,e)
 #else
@@ -810,9 +810,9 @@ and get_includes_impl parents t path ttree_struct =
         let path = path @ [name] in
         let sub_includes = lazy (
           get_includes_impl ((path, lazy t) :: parents)
-            (Trie.sub t (modpath_to_key [name])) path str
+            (IndexTrie.sub t (modpath_to_key [name])) path str
         ) in
-        Trie.graft_lazy t (modpath_to_key [name]) sub_includes
+        IndexTrie.graft_lazy t (modpath_to_key [name]) sub_includes
     (* | Typedtree.Tmod_functor (arg_id,_,arg_t,e) *)
 #if OCAML_VERSION >= "4.10"
     | Typedtree.Tmod_apply ({ mod_desc = Typedtree.Tmod_functor(Typedtree.Named (Some id, _, _),f) },
@@ -828,7 +828,7 @@ and get_includes_impl parents t path ttree_struct =
             ((path, lazy t)::parents) (path_of_ocaml arg) (path@[name])
         ) in
         extract_submodule_impl
-          (Trie.graft_lazy t (modpath_to_key [id_name]) functor_arg)
+          (IndexTrie.graft_lazy t (modpath_to_key [id_name]) functor_arg)
           name f.Typedtree.mod_desc
 #if OCAML_VERSION >= "4.10"
     | Typedtree.Tmod_functor (_,e)
@@ -917,9 +917,9 @@ and get_includes_sig parents t path ttree_sig =
     t ttree_sig.Typedtree.sig_items
 
 let add_locs ~locs t =
-  Trie.map (fun path info ->
+  IndexTrie.map (fun path info ->
       let loc_info = lazy (
-        List.find (has_kind info.kind) (Trie.find_all locs path)
+        List.find (has_kind info.kind) (IndexTrie.find_all locs path)
       ) in
       let lookup fld none =
         let loc = Lazy.force (fld info) in
@@ -940,7 +940,7 @@ let cmt_includes parents t path cmt_contents =
       get_includes_impl parents t path impl
   | Cmt_format.Interface sign ->
       get_includes_sig parents t path sign
-  | _ -> Trie.empty
+  | _ -> IndexTrie.empty
 
 (* Can work in a subtree (t doesn't have to be the root) *)
 let qualify_type_idents parents t =
@@ -958,7 +958,7 @@ let qualify_type_idents parents t =
         let rec aux acc path = match acc,path with
           | ((pfx, parent) :: _), modl::r ->
               let t = lazy (
-                Trie.sub (Lazy.force parent) (string_to_key (modl) @ [dot])
+                IndexTrie.sub (Lazy.force parent) (string_to_key (modl) @ [dot])
               ) in
               aux ((pfx @ [modl], t) :: acc) r
           | _ -> acc
@@ -970,7 +970,7 @@ let qualify_type_idents parents t =
     { id with ty = match id.ty with Some ty -> Some (qualify_ty ty)
                                   | None -> None }
   in
-  Trie.map qualify t
+  IndexTrie.map qualify t
 
 let cmt_sign cmt_contents =
   match cmt_contents.Cmt_format.cmt_annots with
@@ -1016,8 +1016,8 @@ let load_loc_impl parents filename cmt_contents =
                trie_of_sig_item ~srcpath (lazy None) parents (Cmt filename)
                  [] sig_item next
              in
-             List.fold_left Trie.append t chld)
-          Trie.empty
+             List.fold_left IndexTrie.append t chld)
+          IndexTrie.empty
           sign
       in
       debug " %.3fs\n%!" (chrono());
@@ -1029,7 +1029,7 @@ let load_loc_impl parents filename cmt_contents =
       None
 
 let load_cmi ?(qualify=false) root t modul orig_file =
-  Trie.map_subtree t (string_to_key modul)
+  IndexTrie.map_subtree t (string_to_key modul)
     (fun t ->
        let file = orig_file_name orig_file in
        let info = lazy (
@@ -1065,8 +1065,8 @@ let load_cmi ?(qualify=false) root t modul orig_file =
                  trie_of_sig_item implloc_trie parents
                    orig_file [modul] sig_item next
                in
-               List.fold_left Trie.append t chld)
-            Trie.empty
+               List.fold_left IndexTrie.append t chld)
+            IndexTrie.empty
             info.Cmi_format.cmi_sign
         ) in
         let t = Lazy.force lazy_t in
@@ -1074,7 +1074,7 @@ let load_cmi ?(qualify=false) root t modul orig_file =
         t
       ) in
       let t =
-        Trie.add t [] {
+        IndexTrie.add t [] {
           path = [];
           orig_path = [];
           kind = Module;
@@ -1092,10 +1092,10 @@ let load_cmi ?(qualify=false) root t modul orig_file =
             (Lazy.force children)
         ) else children
       in
-      Trie.graft_lazy t [dot] children)
+      IndexTrie.graft_lazy t [dot] children)
 
 let load_cmt ?(qualify=false) root t modul orig_file =
-  Trie.map_subtree t (string_to_key modul)
+  IndexTrie.map_subtree t (string_to_key modul)
     (fun t ->
        let cmt_file = orig_file_name orig_file in
        let info = lazy (
@@ -1138,12 +1138,12 @@ let load_cmt ?(qualify=false) root t modul orig_file =
                           implloc_trie parents orig_file
                           [modul] sig_item next
                       in
-                      List.fold_left Trie.append t chld, comments)
-                   (Trie.empty, comments)
+                      List.fold_left IndexTrie.append t chld, comments)
+                   (IndexTrie.empty, comments)
                    sign
                in
                t
-           | None -> Trie.empty
+           | None -> IndexTrie.empty
          ) in
          let t = Lazy.force lazy_t in
          debug " %.3fs\n%!" (chrono());
@@ -1172,7 +1172,7 @@ let load_cmt ?(qualify=false) root t modul orig_file =
              l, l
        in
        let t =
-         Trie.add t [] {
+         IndexTrie.add t [] {
            path = [];
            orig_path = [];
            kind = Module;
@@ -1190,7 +1190,7 @@ let load_cmt ?(qualify=false) root t modul orig_file =
              (Lazy.force children)
          ) else children
        in
-       Trie.graft_lazy t [dot] children)
+       IndexTrie.graft_lazy t [dot] children)
 
 let debug_file_counter = ref 0
 let debug_dir_counter = ref 0
@@ -1217,7 +1217,7 @@ let load_files t dirfiles =
     with Not_found -> file, ""
   in
   let sort_modules acc (dir,file) =
-    let reg base = Trie.add acc (string_to_key base) in
+    let reg base = IndexTrie.add acc (string_to_key base) in
     match split_filename file with
     | base, "cmi" -> reg base (Cmi (Filename.concat dir file))
     | base, "cmt" -> reg base (Cmt (Filename.concat dir file))
@@ -1225,10 +1225,10 @@ let load_files t dirfiles =
     | _ -> acc
   in
   let modules =
-    List.fold_left sort_modules Trie.empty dirfiles
+    List.fold_left sort_modules IndexTrie.empty dirfiles
   in
   let rec root = lazy (
-    Trie.fold0 (fun t modul files ->
+    IndexTrie.fold0 (fun t modul files ->
         match files with
         | [] -> t
         | f1::fs ->
@@ -1264,11 +1264,11 @@ let load_dirs t dirs =
   load_files t dirfiles
 
 let load paths =
-  let t = Trie.create () in
+  let t = IndexTrie.create () in
   let t =
     List.fold_left
       (fun t info ->
-         Trie.add t (string_to_key info.name) info)
+         IndexTrie.add t (string_to_key info.name) info)
       t
       IndexPredefined.all
   in
@@ -1303,17 +1303,17 @@ let fully_open_module ?(cleanup_path=false) t path =
     List.map keep_intf impls
   in
   let tpath = modpath_to_key path in
-  let mod_trie = Trie.sub t tpath in
+  let mod_trie = IndexTrie.sub t tpath in
   let mod_trie =
-    try match (Trie.find t base_path).file with
+    try match (IndexTrie.find t base_path).file with
       | Cmti f | Cmi f ->
           let f = Filename.chop_extension f ^ ".cmt" in
           if not (Sys.file_exists f) then mod_trie
           else
             let dir,base = Filename.dirname f, Filename.basename f in
-            let t = load_files Trie.empty [dir,base] in
-            let t = Trie.sub t tpath in
-            Trie.merge ~values:merge mod_trie t
+            let t = load_files IndexTrie.empty [dir,base] in
+            let t = IndexTrie.sub t tpath in
+            IndexTrie.merge ~values:merge mod_trie t
       | Cmt _ -> mod_trie
     with Not_found -> mod_trie
   in
@@ -1321,7 +1321,7 @@ let fully_open_module ?(cleanup_path=false) t path =
   let mod_trie =
     if cleanup_path then
       let pathlen = List.length path in
-      Trie.map (fun _key -> fix_path_prefix pathlen []) mod_trie
+      IndexTrie.map (fun _key -> fix_path_prefix pathlen []) mod_trie
     else mod_trie
   in
   overriding_merge t mod_trie

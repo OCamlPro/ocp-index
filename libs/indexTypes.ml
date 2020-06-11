@@ -44,7 +44,7 @@ and kind =
   | Keyword
 
 (** Lazy trie structure holding the info on all identifiers *)
-type t = (char, info) Trie.t
+type t = (char, info) IndexTrie.t
 
 (* * Raised when cmi/cmt/cmti files can't be loaded. Probably a different
     version of OCaml *)
