@@ -382,7 +382,9 @@ let doc_of_attributes attrs =
   | _, PStr [{pstr_desc = Pstr_eval ({pexp_desc},_)}] ->
 #endif
       (match pexp_desc with
-#if OCAML_VERSION >= "4.03"
+#if OCAML_VERSION >= "4.11"
+       | Pexp_constant (Pconst_string (s,_,_)) -> Some s
+#elif OCAML_VERSION >= "4.03"
        | Pexp_constant (Pconst_string (s,_)) -> Some s
 #else
        | Pexp_constant (Const_string (s,_)) -> Some s
