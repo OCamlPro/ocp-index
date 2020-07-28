@@ -146,7 +146,7 @@ let associate_comment ?(after_only=false) comments loc nextloc =
 let ty_of_sig_item =
   let open Printtyp in
   function
-#if OCAML_VERSION < "4.08"
+#if OCAML_VERSION < (4,08,0)
   | Types.Sig_value(id, decl) -> tree_of_value_description id decl
   | Types.Sig_type(id, decl, rs) -> tree_of_type_declaration id decl rs
   | Types.Sig_typext(id, decl, es) -> tree_of_extension_constructor id decl es
@@ -167,7 +167,7 @@ let ty_of_sig_item =
 
 (* -- Qualifying types -- *)
 
-#if OCAML_VERSION >= "4.08"
+#if OCAML_VERSION >= (4,08,0)
   let n s = {Outcometree.printed_name = s}
   let nn {Outcometree.printed_name} = printed_name
 #else
@@ -242,7 +242,7 @@ let qualify_ty (parents:parents) ty =
     | Otyp_module (str, strl, tylist) ->
         Otyp_module (str, strl, List.map aux tylist)
     | Otyp_open -> Otyp_open
-#if OCAML_VERSION >= "4.03"
+#if OCAML_VERSION >= (4,03,0)
     | Otyp_attribute (ty,attr) -> Otyp_attribute (aux ty, attr)
 #endif
   in
@@ -259,7 +259,7 @@ let qualify_ty_in_sig_item (parents:parents) =
         otype_cstrs = List.map (fun (ty1,ty2) -> qual ty1, qual ty2)
             out_type_decl.otype_cstrs }, rc)
 
-#if OCAML_VERSION >= "4.03"
+#if OCAML_VERSION >= (4,03,0)
   | Osig_value o -> Osig_value {o with oval_type = qual o.oval_type}
 #else
   | Osig_value (str, ty, str2) -> Osig_value (str, qual ty, str2)
@@ -299,7 +299,7 @@ let with_path_loc ?srcpath loc =
                 loc_end = with_path_pos loc.loc_end }
 
 let loc_of_sig_item = function
-#if OCAML_VERSION < "4.08"
+#if OCAML_VERSION < (4,08,0)
   | Types.Sig_value (_,descr) -> descr.Types.val_loc
   | Types.Sig_type (_,descr,_) -> descr.Types.type_loc
   | Types.Sig_typext (_,descr,_) -> descr.Types.ext_loc
@@ -318,7 +318,7 @@ let loc_of_sig_item = function
 #endif
 
 let id_of_sig_item = function
-#if OCAML_VERSION < "4.08"
+#if OCAML_VERSION < (4,08,0)
   | Types.Sig_value (id,_)
   | Types.Sig_type (id,_,_)
   | Types.Sig_typext (id,_,_)
@@ -340,7 +340,7 @@ let id_of_sig_item = function
 let kind_of_sig_item = function
   | Types.Sig_value _ -> Value
   | Types.Sig_type _ -> Type
-#if OCAML_VERSION < "4.08"
+#if OCAML_VERSION < (4,08,0)
   | Types.Sig_typext (_, _, Types.Text_exception) -> Exception
 #else
   | Types.Sig_typext (_, _, Types.Text_exception, _) -> Exception
@@ -352,7 +352,7 @@ let kind_of_sig_item = function
   | Types.Sig_class_type _ -> ClassType
 
 let attrs_of_sig_item = function
-#if OCAML_VERSION < "4.08"
+#if OCAML_VERSION < (4,08,0)
   | Types.Sig_value (_,descr) -> descr.Types.val_attributes
   | Types.Sig_type (_,descr,_) -> descr.Types.type_attributes
   | Types.Sig_typext (_,descr,_) -> descr.Types.ext_attributes
@@ -374,7 +374,7 @@ let doc_of_attributes attrs =
   let doc_loc_id = "ocaml.doc" in (* not exported ! *)
   let open Parsetree in
   try
-#if OCAML_VERSION >= "4.08"
+#if OCAML_VERSION >= (4,08,0)
   match List.find (fun {attr_name = {Location.txt}} -> txt = doc_loc_id) attrs with
   | {attr_payload = PStr [{pstr_desc = Pstr_eval ({pexp_desc},_)}]} ->
 #else
@@ -382,9 +382,9 @@ let doc_of_attributes attrs =
   | _, PStr [{pstr_desc = Pstr_eval ({pexp_desc},_)}] ->
 #endif
       (match pexp_desc with
-#if OCAML_VERSION >= "4.11"
+#if OCAML_VERSION >= (4,11,0)
        | Pexp_constant (Pconst_string (s,_,_)) -> Some s
-#elif OCAML_VERSION >= "4.03"
+#elif OCAML_VERSION >= (4,03,0)
        | Pexp_constant (Pconst_string (s,_)) -> Some s
 #else
        | Pexp_constant (Const_string (s,_)) -> Some s
@@ -407,13 +407,13 @@ let trie_of_type_decl ?comments info ty_decl =
                 otype_params  = [];
                 otype_type    = ty;
                 otype_private = Asttypes.Public;
-  #if OCAML_VERSION >= "4.03"
-    #if OCAML_VERSION >= "4.10"
+  #if OCAML_VERSION >= (4,03,0)
+    #if OCAML_VERSION >= (4,10,0)
                 otype_immediate = Type_immediacy.Unknown;
     #else
                 otype_immediate = false;
     #endif
-    #if OCAML_VERSION >= "4.04"
+    #if OCAML_VERSION >= (4,04,0)
                 otype_unboxed = false;
     #endif
   #endif
@@ -440,15 +440,15 @@ let trie_of_type_decl ?comments info ty_decl =
         (fun { Types.cd_id; cd_args; cd_attributes } ->
           let ty =
             let params = match cd_args with
-#if OCAML_VERSION >= "4.03"
+#if OCAML_VERSION >= (4,03,0)
               | Cstr_tuple [] -> Outcometree.Otyp_sum []
               | Cstr_tuple (param::_ as l) ->
                      Printtyp.tree_of_typexp false
                        { Types. desc = Types.Ttuple l;
                          level = param.Types.level;
-#if OCAML_VERSION >= "4.08"
+#if OCAML_VERSION >= (4,08,0)
                          scope = 0;
-#elif OCAML_VERSION >= "4.07"
+#elif OCAML_VERSION >= (4,07,0)
                          scope = None;
 #endif
                          id = param.Types.id }
@@ -475,13 +475,13 @@ let trie_of_type_decl ?comments info ty_decl =
                 otype_params  = [];
                 otype_type    = params;
                 otype_private = Asttypes.Public;
-  #if OCAML_VERSION >= "4.03"
-    #if OCAML_VERSION >= "4.10"
+  #if OCAML_VERSION >= (4,03,0)
+    #if OCAML_VERSION >= (4,10,0)
                 otype_immediate = Type_immediacy.Unknown;
     #else
                 otype_immediate = false;
     #endif
-    #if OCAML_VERSION >= "4.04"
+    #if OCAML_VERSION >= (4,04,0)
                 otype_unboxed = false;
     #endif
   #endif
@@ -531,7 +531,7 @@ let lookup_parents (parents:parents) path sig_path =
 
 let rec path_of_ocaml = function
   | Path.Pident id -> [Ident.name id]
-#if OCAML_VERSION >= "4.08"
+#if OCAML_VERSION >= (4,08,0)
   | Path.Pdot (path, s) -> path_of_ocaml path @ [s]
 #else
   | Path.Pdot (path, s, _) -> path_of_ocaml path @ [s]
@@ -579,7 +579,7 @@ let rec trie_of_sig_item
   in
   let siblings, comments = (* read fields / variants ... *)
     match sig_item with
-#if OCAML_VERSION >= "4.08"
+#if OCAML_VERSION >= (4,08,0)
     | Types.Sig_type (_id,descr,_is_rec, _) ->
 #else
     | Types.Sig_type (_id,descr,_is_rec) ->
@@ -590,9 +590,9 @@ let rec trie_of_sig_item
   (* ignore functor arguments *)
   let rec sig_item_contents = function
     | Types.Sig_module
-#if OCAML_VERSION >= "4.08"
+#if OCAML_VERSION >= (4,08,0)
         (id, presence,
-  #if OCAML_VERSION >= "4.10"
+  #if OCAML_VERSION >= (4,10,0)
          ({Types.md_type = Types.Mty_functor (_,s)} as funct),
   #else
          ({Types.md_type = Types.Mty_functor (_,_,s)} as funct),
@@ -610,8 +610,8 @@ let rec trie_of_sig_item
         sig_item_contents (Types.Sig_module (id, funct, is_rec))
 #endif
     | Types.Sig_modtype
-#if OCAML_VERSION >= "4.08"
-  #if OCAML_VERSION >= "4.10"
+#if OCAML_VERSION >= (4,08,0)
+  #if OCAML_VERSION >= (4,10,0)
       (id, ({Types.mtd_type = Some (Types.Mty_functor (_,s))} as funct), visibility)
   #else
       (id, ({Types.mtd_type = Some (Types.Mty_functor (_,_,s))} as funct), visibility)
@@ -630,7 +630,7 @@ let rec trie_of_sig_item
   (* read module / class contents *)
   let children, comments =
     match sig_item_contents sig_item with
-  #if OCAML_VERSION >= "4.08"
+  #if OCAML_VERSION >= (4,08,0)
     | Types.Sig_module (id,_,{ Types.md_type = Types.Mty_signature sign },_,_)
     | Types.Sig_modtype (id,{ Types.mtd_type = Some (Types.Mty_signature sign) },_)
   #else
@@ -658,30 +658,30 @@ let rec trie_of_sig_item
         children, comments
     | Types.Sig_module (
         _,
-  #if OCAML_VERSION >= "4.08"
+  #if OCAML_VERSION >= (4,08,0)
         _,
   #endif
         { Types.md_type =
             Types.Mty_ident sig_ident
-  #if OCAML_VERSION >= "4.04" && OCAML_VERSION < "4.08"
+  #if OCAML_VERSION >= (4,04,0) && OCAML_VERSION < (4,08,0)
         | Types.Mty_alias (_, sig_ident)
   #else
         | Types.Mty_alias sig_ident
   #endif
         },_
-  #if OCAML_VERSION >= "4.08"
+  #if OCAML_VERSION >= (4,08,0)
       ,_
   #endif
     )
   | Types.Sig_modtype (_,{ Types.mtd_type =
                                Some ( Types.Mty_ident sig_ident
-  #if OCAML_VERSION >= "4.04" && OCAML_VERSION < "4.08"
+  #if OCAML_VERSION >= (4,04,0) && OCAML_VERSION < (4,08,0)
                                     | Types.Mty_alias (_, sig_ident)
   #else
                                     | Types.Mty_alias sig_ident
   #endif
                                     ) }
-  #if OCAML_VERSION >= "4.08"
+  #if OCAML_VERSION >= (4,08,0)
         ,_
   #endif
     ) ->
@@ -692,7 +692,7 @@ let rec trie_of_sig_item
             (lazy (lookup_parents parents (path@[Ident.name id]) sig_path))
         ) in
         children, comments
-  #if OCAML_VERSION >= "4.08"
+  #if OCAML_VERSION >= (4,08,0)
     | Types.Sig_class (id,{Types.cty_type=cty},_,_)
     | Types.Sig_class_type (id,{Types.clty_type=cty},_,_)
   #else
@@ -720,13 +720,13 @@ let rec trie_of_sig_item
                     otype_params  = [];
                     otype_type    = ty;
                     otype_private = Asttypes.Public;
-  #if OCAML_VERSION >= "4.03"
-    #if OCAML_VERSION >= "4.10"
+  #if OCAML_VERSION >= (4,03,0)
+    #if OCAML_VERSION >= (4,10,0)
                     otype_immediate = Type_immediacy.Unknown;
     #else
                     otype_immediate = false;
     #endif
-    #if OCAML_VERSION >= "4.04"
+    #if OCAML_VERSION >= (4,04,0)
                     otype_unboxed = false;
     #endif
   #endif
@@ -770,7 +770,7 @@ let rec lookup_trie_of_module_expr parents t path = function
   | Typedtree.Tmod_constraint (e,_,_,_)
   (* | Typedtree.Tmod_apply (e,_,_) *) ->
       lookup_trie_of_module_expr parents t path e.mod_desc
-#if OCAML_VERSION >= "4.10"
+#if OCAML_VERSION >= (4,10,0)
   | Typedtree.Tmod_apply ({ mod_desc = Typedtree.Tmod_functor(Typedtree.Named (Some id, _, _),f) },
 #else
   | Typedtree.Tmod_apply ({ mod_desc = Typedtree.Tmod_functor(id,_,_,f) },
@@ -791,7 +791,7 @@ let rec extract_includes_from_submodule_sig parents t path name = function
           (IndexTrie.sub t (modpath_to_key [name])) path sign
       ) in
       IndexTrie.graft_lazy t (modpath_to_key [name]) sub_includes
-#if OCAML_VERSION >= "4.10"
+#if OCAML_VERSION >= (4,10,0)
   | Typedtree.Tmty_functor (_,e)
 #else
   | Typedtree.Tmty_functor (_,_,_,e)
@@ -800,7 +800,7 @@ let rec extract_includes_from_submodule_sig parents t path name = function
       extract_includes_from_submodule_sig parents t path name e.Typedtree.mty_desc
   | _ -> t
 and extract_includes_from_submodule_sig_opt parents t path id mty =
-#if OCAML_VERSION >= "4.10"
+#if OCAML_VERSION >= (4,10,0)
   match id with None -> t | Some id ->
 #endif
     extract_includes_from_submodule_sig parents t path (Ident.name id) mty
@@ -814,7 +814,7 @@ and get_includes_impl parents t path ttree_struct =
         ) in
         IndexTrie.graft_lazy t (modpath_to_key [name]) sub_includes
     (* | Typedtree.Tmod_functor (arg_id,_,arg_t,e) *)
-#if OCAML_VERSION >= "4.10"
+#if OCAML_VERSION >= (4,10,0)
     | Typedtree.Tmod_apply ({ mod_desc = Typedtree.Tmod_functor(Typedtree.Named (Some id, _, _),f) },
 #else
     | Typedtree.Tmod_apply ({ mod_desc = Typedtree.Tmod_functor(id,_,_,f) },
@@ -830,7 +830,7 @@ and get_includes_impl parents t path ttree_struct =
         extract_submodule_impl
           (IndexTrie.graft_lazy t (modpath_to_key [id_name]) functor_arg)
           name f.Typedtree.mod_desc
-#if OCAML_VERSION >= "4.10"
+#if OCAML_VERSION >= (4,10,0)
     | Typedtree.Tmod_functor (_,e)
 #else
     | Typedtree.Tmod_functor (_,_,_,e)
@@ -840,14 +840,14 @@ and get_includes_impl parents t path ttree_struct =
     | _ -> t
   in
   let extract_submodule_impl_opt t id mty =
-#if OCAML_VERSION >= "4.10"
+#if OCAML_VERSION >= (4,10,0)
       match id with None -> t | Some id ->
 #endif
         extract_submodule_impl t (Ident.name id) mty
   in
   List.fold_left (fun t struc_item ->
       match struc_item.Typedtree.str_desc with
-#if OCAML_VERSION >= "4.08"
+#if OCAML_VERSION >= (4,08,0)
       | Typedtree.Tstr_include
           { Typedtree.incl_mod = { Typedtree.mod_desc = e }} ->
 #else
@@ -855,7 +855,7 @@ and get_includes_impl parents t path ttree_struct =
           { Typedtree.incl_mod = { Typedtree.mod_desc = e }} ->
 #endif
           lookup_trie_of_module_expr parents t path e
-#if OCAML_VERSION >= "4.08"
+#if OCAML_VERSION >= (4,08,0)
       | Typedtree.Tstr_open
           Typedtree.{ open_expr = { mod_desc = Tmod_ident (p, _loc) } }
           (* TODO: handle the other new open cases *)
@@ -1206,7 +1206,7 @@ let load_files t dirfiles =
     try
       let i = String.rindex file '.' in
       let len = String.length file in
-#if OCAML_VERSION >= "4.03"
+#if OCAML_VERSION >= (4,03,0)
       let modul = String.capitalize_ascii (String.sub file 0 i) in
       let ext = String.lowercase_ascii (String.sub file (i+1) (len-i-1)) in
 #else
@@ -1276,7 +1276,7 @@ let load paths =
   let t = load_dirs t paths in
   debug "Modules directory loaded in %.3fs (%d files in %d directories)...\n"
     (chrono()) !debug_file_counter !debug_dir_counter;
-#if OCAML_VERSION >= "4.07"
+#if OCAML_VERSION >= (4,07,0)
   open_module ~cleanup_path:true t ["Stdlib"]
 #else
   open_module ~cleanup_path:true t ["Pervasives"]

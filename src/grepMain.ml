@@ -85,9 +85,9 @@ end = struct
         Filename.basename
           (try Filename.chop_extension f with Invalid_argument _ -> f)
       in
-#if OCAML_VERSION >= "4.03"
+#if OCAML_VERSION >= (4,03,0)
       String.mapi (function 0 -> Char.uppercase_ascii | _ -> fun x -> x) s
-#elif OCAML_VERSION >= "4.02"
+#elif OCAML_VERSION >= (4,02,0)
       String.mapi (function 0 -> Char.uppercase | _ -> fun x -> x) s
 #else
       s.[0] <- Char.uppercase s.[0];

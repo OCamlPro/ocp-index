@@ -3,7 +3,7 @@
  (public_name ocp-index.lib)
  (preprocess
   (action
-   (run ocp-pp %{input-file})))
+   (run %{bin:cppo} -V OCAML:%{ocaml_version} %{input-file})))
  (libraries compiler-libs compiler-libs.common ocp-indent.lexer
    ocp-indent.utils)
  (wrapped false)
