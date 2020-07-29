@@ -1,3 +1,10 @@
+### 1.2.1
+
+* Support for OCaml 4.11
+* Support for separate location of cmt / cmti files when building with dune
+* Use cppo instead of ocp-pp
+* Rename module `Trie` for compat
+
 ### 1.2
 
 * Support for OCaml 4.10
