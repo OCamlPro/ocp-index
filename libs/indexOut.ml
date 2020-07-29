@@ -180,14 +180,14 @@ module IndexFormat = struct
     | Osig_modtype (_,mtyp)
     | Osig_module (_,mtyp,_) ->
         !Oprint.out_module_type fmt mtyp
-#if OCAML_VERSION >= "4.03"
+#if OCAML_VERSION >= (4,03,0)
     | Osig_type ({ otype_type },_) ->
         tydecl fmt otype_type
     | Osig_value {oval_type} ->
         !Oprint.out_type fmt oval_type
     | Osig_ellipsis ->
         Format.fprintf fmt "..."
-#elif OCAML_VERSION >= "4.02"
+#elif OCAML_VERSION >= (4,02,0)
     | Osig_type ({ otype_type },_) ->
         tydecl fmt otype_type
     | Osig_value (_,ty,_) ->

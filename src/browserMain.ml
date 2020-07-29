@@ -15,7 +15,7 @@ let rec eq l1 l2 = match l1, l2 with
 let kind_to_tag, tag_to_style, register_ressource =
   let h = Hashtbl.create 11 in
   let kind_to_tag = function
-#if OCAML_VERSION >= "4.03"
+#if OCAML_VERSION >= (4,03,0)
     | LibIndex.OpenType
 #endif
     | LibIndex.Type -> "Type"
@@ -72,7 +72,7 @@ let load_style () =
     Lwt.return ()
     )
 
-#if OCAML_VERSION >= "4.08"
+#if OCAML_VERSION >= (4,08,0)
 let pp_open_tag fmt tag = Format.pp_open_stag fmt (Format.String_tag tag)
 let pp_close_tag = Format.pp_close_stag
 #else

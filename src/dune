@@ -4,7 +4,7 @@
  (libraries cmdliner ocp-index.lib)
  (preprocess
   (action
-   (run ocp-pp %{input-file})))
+   (run %{bin:cppo} -V OCAML:%{ocaml_version} %{input-file})))
  (flags :standard -w -9))
 
 (executable
@@ -14,7 +14,7 @@
  (modules indexMain)
  (preprocess
   (action
-   (run ocp-pp %{input-file})))
+   (run %{bin:cppo} -V OCAML:%{ocaml_version} %{input-file})))
  (libraries unix ocp-index.lib cmdliner indexOptions)
  (flags :standard -w -9))
 
@@ -25,7 +25,7 @@
  (modules grepMain)
  (preprocess
   (action
-   (run ocp-pp %{input-file})))
+   (run %{bin:cppo} -V OCAML:%{ocaml_version} %{input-file})))
  (libraries unix ocp-index.lib re re.posix cmdliner)
  (flags :standard -w -9))
 
@@ -36,7 +36,7 @@
  (modules browserMain)
  (preprocess
   (action
-   (run ocp-pp %{input-file})))
+   (run %{bin:cppo} -V OCAML:%{ocaml_version} %{input-file})))
  (libraries unix re lambda-term ocp-index.lib cmdliner indexOptions)
  (flags :standard -w -9))
 

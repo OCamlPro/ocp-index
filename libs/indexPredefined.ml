@@ -18,7 +18,7 @@ open Outcometree
 (* List and doc taken from
    http://caml.inria.fr/pub/docs/manual-ocaml/manual034.html (4.00.1) *)
 
-#if OCAML_VERSION >= "4.08"
+#if OCAML_VERSION >= (4,08,0)
   let n s = {printed_name = s}
 #else
   let n s = s
@@ -34,13 +34,13 @@ let mktype name ?(params=[]) ?(def=Otyp_abstract) doc = {
         otype_params  = List.map (fun v -> v,(true,true)) params;
         otype_type    = def;
         otype_private = Asttypes.Public;
-  #if OCAML_VERSION >= "4.03"
-    #if OCAML_VERSION >= "4.10"
+  #if OCAML_VERSION >= (4,03,0)
+    #if OCAML_VERSION >= (4,10,0)
         otype_immediate = Type_immediacy.Unknown;
     #else
         otype_immediate = false;
     #endif
-    #if OCAML_VERSION >= "4.04"
+    #if OCAML_VERSION >= (4,04,0)
         otype_unboxed = false;
     #endif
   #endif
@@ -62,13 +62,13 @@ let mkvariant name parent params = {
         otype_type    = (match params with [] -> Otyp_sum []
                                          | l  -> Otyp_tuple l);
         otype_private = Asttypes.Public;
-  #if OCAML_VERSION >= "4.03"
-    #if OCAML_VERSION >= "4.10"
+  #if OCAML_VERSION >= (4,03,0)
+    #if OCAML_VERSION >= (4,10,0)
         otype_immediate = Type_immediacy.Unknown;
     #else
         otype_immediate = false ;
     #endif
-    #if OCAML_VERSION >= "4.04"
+    #if OCAML_VERSION >= (4,04,0)
         otype_unboxed = false;
     #endif
   #endif
