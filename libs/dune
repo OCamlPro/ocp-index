@@ -4,7 +4,13 @@
  (preprocess
   (action
    (run %{bin:cppo} -V OCAML:%{ocaml_version} %{input-file})))
- (libraries compiler-libs compiler-libs.common ocp-indent.lexer
+ (preprocessor_deps indexArtifactReader.mlp)
+ (libraries
+   ocaml_408
+   compiler-libs
+   compiler-libs.common
+   ocaml-migrate-parsetree
+   ocp-indent.lexer
    ocp-indent.utils)
  (wrapped false)
  (flags :standard -w -9))
