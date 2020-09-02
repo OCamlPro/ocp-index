@@ -6,22 +6,8 @@ let cmi_magic_number = Config.cmi_magic_number
 let cmt_magic_number = Config.cmt_magic_number
 
 let migr_funs = Migrate_parsetree.Versions.(migrate ocaml_v ocaml_current)
-let migrate_ty:
-  Ocaml_v.Outcometree.out_type -> Ocaml_cur.Outcometree.out_type =
-  fun x -> migr_funs.Migrate_parsetree.Versions.copy_out_type (Obj.magic x)
-let migrate_sig_item:
-  Ocaml_v.Outcometree.out_sig_item -> Ocaml_cur.Outcometree.out_sig_item =
-  fun x -> migr_funs.Migrate_parsetree.Versions.copy_out_sig_item (Obj.magic x)
-
-let migrate_loc:
-  Ocaml_v.Location.t -> Ocaml_cur.Location.t
-  =
-  fun loc ->
-  let Ocaml_v.Location.{loc_start; loc_end; loc_ghost} = loc in
-  let mig Ocaml_v.Lexing.{pos_fname; pos_lnum; pos_cnum; pos_bol} =
-    Lexing.{pos_fname; pos_lnum; pos_cnum; pos_bol}
-  in
-  Location.{loc_start = mig loc_start; loc_end = mig loc_end; loc_ghost}
+let migrate_ty = migr_funs.Migrate_parsetree.Versions.copy_out_type
+let migrate_sig_item = migr_funs.Migrate_parsetree.Versions.copy_out_sig_item
 
 let ty_of_sig_item si =
   let open Printtyp in
@@ -110,8 +96,7 @@ let with_path_loc ?srcpath loc =
       {loc with loc_start = with_path_pos loc.loc_start;
                 loc_end = with_path_pos loc.loc_end }
 
-let loc_of_sig_item si =
-  let xloc = match si with
+let loc_of_sig_item = function
 #if OCAMLV < (4,08,0)
   | Types.Sig_value (_,descr) -> descr.Types.val_loc
   | Types.Sig_type (_,descr,_) -> descr.Types.type_loc
@@ -129,8 +114,6 @@ let loc_of_sig_item si =
   | Types.Sig_class (_,descr,_,_) -> descr.Types.cty_loc
   | Types.Sig_class_type (_,descr,_,_) -> descr.Types.clty_loc
 #endif
-  in
-  migrate_loc xloc
 
 let id_of_sig_item = function
 #if OCAMLV < (4,08,0)
@@ -882,12 +865,6 @@ let load_cmt ?(qualify=false) root t modul orig_file =
            match cmt_sign info with
            | Some sign ->
                let srcpath = info.Cmt_format.cmt_builddir in
-               let comments = match comments with
-                 | None -> None
-                 | Some c ->
-                     Some (lazy (List.map (fun (s,loc) -> s, migrate_loc loc)
-                                   (Lazy.force c)))
-               in
                let t, _trailing_comments =
                  foldl_next
                    (fun (t,comments) sig_item next ->
