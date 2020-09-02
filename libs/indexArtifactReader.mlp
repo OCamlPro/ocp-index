@@ -2,6 +2,9 @@
 
 open Ocaml_v.Open_me
 
+let cmi_magic_number = Config.cmi_magic_number
+let cmt_magic_number = Config.cmt_magic_number
+
 let migr_funs = Migrate_parsetree.Versions.(migrate ocaml_v ocaml_current)
 let migrate_ty:
   Ocaml_v.Outcometree.out_type -> Ocaml_cur.Outcometree.out_type =

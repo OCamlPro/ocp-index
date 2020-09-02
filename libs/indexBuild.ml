@@ -286,7 +286,24 @@ module Ocaml_cur = struct
   module Location = Location
 end
 
-module V408 = struct
+module type ARTIFACT_READER = sig
+  val load_cmt:
+    ?qualify:bool ->
+    t Lazy.t ->
+    (char, info) IndexTrie.t ->
+    string -> orig_file -> (char, info) IndexTrie.t
+
+  val load_cmi:
+    ?qualify:bool ->
+    t Lazy.t ->
+    (char, info) IndexTrie.t ->
+    string -> orig_file -> (char, info) IndexTrie.t
+
+  val cmi_magic_number: string
+  val cmt_magic_number: string
+end
+
+module V408: ARTIFACT_READER = struct
   module Ocaml_v = Ocaml_408
   let ocaml_v = Migrate_parsetree.Versions.ocaml_408
   #define OCAMLV (4,08,0)
@@ -297,13 +314,37 @@ end
 let debug_file_counter = ref 0
 let debug_dir_counter = ref 0
 
-open V408
+let (readers: (module ARTIFACT_READER) list)  = [
+  (module V408);
+]
+
+let get_reader =
+  let map =
+    List.fold_left
+      (fun acc (module O: ARTIFACT_READER) ->
+         (O.cmt_magic_number, O.load_cmt) ::
+         (O.cmi_magic_number, O.load_cmi) ::
+         acc)
+      []
+      readers
+  in
+  fun magic -> List.assoc magic map
 
 let load_file root t modul f =
   incr debug_file_counter;
-  match f with
-  | Cmi _ -> load_cmi root t modul f
-  | Cmt _ | Cmti _ -> load_cmt root t modul f
+  let get_magic fn =
+    let ic = open_in_bin fn in
+    try
+      let m = really_input_string ic (String.length Config.cmt_magic_number)in
+      close_in ic; m
+    with e -> close_in ic; raise e
+  in
+  let fn = match f with Cmi fn | Cmt fn | Cmti fn -> fn in
+  let reader =
+    try get_reader (get_magic fn)
+    with Not_found -> raise (Bad_format fn)
+  in
+  reader root t modul f
 
 let load_files t dirfiles =
   let split_filename file =
