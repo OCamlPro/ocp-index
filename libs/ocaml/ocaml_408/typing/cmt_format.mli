@@ -83,16 +83,16 @@ val read : string -> Cmi_format.cmi_infos option * cmt_infos option
 val read_cmt : string -> cmt_infos
 val read_cmi : string -> Cmi_format.cmi_infos
 
-(** [save_cmt filename modname binary_annots sourcefile initial_env cmi]
-    writes a cmt(i) file.  *)
-val save_cmt :
-  string ->  (* filename.cmt to generate *)
-  string ->  (* module name *)
-  binary_annots ->
-  string option ->  (* source file *)
-  Env.t -> (* initial env *)
-  Cmi_format.cmi_infos option -> (* if a .cmi was generated *)
-  unit
+(* (\** [save_cmt filename modname binary_annots sourcefile initial_env cmi]
+ *     writes a cmt(i) file.  *\)
+ * val save_cmt :
+ *   string ->  (\* filename.cmt to generate *\)
+ *   string ->  (\* module name *\)
+ *   binary_annots ->
+ *   string option ->  (\* source file *\)
+ *   Env.t -> (\* initial env *\)
+ *   Cmi_format.cmi_infos option -> (\* if a .cmi was generated *\)
+ *   unit *)
 
 (* Miscellaneous functions *)
 
