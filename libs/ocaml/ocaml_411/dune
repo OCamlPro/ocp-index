@@ -1,0 +1,10 @@
+(library
+ (public_name ocp-index.ocaml-411)
+ (name ocaml_411)
+ (wrapped true)
+ (flags :standard -w -9-32-33 -open Migrate_parsetree.OCaml_.Ast)
+ (libraries ocaml-migrate-parsetree)
+ (modules_without_implementation
+  annot)
+)
+(include_subdirs unqualified)
