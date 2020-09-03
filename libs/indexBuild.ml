@@ -310,25 +310,41 @@ module V408: ARTIFACT_READER = struct
   #include "indexArtifactReader.mlp"
   #undef OCAMLV
 end
+module V409: ARTIFACT_READER = struct
+  module Ocaml_v = Ocaml_409
+  let ocaml_v = Migrate_parsetree.Versions.ocaml_409
+  #define OCAMLV (4,09,0)
+  #include "indexArtifactReader.mlp"
+  #undef OCAMLV
+end
+
 
 let debug_file_counter = ref 0
 let debug_dir_counter = ref 0
 
 let (readers: (module ARTIFACT_READER) list)  = [
   (module V408);
+  (module V409);
 ]
 
-let get_reader =
-  let map =
+let get_cmi_reader =
+  let assoc =
+    List.map
+      (fun (module O: ARTIFACT_READER) -> O.cmi_magic_number, O.load_cmi)
+      readers
+  in
+  fun magic -> List.assoc magic assoc
+
+let get_cmt_reader =
+  let assoc =
     List.fold_left
       (fun acc (module O: ARTIFACT_READER) ->
-         (O.cmt_magic_number, O.load_cmt) ::
-         (O.cmi_magic_number, O.load_cmi) ::
-         acc)
+         (O.cmi_magic_number, O.load_cmi) (* cmti *) ::
+         (O.cmt_magic_number, O.load_cmt) (* cmt *) :: acc)
       []
       readers
   in
-  fun magic -> List.assoc magic map
+  fun magic -> List.assoc magic assoc
 
 let load_file root t modul f =
   incr debug_file_counter;
@@ -339,10 +355,20 @@ let load_file root t modul f =
       close_in ic; m
     with e -> close_in ic; raise e
   in
-  let fn = match f with Cmi fn | Cmt fn | Cmti fn -> fn in
   let reader =
-    try get_reader (get_magic fn)
-    with Not_found -> raise (Bad_format fn)
+    match f with
+    | Cmi fn ->
+        let mag = get_magic fn in
+        (try get_cmi_reader (get_magic fn)
+         with Not_found ->
+           raise (Bad_format (Printf.sprintf "unknown cmi magic number %s in %s"
+                                mag fn)))
+    | Cmt fn | Cmti fn ->
+        let mag = get_magic fn in
+        (try get_cmt_reader (get_magic fn)
+         with Not_found ->
+           raise (Bad_format (Printf.sprintf "unknown cmt magic number %s in %s"
+                                mag fn)))
   in
   reader root t modul f
 

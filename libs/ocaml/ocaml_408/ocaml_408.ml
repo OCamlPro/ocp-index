@@ -15,3 +15,4 @@ end
 module Outcometree = Outcometree
 module Lexing = Lexing
 module Location = Location
+module Config = Config
