@@ -3,7 +3,7 @@ _build
 ocp-build.root*
 aclocal.m4
 *.cache
-config.*
+/config.*
 *.install
 man
 ocp-index
