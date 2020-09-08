@@ -2,7 +2,7 @@
  (public_name ocp-index.ocaml-404)
  (name ocaml_404)
  (wrapped true)
- (flags :standard -w -9-32-33 -open Migrate_parsetree.OCaml_.Ast)
+ (flags :standard -w -9-32-33 -open Migrate_parsetree.OCaml_404.Ast)
  (libraries ocaml-migrate-parsetree)
  (modules_without_implementation
   annot)

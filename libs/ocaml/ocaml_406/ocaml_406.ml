@@ -1,4 +1,4 @@
-open Ocaml___
+open Ocaml_406__
 
 module Open_me = struct
   module Ident = Ident
