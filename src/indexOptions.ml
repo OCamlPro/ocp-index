@@ -80,7 +80,7 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
       Arg.(value & flag & info ["no-stdlib"] ~doc);
     in
     let no_opamlib : bool Term.t =
-      let doc = "Don't include the OPAM library directory (`opam config var lib`) \
+      let doc = "Don't include the OPAM library directory (`opam var lib`) \
                  in lookups." in
       Arg.(value & flag & info ["no-opamlib"] ~doc);
     in
