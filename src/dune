@@ -38,7 +38,7 @@
   (action
    (run %{bin:cppo} -V OCAML:%{ocaml_version} %{input-file})))
  (libraries unix re lambda-term ocp-index.lib cmdliner indexOptions)
- (flags :standard -w -9 -alert -deprecated))
+ (flags :standard -w -9-3))
 
 (rule
  (targets ocp-index.1)
