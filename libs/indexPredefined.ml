@@ -31,7 +31,11 @@ let mktype name ?(params=[]) ?(def=Otyp_abstract) doc = {
   name = name;
   ty = Some (Osig_type (
       { otype_name    = name;
+  #if OCAML_VERSION >= (4,12,0)
+        otype_params  = List.map (fun v -> v,Asttypes.(NoVariance, NoInjectivity)) params;
+  #else
         otype_params  = List.map (fun v -> v,(true,true)) params;
+  #endif
         otype_type    = def;
         otype_private = Asttypes.Public;
   #if OCAML_VERSION >= (4,03,0)

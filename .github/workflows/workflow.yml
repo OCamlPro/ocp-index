@@ -1,0 +1,49 @@
+name: Main workflow
+
+on:
+  - pull_request
+  - push
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+        ocaml-version:
+          - 4.12.0~beta2
+          - 4.11.1
+          - 4.10.2
+          - 4.09.1
+          - 4.08.1
+          - 4.07.1
+          - 4.06.1
+          - 4.05.0
+          - 4.04.2
+          - 4.03.0
+          - 4.02.3
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - run: echo | sh <(curl -sL https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh) --dev
+      - run: opam init -yn --disable-sandboxing --compiler ${{ matrix.ocaml-version }}
+
+      - run: opam pin add -yn .
+
+      - run: opam install -y --deps-only .
+      - run: opam exec -- dune build @install
+
+      - run: opam install -y --deps-only --with-test .
+      - run: opam exec -- dune build @runtest
+
+      - run: opam install -y --deps-only --with-doc .
+      - run: opam exec -- dune build @doc
+
+      - run: opam install -y .
+      - run: opam reinstall -yt .
+      - run: opam reinstall -yd .

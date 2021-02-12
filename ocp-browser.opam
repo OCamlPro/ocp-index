@@ -24,4 +24,5 @@ depends: [
   "cmdliner"
   "lambda-term"
   "zed" { >= "2.0.0" }
+  "odoc" {with-test}
 ]
