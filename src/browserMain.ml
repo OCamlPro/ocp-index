@@ -15,9 +15,7 @@ let rec eq l1 l2 = match l1, l2 with
 let kind_to_tag, tag_to_style, register_ressource =
   let h = Hashtbl.create 11 in
   let kind_to_tag = function
-#if OCAML_VERSION >= (4,03,0)
     | LibIndex.OpenType
-#endif
     | LibIndex.Type -> "Type"
     | Value -> "Value"
     | Exception -> "Exception"
