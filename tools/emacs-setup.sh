@@ -14,7 +14,7 @@ else
     check_eldir || eldir=/usr/share/emacs/site-lisp
     check_eldir || {
         $(which opam >/dev/null) &&
-        eldir=$(opam config var share)/emacs/site-lisp
+        eldir=$(opam var share)/emacs/site-lisp
     }
 fi
 
