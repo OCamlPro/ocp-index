@@ -1,3 +1,9 @@
+### 1.2.2
+
+* Support for OCaml 4.12
+* Switched CI from Travis to Github Actions
+* Use the newer `opam var` instead of `opam config var`
+
 ### 1.2.1
 
 * Support for OCaml 4.11
