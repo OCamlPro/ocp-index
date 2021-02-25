@@ -248,8 +248,13 @@ let qualify_ty (parents:parents) ty =
     | Otyp_variant (bl, var, bl2, strlistopt) ->
         Otyp_variant (bl, var, bl2, strlistopt)
     | Otyp_poly (str, ty) -> Otyp_poly (str, aux ty)
+#if OCAML_VERSION >= (4, 13, 0)
+    | Otyp_module (str, fl) ->
+        Otyp_module (str, List.map (fun (s, ty) -> (s, aux ty)) fl)
+#else
     | Otyp_module (str, strl, tylist) ->
         Otyp_module (str, strl, List.map aux tylist)
+#endif
     | Otyp_open -> Otyp_open
 #if OCAML_VERSION >= (4,03,0)
     | Otyp_attribute (ty,attr) -> Otyp_attribute (aux ty, attr)
@@ -402,6 +407,17 @@ let doc_of_attributes attrs =
   | _ -> None
   with Not_found -> None
 
+#if OCAML_VERSION >= (4,13,0)
+let make_type_expr ~desc ~level ~scope ~id =
+  Types.Private_type_expr.create desc ~level ~scope ~id
+#elif OCAML_VERSION >= (4,07,0)
+let make_type_expr ~desc ~level ~scope ~id =
+  {Types.desc; level; scope; id}
+#elif OCAML_VERSION >= (4,03,0)
+let make_type_expr ~desc ~level ~id =
+  {Types.desc; level; id}
+#endif
+
 let trie_of_type_decl ?comments info ty_decl =
   match ty_decl.Types.type_kind with
   | Types.Type_abstract -> [], comments
@@ -444,7 +460,11 @@ let trie_of_type_decl ?comments info ty_decl =
           } ())
         fields,
       comments
+#if OCAML_VERSION >= (4, 13, 0)
+  | Types.Type_variant (variants, _rep) ->
+#else
   | Types.Type_variant variants ->
+#endif
       List.map
         (fun { Types.cd_id; cd_args; cd_attributes } ->
           let ty =
@@ -453,14 +473,15 @@ let trie_of_type_decl ?comments info ty_decl =
               | Cstr_tuple [] -> Outcometree.Otyp_sum []
               | Cstr_tuple (param::_ as l) ->
                      Printtyp.tree_of_typexp false
-                       { Types. desc = Types.Ttuple l;
-                         level = param.Types.level;
+                       (make_type_expr
+                          ~desc:(Types.Ttuple l)
+                          ~level:param.Types.level
 #if OCAML_VERSION >= (4,08,0)
-                         scope = 0;
+                          ~scope:0
 #elif OCAML_VERSION >= (4,07,0)
-                         scope = None;
+                          ~scope:None
 #endif
-                         id = param.Types.id }
+                          ~id:param.Types.id)
               | Cstr_record params ->
                   Outcometree.Otyp_record (
                     List.map
