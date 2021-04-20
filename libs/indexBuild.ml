@@ -66,6 +66,15 @@ let fix_path_prefix strip new_pfx =
   let rev_pfx = List.rev new_pfx in
   fun id -> {id with path = List.rev_append rev_pfx (tln strip id.path)}
 
+let fix_orig_path_prefix strip new_pfx =
+  let rec tln n = function
+    | [] -> []
+    | _::tl as l -> if n > 0 then tln (n-1) tl else l
+  in
+  let rev_pfx = List.rev new_pfx in
+  fun id ->
+    {id with orig_path = List.rev_append rev_pfx (tln strip id.orig_path)}
+
 let overriding_merge t1 t2 =
   let f = (IndexTrie.filter_keys ((<>) dot) t2) in
   IndexTrie.fold0
@@ -688,8 +697,26 @@ let rec trie_of_sig_item
         let sig_path = path_of_ocaml sig_ident in
         let children = lazy (
           (* Only keep the children, don't override the module reference *)
-          IndexTrie.graft_lazy IndexTrie.empty []
-            (lazy (lookup_parents parents (path@[Ident.name id]) sig_path))
+          let local_path = path@[Ident.name id] in
+          let canonical () = match doc with
+            | lazy (Some d) ->
+                let rec aux = function
+                  | "@canonical"::path::_ -> Some (IndexMisc.string_split '.' path)
+                  | _ :: r -> aux r
+                  | [] -> None
+                in
+                aux (IndexMisc.string_split ' ' d)
+            | _ -> None
+          in
+          let m = lazy (
+            let m = lookup_parents parents local_path sig_path in
+            match canonical () with
+            | Some path ->
+                let strip_path = fix_orig_path_prefix (List.length sig_path) path in
+                IndexTrie.map (fun _key -> strip_path) m
+            | None -> m
+          ) in
+          IndexTrie.graft_lazy IndexTrie.empty [] m
         ) in
         children, comments
   #if OCAML_VERSION >= (4,08,0)
