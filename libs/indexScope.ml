@@ -267,3 +267,25 @@ let fold f acc ?init ?stop chan =
 
 let fold_string f acc ?init ?stop chan =
   fold_nstream f acc ?init ?stop (Nstream.of_string chan)
+
+let from_dot_merlin dir =
+  try
+    let ic = open_in (Filename.concat dir ".merlin") in
+    try
+      let rec scan ic =
+        match IndexMisc.string_split ' ' (input_line ic) with
+        | "FLG" :: flags ->
+            let rec aux = function
+              | "-open" :: modname :: r ->
+                  Open (IndexMisc.string_split '.' modname) :: aux r
+              | _ :: r -> aux r
+              | [] -> []
+            in
+            aux flags @ scan ic
+        | _ -> scan ic
+        | exception End_of_file -> []
+      in
+      let r = scan ic in
+      close_in ic; r
+    with e -> close_in ic; raise e
+  with _ -> []

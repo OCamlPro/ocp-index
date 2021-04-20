@@ -20,6 +20,10 @@ val empty: t
 (** The type of gathered information within a scope *)
 type env = Alias of string * string list | Open of string list
 
+(** From a directory name, look for a .merlin file and check for [open] flags in
+    it *)
+val from_dot_merlin: string -> env list
+
 (** Compute the environment from an input channel, at an optional position or at
     EOF *)
 val read: ?line:int -> ?column:int -> in_channel -> t
