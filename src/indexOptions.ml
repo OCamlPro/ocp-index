@@ -276,7 +276,7 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
       in
       LibIndex.Misc.unique_subdirs ~skip dirs
     in
-    let info = LibIndex.load dirs in
+    let info = LibIndex.load ~qualify:true dirs in
     let info = match context with
       | None -> info
       | Some (use_stdin,file,line,column) ->
@@ -314,7 +314,7 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
       List.fold_left (LibIndex.open_module ~cleanup_path:true) info opens
     in
     let info =
-      List.fold_left (LibIndex.fully_open_module ~cleanup_path:true)
+      List.fold_left (LibIndex.fully_open_module ~qualify:true ~cleanup_path:true)
         info full_opens
     in
     info
