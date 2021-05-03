@@ -55,3 +55,9 @@ val find_build_dir: string -> string option
 
 (** Shorten [file] by making it relative to current [path] (default cwd) *)
 val make_relative: ?path:string -> string -> string
+
+(** [String.capitalize_ascii], but compatibile across OCaml versions *)
+val capitalize: string -> string
+
+(** [String.lowercase_ascii], but compatibile across OCaml versions *)
+val lowercase: string -> string

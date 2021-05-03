@@ -268,10 +268,15 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
           let chan = match file with Some f -> open_in f | None -> stdin in
           let scope = IndexScope.read ?line ?column chan in
           let () = match file with Some _ -> close_in chan | None -> () in
-          let merlin_open =
+          let context_opens =
             match file with
-            | Some f -> IndexScope.from_dot_merlin (Filename.dirname f)
             | None -> []
+            | Some f ->
+                match IndexScope.from_dot_merlin (Filename.dirname f) with
+                | _::_ as opens -> opens
+                | [] -> match Dunextract.get_libname f with
+                  | Some libname -> [Open [String.capitalize_ascii libname]]
+                  | None -> []
           in
           let info =
             List.fold_left (fun info -> function
@@ -279,7 +284,7 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
                     LibIndex.open_module ~cleanup_path:true info path
                 | IndexScope.Alias (name,path) ->
                     LibIndex.alias ~cleanup_path:true info path [name])
-              info (merlin_open @ IndexScope.to_list scope)
+              info (context_opens @ IndexScope.to_list scope)
           in
           info
     in

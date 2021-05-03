@@ -1233,13 +1233,8 @@ let load_files t dirfiles =
     try
       let i = String.rindex file '.' in
       let len = String.length file in
-#if OCAML_VERSION >= (4,03,0)
-      let modul = String.capitalize_ascii (String.sub file 0 i) in
-      let ext = String.lowercase_ascii (String.sub file (i+1) (len-i-1)) in
-#else
-      let modul = String.capitalize (String.sub file 0 i) in
-      let ext = String.lowercase (String.sub file (i+1) (len-i-1)) in
-#endif
+      let modul = capitalize (String.sub file 0 i) in
+      let ext = lowercase (String.sub file (i+1) (len-i-1)) in
       modul, ext
     with Not_found -> file, ""
   in

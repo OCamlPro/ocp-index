@@ -185,3 +185,17 @@ let project_root ?(path=Sys.getcwd()) () =
   match find path with
   | None -> None, None
   | Some (root, build) -> Some root, Some build
+
+let capitalize =
+#if OCAML_VERSION >= (4,03,0)
+    String.capitalize_ascii
+#else
+    String.capitalize
+#endif
+
+let lowercase =
+#if OCAML_VERSION >= (4,03,0)
+    String.lowercase_ascii
+#else
+    String.lowercase
+#endif
