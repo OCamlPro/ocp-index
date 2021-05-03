@@ -73,7 +73,14 @@ let rec get_lib_name modname = function
             List.find_opt (function T (A "name" :: _) -> true | _ -> false) t
           with
           | Some (T [_; A name]) -> name
-          | _ -> ""
+          | _ ->
+              match
+                List.find_opt
+                  (function T (A "public_name" :: _) -> true | _ -> false) t
+              with
+              | Some (T [_; A name]) ->
+                  List.hd (List.rev (IndexMisc.string_split '.' name))
+              | _ -> ""
         in
         (match
            List.find_opt (function T ( A "modules" :: _) -> true | _ -> false) t
@@ -85,8 +92,7 @@ let rec get_lib_name modname = function
                 List.exists (fun n -> module_eq modname n || n = A ":standard")
                   inc
              then Some libname
-             else
-               get_lib_name modname r
+             else get_lib_name modname r
          | Some _ -> assert false)
   | _ :: r -> get_lib_name modname r
   | [] -> None
