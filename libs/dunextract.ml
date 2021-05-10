@@ -64,18 +64,20 @@ let module_eq name = function
   | A n -> IndexMisc.capitalize n = name
   | _ -> false
 
+let list_find_opt f l = try Some (List.find f l) with Not_found -> None
+
 let rec get_lib_name modname = function
   | T (A "library" :: t) :: r ->
       if List.mem (T [A "wrapped"; A "false"]) t then get_lib_name modname r
       else
         let libname =
           match
-            List.find_opt (function T (A "name" :: _) -> true | _ -> false) t
+            list_find_opt (function T (A "name" :: _) -> true | _ -> false) t
           with
           | Some (T [_; A name]) -> name
           | _ ->
               match
-                List.find_opt
+                list_find_opt
                   (function T (A "public_name" :: _) -> true | _ -> false) t
               with
               | Some (T [_; A name]) ->
@@ -83,7 +85,7 @@ let rec get_lib_name modname = function
               | _ -> ""
         in
         (match
-           List.find_opt (function T ( A "modules" :: _) -> true | _ -> false) t
+           list_find_opt (function T ( A "modules" :: _) -> true | _ -> false) t
          with
          | None -> Some libname
          | Some (T (_ :: ms)) ->
