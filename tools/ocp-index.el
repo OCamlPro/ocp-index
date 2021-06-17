@@ -366,7 +366,7 @@ and greps in any OCaml source files from there. "
                  (list
                   (read-string
                    (format "lookup ident (%s): " default) nil nil default)
-                  nil t)))
+                  nil nil)))
   (let* ((output (if sig (ocp-index-run "locate" "-i" ident)
                    (ocp-index-run "locate" ident)))
          (locs (split-string output "\n" t)))
