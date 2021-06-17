@@ -32,7 +32,7 @@ endfunction
 function! s:ocp_index(cmd, arg)
     let context = join(getline(1, line('.')), "\n")
     let cmdline = [g:ocpindex_program, shellescape(a:cmd),
-    \              '--context', ':', '-F',
+    \              '--context', shellescape(expand('%:t') . ':-'), '-F',
     \              shellescape(substitute(expand('%:t:r'), '^\w', '\u\0', ''))]
 
     call add(cmdline, shellescape(a:arg))
