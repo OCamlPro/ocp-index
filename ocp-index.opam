@@ -28,7 +28,7 @@ depends: [
   "ocp-indent" {>= "1.4.2"}
   "re" {>= "1.9.0"}
   "cmdliner"
-  "odoc" {with-test}
+  "odoc" {with-doc}
 ]
 post-messages:
   "This package requires additional configuration for use in editors. Either install package 'user-setup', or manually:
