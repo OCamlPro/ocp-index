@@ -162,9 +162,7 @@ module Args = struct
 
   let files_of_dir dirs =
     let skip d = match d.[0] with
-      | '_' -> true
-      | '.' -> d <> Filename.current_dir_name &&
-               d <> Filename.parent_dir_name
+      | '_' | '.' -> true
       | _ -> false
     in
     List.fold_left (fun acc dir ->
