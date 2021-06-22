@@ -164,10 +164,13 @@ let parse t stream0 =
   | LPAREN -> (Paren, []) :: t, stream
   | RPAREN -> close t Paren, stream
   | LBRACE ->
+      if stream0.last = INFIXOP3 "%" then t, stream else (* for mly headers *)
       (match parse_path stream with
        | [], stream -> (Brace, []) :: t, stream
        | path, stream -> (Brace, [Open path]) :: t, stream)
-  | RBRACE -> close t Brace, stream
+  | RBRACE ->
+      if stream0.last = INFIXOP3 "%" then t, stream else (* for mly headers *)
+      close t Brace, stream
   | OPEN ->
       let t = if Stream.previous stream = LET then t else maybe_close t Def in
       let path, stream = parse_path stream in

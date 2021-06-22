@@ -12,7 +12,7 @@ jobs:
         os:
           - ubuntu-latest
         ocaml-version:
-          - 4.12.0~beta2
+          - 4.12.0
           - 4.11.1
           - 4.10.2
           - 4.09.1
@@ -26,24 +26,26 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
+    env:
+      OPAMCONFIRMLEVEL: unsafe-yes
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
       - run: echo | sh <(curl -sL https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh) --dev
-      - run: opam init -yn --disable-sandboxing --compiler ${{ matrix.ocaml-version }}
+      - run: sudo apt-get install bubblewrap
 
-      - run: opam pin add -yn .
+      - run: opam init --compiler ${{ matrix.ocaml-version }}
 
-      - run: opam install -y --deps-only .
+      - run: opam install --deps-only . --with-test --with-doc
+
       - run: opam exec -- dune build @install
 
-      - run: opam install -y --deps-only --with-test .
       - run: opam exec -- dune build @runtest
 
-      - run: opam install -y --deps-only --with-doc .
       - run: opam exec -- dune build @doc
 
-      - run: opam install -y .
-      - run: opam reinstall -yt .
-      - run: opam reinstall -yd .
+      - run: opam install .
+      - run: opam reinstall -t .
+      - run: opam reinstall -d .

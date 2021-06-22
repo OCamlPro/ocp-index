@@ -104,13 +104,13 @@
 (defun ocp-index-args (cmd &rest args)
   (let*
       ((file (file-name-nondirectory
-                        (file-name-sans-extension
-                         (or (buffer-file-name) (buffer-name)))))
-       (current-module (concat (upcase (substring file 0 1))
-                               (substring file 1)))
+              (or (buffer-file-name) (buffer-name))))
+       (name (file-name-sans-extension file))
+       (current-module (concat (upcase (substring name 0 1))
+                               (substring name 1)))
        (cmd (list* cmd ocp-index-options
                    "--full-open" current-module
-                   "--context" ":"
+                   "--context" (concat file ":-")
                    args)))
     (when ocp-index-debug
       (message "%s" (mapconcat
@@ -366,7 +366,7 @@ and greps in any OCaml source files from there. "
                  (list
                   (read-string
                    (format "lookup ident (%s): " default) nil nil default)
-                  nil t)))
+                  nil nil)))
   (let* ((output (if sig (ocp-index-run "locate" "-i" ident)
                    (ocp-index-run "locate" ident)))
          (locs (split-string output "\n" t)))

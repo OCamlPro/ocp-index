@@ -208,24 +208,32 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
     in
     Term.(pure default $ root $ build)
   in
-  let context : (string option * int option * int option) option Term.t =
+  let context : (bool * string option * int option * int option) option Term.t =
     let doc = "Will analyse the context at given FILE[:LINE[,COL]] to \
                give appropriate answers w.r.t open modules, etc. \
-               You can specify just `:' to read from stdin" in
+               To read from stdin, specify just `:', or alternatively \
+               `FILENAME:-' to still specify a filename which will be used to \
+               detect e.g. the owning library scope."
+    in
     let filepos_converter =
       (fun str -> match fst (Arg.(pair ~sep:':' string string)) str with
-         | `Ok ("","") -> `Ok (None, None, None)
+         | `Ok ("","") -> `Ok (true, None, None, None)
          | `Ok (file,"") ->
              (match (fst Arg.non_dir_file) file with
-              | `Ok file -> `Ok (Some file, None, None)
+              | `Ok file -> `Ok (false, Some file, None, None)
+              | `Error e -> `Error e)
+         | `Ok (file,"-") ->
+             (match (fst Arg.string) file with
+              | `Ok file ->
+                  `Ok (true, Some file, None, None)
               | `Error e -> `Error e)
          | `Ok (file,pos) ->
              (match (fst Arg.non_dir_file) file,
                     (fst (Arg.list Arg.int)) pos with
               | `Ok file, `Ok [line; col] ->
-                  `Ok (Some file, Some line, Some col)
+                  `Ok (false, Some file, Some line, Some col)
               | `Ok file, `Ok [line] ->
-                  `Ok (Some file, Some line, None)
+                  `Ok (false, Some file, Some line, None)
               | `Error e, _ | _, `Error e -> `Error e
               | _ ->
                   `Error
@@ -233,13 +241,14 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
                                      <line> or <line>,<col>" pos))
          | `Error _ ->
              (match (fst Arg.non_dir_file) str with
-              | `Ok file -> `Ok (Some file, None, None)
+              | `Ok file -> `Ok (false, Some file, None, None)
               | `Error e -> `Error e)),
-      (fun fmt (file,line,col) ->
+      (fun fmt (use_stdin,file,line,col) ->
          let opt f fmt = function None -> () | Some x -> f fmt x in
-         Format.fprintf fmt "%a%s%a%a"
+         Format.fprintf fmt "%a%s%s%a%a"
            (opt Format.pp_print_string) file
            (if file = None || line <> None then ":" else "")
+           (if use_stdin && file <> None then "-" else "")
            (opt Format.pp_print_int) line
            (opt Format.pp_print_int) col)
     in
@@ -255,23 +264,28 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
       failwith "Failed to guess OCaml / opam lib dirs. Please use `-I'";
     let dirs = LibIndex.Misc.unique_subdirs dirs in
     let info = LibIndex.load dirs in
-    let info =
-      List.fold_left (LibIndex.open_module ~cleanup_path:true) info opens
-    in
-    let info =
-      List.fold_left (LibIndex.fully_open_module ~cleanup_path:true)
-        info full_opens
-    in
     let info = match context with
       | None -> info
-      | Some (file,line,column) ->
-          let chan = match file with Some f -> open_in f | None -> stdin in
+      | Some (use_stdin,file,line,column) ->
+          let chan = match use_stdin, file with
+              | true, _ -> stdin
+              | false, Some f -> open_in f
+              | false, None -> assert false
+          in
           let scope = IndexScope.read ?line ?column chan in
-          let () = match file with Some _ -> close_in chan | None -> () in
-          let merlin_open =
+          let () = match use_stdin, file with
+            | false, Some _ -> close_in chan
+            | _ -> ()
+          in
+          let context_opens =
             match file with
-            | Some f -> IndexScope.from_dot_merlin (Filename.dirname f)
             | None -> []
+            | Some f ->
+                match IndexScope.from_dot_merlin (Filename.dirname f) with
+                | _::_ as opens -> opens
+                | [] -> match Dunextract.get_libname f with
+                  | Some libname -> [Open [IndexMisc.capitalize libname]]
+                  | None -> []
           in
           let info =
             List.fold_left (fun info -> function
@@ -279,9 +293,16 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
                     LibIndex.open_module ~cleanup_path:true info path
                 | IndexScope.Alias (name,path) ->
                     LibIndex.alias ~cleanup_path:true info path [name])
-              info (merlin_open @ IndexScope.to_list scope)
+              info (context_opens @ IndexScope.to_list scope)
           in
           info
+    in
+    let info =
+      List.fold_left (LibIndex.open_module ~cleanup_path:true) info opens
+    in
+    let info =
+      List.fold_left (LibIndex.fully_open_module ~cleanup_path:true)
+        info full_opens
     in
     info
   in
