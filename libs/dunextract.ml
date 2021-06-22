@@ -123,9 +123,11 @@ let read_dune dir =
     Some r
   with Sys_error _ -> None
 
+let rm_ext f = try Filename.chop_extension f with Invalid_argument _ -> f
+
 let get_libname file =
   let modname =
-    IndexMisc.capitalize (Filename.(basename (remove_extension file)))
+    IndexMisc.capitalize (Filename.(basename (rm_ext file)))
   in
   match read_dune (Filename.dirname file) with
   | Some (_, sexp) -> get_lib_name modname sexp
