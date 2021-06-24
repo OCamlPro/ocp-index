@@ -1,3 +1,16 @@
+### 1.3.0
+
+* Support for getting opened modules from `.merlin` files
+* Fix to handle `.mly` file headers
+* Fixed the order in which `open` from flags and context are applied (context
+  first)
+* Don't scan directories starting with `_` or `.` (except for the opam prefix
+  and build directory of course)
+* Emacs: jump-to-definition now opens in the same window
+* Scrap `dune` files to guess the containing library and infer module name
+  translations and opens
+* Handle the `@canonical` odoc annotation used in module aliases
+
 ### 1.2.2
 
 * Support for OCaml 4.12
