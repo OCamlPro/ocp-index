@@ -924,7 +924,7 @@ let main_term : unit Cmdliner.Term.t * Cmdliner.Term.info =
   Term.(pure run
         $ IndexOptions.common_opts ~default_filter:[`T;`V;`E;`C;`M;`S;`K] ()
         $ pure ()),
-  Term.info "ocp-browser" ~doc ~man
+  Term.info "ocp-browser" ~version:(Ocp_browser_version.version) ~doc ~man
 
 let () =
   match Cmdliner.Term.eval main_term
