@@ -253,7 +253,7 @@ let () =
     with
     | LibIndex.Bad_format f ->
         Printf.eprintf
-          "[ERROR] %S can't be read.\n\
+          "\r\027[K[ERROR] %S can't be read.\n\
            It's likely that it belongs to a version of OCaml different from \
            the one ocp-index was compiled against.\n"
           f;

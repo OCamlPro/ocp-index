@@ -256,13 +256,22 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
          & info ["context"] ~docv:"FILEPOS" ~doc)
   in
   let lib_info ocamllib (_root,build) (opens,full_opens) context =
+    IndexMisc.debug "Using project root at %s\n\
+                    \      build dir at %s\n\
+                    \      libdir at %s\n"
+      (match _root with Some d -> d | None -> "<none>")
+      (match build with Some d -> d | None -> "<none>")
+      (String.concat ", " ocamllib);
     let dirs = match build with
       | None -> ocamllib
       | Some d -> d :: ocamllib
     in
     if dirs = [] then
       failwith "Failed to guess OCaml / opam lib dirs. Please use `-I'";
-    let dirs = LibIndex.Misc.unique_subdirs dirs in
+    let dirs =
+      let skip d = match d.[0] with '_' | '.' -> true | _ -> false in
+      LibIndex.Misc.unique_subdirs ~skip dirs
+    in
     let info = LibIndex.load dirs in
     let info = match context with
       | None -> info
