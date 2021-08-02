@@ -18,11 +18,11 @@ dev-repo: "git+https://github.com/OCamlPro/ocp-index.git"
 build: ["dune" "build" "-p" name "-j" jobs]
 depends: [
   "ocaml" {>= "4.02.0"}
-  "cppo" {build}
+  "cppo" {build & >= "1.1.0"}
   "dune" {>= "1.0"}
   "ocp-index" {= version}
   "cmdliner"
   "lambda-term"
-  "zed" { >= "2.0.0" }
+  "zed" {>= "2.0.0"}
   "odoc" {with-test}
 ]
