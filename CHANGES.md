@@ -1,3 +1,7 @@
+### 1.3.1
+
+* Support for OCaml 4.13
+
 ### 1.3.0
 
 * Support for getting opened modules from `.merlin` files
