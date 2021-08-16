@@ -269,7 +269,11 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
     if dirs = [] then
       failwith "Failed to guess OCaml / opam lib dirs. Please use `-I'";
     let dirs =
-      let skip d = match d.[0] with '_' | '.' -> true | _ -> false in
+      let skip d = match d.[0] with
+        | '_' -> true
+        | '.' when not (Filename.extension d = ".objs") -> true
+        | _ -> false
+      in
       LibIndex.Misc.unique_subdirs ~skip dirs
     in
     let info = LibIndex.load dirs in
