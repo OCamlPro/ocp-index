@@ -61,3 +61,6 @@ val capitalize: string -> string
 
 (** [String.lowercase_ascii], but compatibile across OCaml versions *)
 val lowercase: string -> string
+
+(** Returns whatever is after the last ['.'] in the string, [""] otherwise. *)
+val file_extension: string -> string

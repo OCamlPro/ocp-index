@@ -199,3 +199,7 @@ let lowercase =
 #else
     String.lowercase
 #endif
+
+let file_extension f =
+  try let i = String.rindex f '.' in String.sub f (i+1) (String.length f - i - 1)
+  with Not_found -> ""

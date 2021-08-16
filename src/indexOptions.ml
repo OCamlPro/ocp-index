@@ -271,7 +271,7 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
     let dirs =
       let skip d = match d.[0] with
         | '_' -> true
-        | '.' when not (Filename.extension d = ".objs") -> true
+        | '.' when not (LibIndex.Misc.file_extension d = "objs") -> true
         | _ -> false
       in
       LibIndex.Misc.unique_subdirs ~skip dirs

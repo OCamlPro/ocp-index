@@ -59,6 +59,8 @@ module Misc: sig
   (* * Helper function, useful to lookup all subdirs of a given path before
       calling [load] *)
   val unique_subdirs: ?skip:(string -> bool) -> string list -> string list
+
+  val file_extension: string -> string
 end
 
 
