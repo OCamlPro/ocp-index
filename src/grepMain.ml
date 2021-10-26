@@ -135,9 +135,7 @@ end = struct
     let ns = Nstream.of_channel ch in
     let rec aux ns matches =
       match Nstream.next ns with
-      | Some ({Nstream.token=STRING _} as tok, ns) ->
-          let s = Lazy.force (tok.Nstream.substr) in
-          let s = String.sub s 1 (String.length s - 2) in (* remove "" *)
+      | Some ({Nstream.token=STRING s} as tok, ns) ->
           let pos = Pos.Region.fst tok.Nstream.region in
           let orig_line, orig_col =
             Lexing.(pos.pos_lnum, pos.pos_cnum - pos.pos_bol + 1)
