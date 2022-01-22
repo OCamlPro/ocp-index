@@ -132,7 +132,11 @@ module IndexFormat = struct
     | Otyp_sum [] ->
         Format.pp_print_char fmt '-'
     | Otyp_sum constrs ->
+#if OCAML_VERSION >= (4,14,0)
+        let print_variant fmt {Outcometree.ocstr_name = name; ocstr_args = tyl; ocstr_return_type = ret_type_opt} =
+#else
         let print_variant fmt (name, tyl, ret_type_opt) =
+#endif
           match ret_type_opt with
           | None ->
               if tyl = [] then Format.pp_print_string fmt name

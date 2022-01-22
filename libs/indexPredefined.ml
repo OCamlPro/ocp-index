@@ -118,21 +118,33 @@ let var name = Otyp_var (false, name)
 let constr ?(params=[]) name =
   Otyp_constr (Oide_ident name, List.map var params)
 
+#if OCAML_VERSION >= (4,14,0)
+let out_constr ~name ~args ~ret = {
+  Outcometree.ocstr_name = name;
+  Outcometree.ocstr_args = args;
+  Outcometree.ocstr_return_type = ret;
+}
+#else
+let out_constr ~name ~args ~ret = (name, args, ret)
+#endif
+
 let ibool =
   mktype "bool"
-    ~def:(Otyp_sum ["true",[],None; "false",[],None])
+    ~def:(Otyp_sum [out_constr ~name:"true" ~args:[] ~ret:None;
+                    out_constr ~name:"false" ~args:[] ~ret:None])
     "The type of booleans (truth values)."
 
 let ilist =
   mktype "list"
     ~params:["'a"]
-    ~def:(Otyp_sum ["[]", [], None;
-                    "::", [var "a"; constr ~params:["a"] (n "list")], None])
+    ~def:(Otyp_sum [out_constr ~name:"[]" ~args:[] ~ret:None;
+                    out_constr ~name:"::" ~args:[var "a"; constr ~params:["a"] (n "list")] ~ret:None])
     "The type of lists whose elements have type 'a."
 
 let ioption =
   mktype "option"
-    ~def:(Otyp_sum ["None",[],None; "Some", [var "a"], None])
+    ~def:(Otyp_sum [out_constr ~name:"None" ~args:[] ~ret:None;
+                    out_constr ~name:"Some" ~args:[var "a"] ~ret:None])
     "The type of optional values of type 'a."
 
 let types = [
