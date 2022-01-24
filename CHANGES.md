@@ -1,3 +1,8 @@
+### 1.3.3
+
+* Support for OCaml 4.14
+* Fixed matching of escapes in strings with ocp-grep
+
 ### 1.3.2
 
 * Fixed a regression in 1.3.0 that prevented detection of hidden dune object
