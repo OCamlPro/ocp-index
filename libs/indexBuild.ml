@@ -238,10 +238,17 @@ let qualify_ty (parents:parents) ty =
     | Otyp_stuff str -> Otyp_stuff str
     | Otyp_sum (strtylisttyoptlist) ->
         Otyp_sum
+#if OCAML_VERSION >= (4,14,0)
+          (List.map (fun {ocstr_name = str; ocstr_args = tylist; ocstr_return_type = tyopt} ->
+               {ocstr_name = str; ocstr_args = List.map aux tylist;
+                ocstr_return_type = match tyopt with Some ty -> Some (aux ty)
+                                                   | None -> None})
+#else
           (List.map (fun (str,tylist,tyopt) ->
                str, List.map aux tylist,
                match tyopt with Some ty -> Some (aux ty)
                               | None -> None)
+#endif
               strtylisttyoptlist)
     | Otyp_tuple (tylist) -> Otyp_tuple (List.map aux tylist)
     | Otyp_var (bl, str) -> Otyp_var (bl, str)
@@ -407,7 +414,10 @@ let doc_of_attributes attrs =
   | _ -> None
   with Not_found -> None
 
-#if OCAML_VERSION >= (4,13,0)
+#if OCAML_VERSION >= (4,14,0)
+let make_type_expr ~desc ~level ~scope ~id =
+  Types.create_expr desc ~level ~scope ~id
+#elif OCAML_VERSION >= (4,13,0)
 let make_type_expr ~desc ~level ~scope ~id =
   Types.Private_type_expr.create desc ~level ~scope ~id
 #elif OCAML_VERSION >= (4,07,0)
@@ -425,7 +435,11 @@ let trie_of_type_decl ?comments info ty_decl =
   | Types.Type_record (fields,_repr) ->
       List.map
         (fun { Types.ld_id; ld_type; ld_attributes } ->
+#if OCAML_VERSION >= (4,14,0)
+          let ty = Printtyp.tree_of_typexp Printtyp.Type ld_type in
+#else
           let ty = Printtyp.tree_of_typexp false ld_type in
+#endif
           let ty =
             Outcometree.Osig_type (Outcometree.({
                 otype_name    = "";
@@ -472,23 +486,39 @@ let trie_of_type_decl ?comments info ty_decl =
 #if OCAML_VERSION >= (4,03,0)
               | Cstr_tuple [] -> Outcometree.Otyp_sum []
               | Cstr_tuple (param::_ as l) ->
+#if OCAML_VERSION >= (4,14,0)
+                     Printtyp.tree_of_typexp Printtyp.Type
+#else
                      Printtyp.tree_of_typexp false
+#endif
                        (make_type_expr
                           ~desc:(Types.Ttuple l)
+#if OCAML_VERSION >= (4,14,0)
+                          ~level:(Types.get_level param)
+#else
                           ~level:param.Types.level
+#endif
 #if OCAML_VERSION >= (4,08,0)
                           ~scope:0
 #elif OCAML_VERSION >= (4,07,0)
                           ~scope:None
 #endif
+#if OCAML_VERSION >= (4,14,0)
+                          ~id:(Types.get_id param))
+#else
                           ~id:param.Types.id)
+#endif
               | Cstr_record params ->
                   Outcometree.Otyp_record (
                     List.map
                       (fun l ->
                          (Ident.name l.Types.ld_id,
                           l.ld_mutable = Mutable,
+#if OCAML_VERSION >= (4,14,0)
+                          Printtyp.tree_of_typexp Printtyp.Type l.ld_type)
+#else
                           Printtyp.tree_of_typexp false l.ld_type)
+#endif
                       )
                       params)
 #else
@@ -760,8 +790,13 @@ let rec trie_of_sig_item
         in
         lazy (List.fold_left (fun t (lbl,_,ty_expr) ->
             if lbl = "*dummy method*" then t else
-              let _ = Printtyp.reset_and_mark_loops ty_expr in
+#if OCAML_VERSION >= (4,14,0)
+              let () = Printtyp.prepare_for_printing [ty_expr] in
+              let ty = Printtyp.tree_of_typexp Printtyp.Type ty_expr in
+#else
+              let () = Printtyp.reset_and_mark_loops ty_expr in
               let ty = Printtyp.tree_of_typexp false ty_expr in
+#endif
               let ty =
                 Outcometree.Osig_type (Outcometree.({
                     otype_name    = "";
