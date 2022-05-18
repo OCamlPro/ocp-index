@@ -27,9 +27,6 @@ open IndexTypes
 *)
 type parents = (string list * t Lazy.t) list
 
-(* Disable the cleverness from the compiler's pretty printers *)
-let () = Printtyp.Naming_context.enable false
-
 (* - Utility functions - *)
 
 open IndexMisc
