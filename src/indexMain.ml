@@ -19,7 +19,10 @@ open Cmdliner
 
 let common_opts = IndexOptions.common_opts ()
 
-let default_cmd =
+let default_cmd = 
+  Term.(ret (const (fun _ -> `Help (`Pager, None)) $ common_opts))
+
+let default_info =
   let man = [
     `S "DESCRIPTION";
     `P "ocp-index is a simple and light-weight documentation extractor for \
@@ -30,8 +33,7 @@ let default_cmd =
   ]
   in
   let doc = "Explore the interfaces of installed OCaml libraries." in
-  Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_opts)),
-  Term.info "ocp-index" ~version:(Ocp_index_version.version) ~doc ~man
+  Cmd.info "ocp-index" ~version:(Ocp_index_version.version) ~doc ~man
 
 let format_man =
   let formats = [
@@ -141,8 +143,10 @@ let complete_cmd =
       List.iter (print fmt) results;
   in
   let doc = "Output completions for a given prefix." in
-  Term.(pure print_compl $ common_opts $ sexpr $ format $ separate $ t),
-  Term.info "complete" ~doc ~man
+  Cmd.v
+    (Cmd.info "complete" ~doc ~man)
+    Term.(const print_compl $ common_opts $ sexpr $ format $ separate $ t)
+  
 
 let type_cmd =
   let man = [
@@ -164,8 +168,10 @@ let type_cmd =
     with Not_found -> exit 2
   in
   let doc = "Print the type of an identifier." in
-  Term.(pure print_ty $ common_opts $ t),
-  Term.info "type" ~doc ~man
+  Cmd.v
+    (Cmd.info "type" ~doc ~man)
+    Term.(const print_ty $ common_opts $ t)
+  
 
 let locate_cmd =
   let man = [
@@ -206,8 +212,10 @@ let locate_cmd =
     | _ -> List.iter (fun id -> print_endline (loc_as_string id)) ids
   in
   let doc = "Get the location where an identifier was defined." in
-  Term.(pure print_loc $ common_opts $ interface $ t),
-  Term.info "locate" ~doc ~man
+  Cmd.v
+    (Cmd.info "locate" ~doc ~man)
+    Term.(const print_loc $ common_opts $ interface $ t)
+  
 
 let print_cmd =
   let man = [
@@ -242,27 +250,27 @@ let print_cmd =
       ids
   in
   let doc = "Print information about an identifier with a custom format." in
-  Term.(pure print $ common_opts $ query $ format $ separate),
-  Term.info "print" ~doc ~man
+  Cmd.v
+    (Cmd.info "print" ~doc ~man)
+    Term.(const print $ common_opts $ query $ format $ separate)  
+
+let full_cmd =
+  Cmd.group ~default:default_cmd default_info
+    [complete_cmd; type_cmd; locate_cmd; print_cmd]
 
 let () =
-  match
-    try
-      Term.eval_choice ~catch:false
-        default_cmd [complete_cmd; type_cmd; locate_cmd; print_cmd]
-    with
-    | LibIndex.Bad_format f ->
-        Printf.eprintf
-          "\r\027[K[ERROR] %S can't be read.\n\
-           It's likely that it belongs to a version of OCaml different from \
-           the one ocp-index was compiled against.\n"
-          f;
-        exit 4
-    | e ->
-        IndexMisc.debug "%s\n" (Printexc.to_string e);
-        if Printexc.backtrace_status () then
-          IndexMisc.debug "%s\n" (Printexc.get_backtrace ());
-        `Error `Exn
+  try
+    exit @@ Cmd.eval ~catch:false full_cmd
   with
-  | `Error _ -> exit 1
-  | _ -> exit 0
+  | LibIndex.Bad_format f ->
+      Printf.eprintf
+        "\r\027[K[ERROR] %S can't be read.\n\
+         It's likely that it belongs to a version of OCaml different from \
+         the one ocp-index was compiled against.\n"
+        f;
+      exit 4
+  | e ->
+      IndexMisc.debug "%s\n" (Printexc.to_string e);
+      if Printexc.backtrace_status () then
+        IndexMisc.debug "%s\n" (Printexc.get_backtrace ());
+      exit 1

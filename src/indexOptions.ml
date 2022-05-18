@@ -98,7 +98,7 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
       if no_stdlib then paths else
         try cmd_input_line "ocamlc -where" :: paths with Failure _ -> paths
     in
-    Term.(pure set_default $ no_stdlib $ no_opamlib $ arg)
+    Term.(const set_default $ no_stdlib $ no_opamlib $ arg)
   in
   let color : bool Term.t =
     let arg =
@@ -118,7 +118,7 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
       | `Never -> false
       | `Auto -> Unix.isatty Unix.stdout
     in
-    Term.(pure to_bool $ arg)
+    Term.(const to_bool $ arg)
   in
   let open_modules : (string list list * string list list) Term.t =
     let arg_open =
@@ -142,7 +142,7 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
         info ["F";"full-open"] ~docv:"MODULES" ~doc
       )
     in
-    Term.(pure (fun o fo -> List.flatten o, List.flatten fo)
+    Term.(const (fun o fo -> List.flatten o, List.flatten fo)
           $ arg_open $ arg_full_open)
   in
   let filter : filter_kind Term.t =
@@ -176,7 +176,7 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
              ~docv:"LIST")
     in
     Term.(
-      pure (fun show hide ->
+      const (fun show hide ->
           let f key = List.mem key show ||
                       List.mem key default_filter &&
                       not (List.mem key hide)
@@ -206,7 +206,7 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
       | None, (Some b as build) -> Some (Filename.dirname b), build
       | ds -> ds
     in
-    Term.(pure default $ root $ build)
+    Term.(const default $ root $ build)
   in
   let context : (bool * string option * int option * int option) option Term.t =
     let doc = "Will analyse the context at given FILE[:LINE[,COL]] to \
@@ -320,7 +320,7 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
     info
   in
   Term.(
-    pure
+    const
       (fun ocamllib project_dirs opens color filter context ->
          { lib_info = lib_info ocamllib project_dirs opens context;
            color; filter; project_root = fst project_dirs })

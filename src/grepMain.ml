@@ -196,7 +196,7 @@ module Args = struct
           let dirs, files = List.partition Sys.is_directory fs in
           files @ files_of_dir dirs
     in
-    Term.(pure get_files $ arg)
+    Term.(const get_files $ arg)
 
   let color =
     let arg =
@@ -217,7 +217,7 @@ module Args = struct
       | `Never -> false
       | `Auto -> Unix.isatty Unix.stdout
     in
-    Term.(pure to_bool $ arg)
+    Term.(const to_bool $ arg)
 
   let strings =
     let doc = "Search strings within strings in the source, \
@@ -309,14 +309,17 @@ let () =
   ]
   in
   match
-    Term.eval
-      (Term.(pure grep
-             $ Args.pattern $ Args.files $ Args.color $ Args.strings $ Args.regexp),
-       Term.info "ocp-grep" ~version:(Ocp_grep_version.version) ~doc ~man)
+    let cmd =
+      Cmd.v
+        (Cmd.info "ocp-grep" ~version:(Ocp_grep_version.version) ~doc ~man)
+        Term.(const grep
+               $ Args.pattern $ Args.files $ Args.color $ Args.strings $ Args.regexp)
+    in
+    Cmd.eval_value cmd       
   with
-  | `Ok true -> exit 0
-  | `Ok false -> exit 1
-  | `Error _ -> exit 2
+  | Ok (`Ok true) -> exit 0
+  | Ok (`Ok false) -> exit 1
+  | Error _ -> exit 2
   | _ -> exit 0
 
 (* idea: single utility to color parts of source with syntactic context:
