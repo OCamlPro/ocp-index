@@ -1,7 +1,7 @@
 (library
  (name indexOptions)
  (modules indexOptions)
- (libraries cmdliner ocp-index.lib)
+ (libraries cmdliner ocp-index.lib unix)
  (preprocess
   (action
    (run %{bin:cppo} -V OCAML:%{ocaml_version} %{input-file})))
