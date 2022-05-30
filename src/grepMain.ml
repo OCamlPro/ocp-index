@@ -94,6 +94,11 @@ end = struct
       s
 #endif
     in
+    let modpath =
+      match Dunextract.get_libname f with
+      | Some libname -> [String.capitalize_ascii libname; modname]
+      | None -> [modname]
+    in
     let f (curpath, lookfor, last_scope, acc) scope tok pos =
       let lookfor =
         if scope == last_scope then lookfor
@@ -108,7 +113,7 @@ end = struct
     in
     let _, _, _, matches =
       IndexScope.fold f ([], [], IndexScope.empty, [])
-        ~init:[IndexScope.Open ["Pervasives"]; IndexScope.Open [modname]]
+        ~init:[IndexScope.Open ["Pervasives"]; IndexScope.Open ["Stdlib"]; IndexScope.Open modpath]
         ch
     in
     matches
