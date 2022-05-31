@@ -135,7 +135,11 @@ let find_build_dir path =
   in
   match root with
   | None -> None
-  | Some ("_obuild" | "_build" as dir) -> Some (path / dir)
+  | Some ("_obuild" as dir) -> Some (path / dir)
+  | Some ("_build" as dir) ->
+      if Array.mem "default" (Sys.readdir (path / dir))
+      then Some (path / dir / "default")
+      else Some (path / dir)
   | Some _ -> Some path
 
 let string_split char str =
