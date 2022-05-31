@@ -303,6 +303,7 @@ let with_path_loc ?srcpath loc =
         let lpath = string_split Filename.dir_sep.[0] path in
         let rec aux = function
           | "_build" :: "default" :: r -> r
+          | "_build" :: "install" :: _ -> []
           | "_build" :: r -> r
           | p :: r -> p :: aux r
           | [] -> []
