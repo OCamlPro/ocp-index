@@ -235,50 +235,54 @@ module Args = struct
     Arg.(value & flag & info ["e";"regexp-strings"] ~doc)
 end
 
-let rec rmdups = function
-  | x::(y::_ as l) when x = y -> rmdups l
-  | x::r -> x :: rmdups r
-  | [] -> []
+let rec spaceleft str i =
+  let notspace = function ' ' | '\t' | '\n'-> false | _ -> true in
+  if i >= String.length str || notspace str.[i] then i
+  else spaceleft str (i+1)
 
-let lines_of_file ch lines =
-  let rec aux curline = function
+let lines_of_file ch matches =
+  let rec aux curline overflowing = function
     | [] -> []
-    | l::r when l = curline ->
+    | (l, col, toklen)::r when l <= curline ->
+        if l <> curline then aux curline false r else
         let txt = input_line ch in
-        (l, txt) :: aux (curline+1) r
-    | lines ->
+        let col = if overflowing then col + spaceleft txt 0 else col in
+        let overflow = col - String.length txt + 1 in
+        if overflow < 0 then (l, txt, col, toklen) :: aux (curline+1) false r
+        else
+          aux (curline + 1)
+            (txt.[String.length txt - 1] = '\\')
+            ((l+1, overflow, toklen)::r)
+    | matches ->
         while input_char ch <> '\n' do () done;
-        aux (curline + 1) lines
+        aux (curline + 1) false matches
   in
   seek_in ch 0;
-  aux 1 (rmdups lines)
+  aux 1 false matches
 
 let print_line color =
   if not color then
-    fun file _ (l,txt) -> Printf.printf "%s:%d:%s\n" file l txt
+    fun file (l,txt, _, _) -> Printf.printf "%s:%d:%s\n" file l txt
   else
-    fun file matches (l,txt) ->
+    fun file (l,txt,col,toklen) ->
       let shortfile = IndexMisc.make_relative file in
       Printf.printf "%s\027[36m:\027[m%d\027[36m:\027[m" shortfile l;
-      let m = List.rev (List.filter (fun (l1,_,_) -> l = l1) matches) in
       let len = String.length txt in
-      let offs =
-        List.fold_left (fun offs (_,col,toklen) ->
-            print_string (String.sub txt offs (col - offs));
-            print_string "\027[1;31m";
-            print_string (String.sub txt col (min (len - col) toklen));
-            print_string "\027[m";
-            min len (col + toklen)) 0 m
-      in
-      print_endline (String.sub txt offs (String.length txt - offs))
+      print_string (String.sub txt 0 col);
+      print_string "\027[1;31m";
+      print_string (String.sub txt col (min (len - col) toklen));
+      print_string "\027[m";
+      let rem = len - col - toklen in
+      if rem > 0 then print_string (String.sub txt (col + toklen) rem);
+      print_newline ()
 
 let grep_file finder color file =
   try
     let ch = open_in file in
-    let matches = finder file ch in
+    let matches = List.rev (finder file ch) in
     (if matches <> [] then
-       let lines = lines_of_file ch (List.rev_map (fun (l,_,_) -> l) matches) in
-       List.iter (print_line color file matches) lines);
+       let lines = lines_of_file ch matches in
+       List.iter (print_line color file) lines);
     close_in ch;
     matches <> []
   with Sys_error _ as e ->
