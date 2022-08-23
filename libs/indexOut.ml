@@ -228,8 +228,19 @@ module IndexFormat = struct
     else
       let pos = loc.Location.loc_start in
       let fname = match root with
-        | Some r when Filename.is_relative pos.Lexing.pos_fname ->
-            Filename.concat r pos.Lexing.pos_fname
+        | Some r ->
+           let fname = pos.Lexing.pos_fname in
+           if Filename.is_relative fname then
+             Filename.concat r fname
+           else
+             let pfx = "/workspace_root/" in
+             let len = String.length pfx in
+             (* This magic prefix is used as an alias *)
+             if String.length fname > len && String.sub fname 0 len = pfx then
+               Filename.concat r
+                 (String.sub fname len (String.length fname - len))
+             else
+               pos.Lexing.pos_fname
         | _ -> pos.Lexing.pos_fname
       in
       Format.fprintf fmt "@[<h>%s:%d:%d@]"
