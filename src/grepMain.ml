@@ -119,13 +119,6 @@ end = struct
     matches
 
   let strings_re re _f ch =
-    let line_column str ofs =
-      let rec aux line i =
-        let j = try String.index_from str i '\n' with Not_found -> ofs in
-        if j >= ofs then line, ofs - i
-        else aux (line + 1) (j + 1)
-      in aux 0 0
-    in
     let match_re s =
       let rec aux acc pos =
         let ofs =
@@ -146,11 +139,8 @@ end = struct
             Lexing.(pos.pos_lnum, pos.pos_cnum - pos.pos_bol + 1)
           in
           let s_matches =
-            List.rev_map (fun (ofs,ofs_end) ->
-                let nl, col = line_column s ofs in
-                let col = if nl = 0 then orig_col + ofs else col in
-                (orig_line + nl, col, ofs_end - ofs)
-              )
+            List.rev_map
+              (fun (ofs,ofs_end) -> orig_line, orig_col + ofs, ofs_end - ofs)
               (match_re s)
           in
           aux ns (List.rev_append s_matches matches)
@@ -236,45 +226,84 @@ module Args = struct
 end
 
 let rec spaceleft str i =
-  let notspace = function ' ' | '\t' | '\n'-> false | _ -> true in
+  let notspace = function ' ' | '\t' | '\n' -> false | _ -> true in
   if i >= String.length str || notspace str.[i] then i
   else spaceleft str (i+1)
 
 let lines_of_file ch matches =
-  let rec aux curline overflowing = function
+  let rec seek l0 col0 (curline, txt, n, len as cur) matches acc =
+    (* Seeks a match. The column may possibly overflow the line for multi-line
+       strings *)
+    let txtlen = String.length txt in
+    let esc_nl = txtlen > 0 && txt.[txtlen - 1] = '\\' in
+    let overflow = n - txtlen + (if esc_nl then 1 else 0) in
+    if overflow < 0 then
+      let acc = cur :: acc in
+      match matches with
+      | (l1, col1, len1)::r ->
+          if l1 = l0 then seek l0 col1 (curline, txt, (n + col1 - col0), len1) r acc
+          else if l1 = curline then seek l1 col1 (curline, txt, col1, len1) r acc
+          else matches, curline, acc
+      | matches -> matches, curline, acc
+    else
+      let txt = input_line ch and curline = curline + 1 in
+      let n =
+        if esc_nl then overflow + spaceleft txt 0
+        else overflow - 1 (* accounting for \n *)
+      in
+      seek l0 col0 (curline, txt, n, len) matches acc
+  in
+  let rec aux curline = function
     | [] -> []
-    | (l, col, toklen)::r when l <= curline ->
-        if l <> curline then aux curline false r else
-        let txt = input_line ch in
-        let col = if overflowing then col + spaceleft txt 0 else col in
-        let overflow = col - String.length txt + 1 in
-        if overflow < 0 then (l, txt, col, toklen) :: aux (curline+1) false r
-        else
-          aux (curline + 1)
-            (txt.[String.length txt - 1] = '\\')
-            ((l+1, overflow, toklen)::r)
+    | (l, col, len)::matches when l <= curline + 1 ->
+        let txt = input_line ch and curline = curline + 1 in
+        assert (l = curline);
+        let matches, curline, rets = seek curline col (curline, txt, col, len) matches [] in
+        List.rev_append rets (aux curline matches)
     | matches ->
         while input_char ch <> '\n' do () done;
-        aux (curline + 1) false matches
+        aux (curline + 1) matches
   in
   seek_in ch 0;
-  aux 1 false matches
+  aux 0 matches
 
-let print_line color =
-  if not color then
-    fun file (l,txt, _, _) -> Printf.printf "%s:%d:%s\n" file l txt
-  else
-    fun file (l,txt,col,toklen) ->
-      let shortfile = IndexMisc.make_relative file in
-      Printf.printf "%s\027[36m:\027[m%d\027[36m:\027[m" shortfile l;
-      let len = String.length txt in
-      print_string (String.sub txt 0 col);
-      print_string "\027[1;31m";
-      print_string (String.sub txt col (min (len - col) toklen));
-      print_string "\027[m";
-      let rem = len - col - toklen in
-      if rem > 0 then print_string (String.sub txt (col + toklen) rem);
-      print_newline ()
+let print_lines color file lines =
+  let rec collapse acc lines = match acc, lines with
+    | (l0, txt, accl) :: accr,  (l, _, col, len) :: r when l0 = l ->
+        collapse ((l0, txt, (col, len) :: accl) :: accr) r
+    | acc, (l, txt, col, len) :: r ->
+        collapse ((l, txt, [col, len]) :: acc) r
+    | acc, [] -> List.rev acc
+  in
+  let shortfile = IndexMisc.make_relative file in
+  let lines = collapse [] lines in
+  let print_line =
+    if not color then
+      fun (l,txt, _) -> Printf.printf "%s:%d:%s\n" shortfile l txt
+    else
+      fun (l,txt,toks) ->
+        Printf.printf "%s\027[36m:\027[m%d\027[36m:\027[m" shortfile l;
+        let strlen = String.length txt in
+        let ofs =
+          List.fold_right (fun (col, len) ofs ->
+              let ofs =
+                if ofs < col then
+                  (print_string (String.sub txt ofs (col - ofs));
+                   print_string "\027[1;31m";
+                   col)
+                else ofs
+              in
+              let len = min (strlen - ofs) len in
+              print_string (String.sub txt ofs len);
+              print_string "\027[m";
+              ofs + len)
+            toks 0
+        in
+        if ofs < strlen then
+          print_string (String.sub txt ofs (strlen - ofs));
+        print_newline ()
+  in
+  List.iter print_line lines
 
 let grep_file finder color file =
   try
@@ -282,7 +311,7 @@ let grep_file finder color file =
     let matches = List.rev (finder file ch) in
     (if matches <> [] then
        let lines = lines_of_file ch matches in
-       List.iter (print_line color file) lines);
+       print_lines color file lines);
     close_in ch;
     matches <> []
   with Sys_error _ as e ->
