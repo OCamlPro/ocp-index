@@ -1,3 +1,9 @@
+### 1.3.4
+
+* Fixed to lookup of files, working around latest dune quirks
+* Handle `/workspace_root` virtual path in source locations
+* Fixed ocp-grep (handle implicit opens, multi-line strings bugs)
+
 ### 1.3.3
 
 * Support for OCaml 4.14
