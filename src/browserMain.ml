@@ -1,6 +1,5 @@
 open Lwt.Infix
 open Lwt_react
-open CamomileLibraryDefault.Camomile
 
 (* LibIndex.info contains lazy values, we need a specialized equality. *)
 let rec eq l1 l2 = match l1, l2 with
@@ -135,7 +134,7 @@ let load_bindings () =
   let open LTerm_read_line in
   let open LTerm_key in
   let edit x = Edit (LTerm_edit.Zed x) in
-  let (~/) x = Char (UChar.of_char x) in
+  let (~/) x = Char (Uchar.of_char x) in
   bind [{ control = false; meta = false; shift = false; code = Right }]
     [edit Next_char];
   bind [{ control = false; meta = false; shift = false; code = Left }]
@@ -203,7 +202,7 @@ class virtual line_editor = object(self)
   val mutable event = E.never
   val mutable resolver = None
 
-  method is_valid_char (_c : UChar.t) = true
+  method is_valid_char (_c : Uchar.t) = true
 
   method! can_focus = true
 
@@ -560,13 +559,13 @@ class completion_box options exit =
     method completion_info = completion_info
 
     (** Only insert chars that are valid in OCaml identifiers. *)
-    method! is_valid_char  x = try match UChar.char_of x with
+    method! is_valid_char  x = try match Uchar.to_char x with
       | 'a'..'z' | 'A'..'Z' | '0'..'9' | '_' | '\'' | '#'
       | '!'|'$'|'%'|'&'|'*'|'+'|'-'|'.'|'/'
       | ':'|'<'|'='|'>'|'?'|'@'|'^'|'|'|'~'
         -> true
       | _ -> false
-      with UChar.Out_of_range -> false
+      with Invalid_argument _ -> false
 
     method! send_action = function
       (* Exit the app on Break and Interrupt *)
@@ -759,10 +758,10 @@ end
 
 
 (* The list of non-modules kinds. *)
-let value_kind_char_list = List.map UChar.of_char ['t';'e';'c';'k';'v']
+let value_kind_char_list = List.map Uchar.of_char ['t';'e';'c';'k';'v']
 
 (* The list of modules kinds. *)
-let modules_kind_char_list = List.map UChar.of_char ['m';'s']
+let modules_kind_char_list = List.map Uchar.of_char ['m';'s']
 
 (* The list of all kinds. *)
 let kind_char_list = value_kind_char_list @ modules_kind_char_list
@@ -771,7 +770,7 @@ let event_handler (cbox : #completion_box) (sbox:#show_box) options show_help =
   function
   | LTerm_event.Key
       { control = false; meta = true; shift = false; code = Char ch }
-    when ch = UChar.of_char 'a' ->
+    when ch = Uchar.of_char 'a' ->
       let open IndexOptions in
       let fil = options.filter in
       (* Checks if the user didn't re-enabled/disabled everything by himself.
@@ -796,7 +795,7 @@ let event_handler (cbox : #completion_box) (sbox:#show_box) options show_help =
     ->
       let open IndexOptions in
       let fil = options.filter in
-      let new_fil = try match UChar.char_of ch with
+      let new_fil = try match Uchar.to_char ch with
         | 't' -> { fil with t = not fil.t }
         | 'e' -> { fil with e = not fil.e }
         | 'c' -> { fil with c = not fil.c }
@@ -805,7 +804,7 @@ let event_handler (cbox : #completion_box) (sbox:#show_box) options show_help =
         | 'k' -> { fil with k = not fil.k }
         | 'v' -> { fil with v = not fil.v }
         | _ -> fil
-        with UChar.Out_of_range -> fil
+        with Invalid_argument _ -> fil
       in options.filter <- new_fil ;
       cbox#completion ;
       sbox#queue_draw ;
@@ -822,12 +821,12 @@ let event_handler (cbox : #completion_box) (sbox:#show_box) options show_help =
       true
   | LTerm_event.Key
       { control = false ; meta = true ; shift = false ; code = Char c}
-    when c = UChar.of_char 'h' ->
+    when c = Uchar.of_char 'h' ->
       show_help () ;
       true
   | LTerm_event.Key
       { control = false ; meta = false ; shift = false ; code = Char c}
-    when c = UChar.of_char ' ' ->
+    when c = Uchar.of_char ' ' ->
       sbox#toogle_extra_info ;
       sbox#queue_draw ;
       true
