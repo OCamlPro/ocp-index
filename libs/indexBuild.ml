@@ -223,15 +223,28 @@ let qualify_ty (parents:parents) ty =
     let open Outcometree in
     function
     | Otyp_abstract -> Otyp_abstract
+#if OCAML_VERSION >= (5,1,0)
+    | Otyp_alias {non_gen; aliased; alias} -> Otyp_alias {non_gen; aliased = aux aliased; alias}
+#else
     | Otyp_alias (ty, str) -> Otyp_alias (aux ty, str)
+#endif
     | Otyp_arrow (str, ty1, ty2) -> Otyp_arrow (str, aux ty1, aux ty2)
+#if OCAML_VERSION >= (5,1,0)
+    | Otyp_class (id, tylist) -> Otyp_class (qualify id, List.map aux tylist)
+#else
     | Otyp_class (bl, id, tylist) ->
         Otyp_class (bl, qualify id, List.map aux tylist)
+#endif
     | Otyp_constr (id, tylist) ->
         Otyp_constr (qualify id, List.map aux tylist)
     | Otyp_manifest (ty1, ty2) -> Otyp_manifest (aux ty1, aux ty2)
+#if OCAML_VERSION >= (5,1,0)
+    | Otyp_object {fields; open_row} ->
+        Otyp_object {fields = List.map (fun (str,ty) -> str, aux ty) fields; open_row}
+#else
     | Otyp_object (strtylist, blopt) ->
         Otyp_object (List.map (fun (str,ty) -> str, aux ty) strtylist, blopt)
+#endif
     | Otyp_record (strbltylist) ->
         Otyp_record (List.map (fun (str,bl,ty) -> str, bl, aux ty) strbltylist)
     | Otyp_stuff str -> Otyp_stuff str
@@ -251,8 +264,12 @@ let qualify_ty (parents:parents) ty =
               strtylisttyoptlist)
     | Otyp_tuple (tylist) -> Otyp_tuple (List.map aux tylist)
     | Otyp_var (bl, str) -> Otyp_var (bl, str)
+#if OCAML_VERSION >= (5,1,0)
+    | Otyp_variant (var, bl2, strlistopt) -> Otyp_variant (var, bl2, strlistopt)
+#else
     | Otyp_variant (bl, var, bl2, strlistopt) ->
         Otyp_variant (bl, var, bl2, strlistopt)
+#endif
     | Otyp_poly (str, ty) -> Otyp_poly (str, aux ty)
 #if OCAML_VERSION >= (4, 13, 0)
     | Otyp_module (str, fl) ->
@@ -597,6 +614,9 @@ let rec path_of_ocaml = function
   | Path.Pdot (path, s, _) -> path_of_ocaml path @ [s]
 #endif
   | Path.Papply (p1, _p2) -> path_of_ocaml p1
+#if OCAML_VERSION >= (5,1,0)
+  | Pextra_ty (p, _extra_ty) -> path_of_ocaml p
+#endif
 
 let rec trie_of_sig_item
     ?comments ?srcpath implloc_trie (parents:parents) (orig_file:orig_file)
