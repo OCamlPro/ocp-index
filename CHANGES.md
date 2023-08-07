@@ -1,3 +1,8 @@
+### 1.3.5
+
+* Support for OCaml 5.1
+* Explicitely drop support for OCaml < 4.08
+
 ### 1.3.4
 
 * Fixed to lookup of files, working around latest dune quirks
