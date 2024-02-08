@@ -447,7 +447,11 @@ let make_type_expr ~desc ~level ~id =
 
 let trie_of_type_decl ?comments info ty_decl =
   match ty_decl.Types.type_kind with
+#if OCAML_VERSION >= (5,2,0)
+  | Types.Type_abstract _ -> [], comments
+#else
   | Types.Type_abstract -> [], comments
+#endif
   | Types.Type_open -> [], comments
   | Types.Type_record (fields,_repr) ->
       List.map
