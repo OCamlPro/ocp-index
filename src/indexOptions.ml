@@ -74,6 +74,15 @@ let filter_to_string l =
   in
   String.concat "," (List.map pp l)
 
+let initial_cwd = Sys.getcwd ()
+
+let path_sep = if Sys.win32 then ';' else ':'
+
+let parse_path_var s =
+  let l = String.split_on_char path_sep s in
+  let l = List.filter (fun s -> s <> "") l in
+  List.map (fun path -> if Filename.is_relative path then Filename.concat initial_cwd path else path) l
+
 let common_opts ?(default_filter = default_filter) () : t Term.t =
   let ocamllib : string list Term.t =
     let no_stdlib : bool Term.t =
@@ -92,6 +101,11 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
     in
     let set_default no_stdlib no_opamlib includes =
       let paths = List.flatten includes in
+      let paths =
+        match Sys.getenv "OCAMLPATH" with
+        | exception Not_found -> paths
+        | s -> parse_path_var s @ paths
+      in
       let paths =
         if no_opamlib then paths else
           try cmd_input_line "opam config var lib" :: paths
