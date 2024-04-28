@@ -46,9 +46,11 @@ let filter opt info =
   | ModuleType | ClassType -> kinds.s
   | Keyword -> kinds.k
 
+let null_file = if Sys.win32 then "NUL" else "/dev/null"
+
 let cmd_input_line cmd =
   try
-    let ic = Unix.open_process_in (cmd ^ " 2>/dev/null") in
+    let ic = Unix.open_process_in (Printf.sprintf "%s 2>%s" cmd null_file) in
     let r = input_line ic in
     let r =
       let len = String.length r in
