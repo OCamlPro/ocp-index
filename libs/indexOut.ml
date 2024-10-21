@@ -14,6 +14,12 @@
 
 open IndexTypes
 
+#if OCAML_VERSION < (5,3,0)
+module Format_doc = struct
+  let compat = Fun.id
+end
+#endif
+
 let option_iter opt f = match opt with
   | Some x -> f x
   | None -> ()
@@ -118,10 +124,18 @@ module IndexFormat = struct
     | Otyp_abstract -> Format.fprintf fmt "<abstract>"
     | Otyp_manifest (ty,_) -> tydecl fmt ty
     | Otyp_record fields ->
+#if OCAML_VERSION >= (5,3,0)
+        let print_field fmt {olab_name; olab_mut; olab_type} =
+          Format.fprintf fmt "@[<2>%s%s :@ @[%a@]@];"
+            (match olab_mut with Mutable -> "mutable " | Immutable -> "")
+            olab_name
+            (Format_doc.compat !Oprint.out_type) olab_type
+#else
         let print_field fmt (name, mut, arg) =
           Format.fprintf fmt "@[<2>%s%s :@ @[%a@]@];"
             (if mut then "mutable " else "") name
             !Oprint.out_type arg
+#endif
         in
         Format.fprintf fmt "@[<hv 2>{%a}@]"
           (list
@@ -143,20 +157,20 @@ module IndexFormat = struct
               else
                 Format.fprintf fmt "@[<2>%s of@ @[%a@]@]"
                   name
-                  (list !Oprint.out_type
+                  (list (Format_doc.compat !Oprint.out_type)
                      (fun fmt () -> Format.fprintf fmt " *@ "))
                   tyl
           | Some ret_type ->
               if tyl = [] then
                 Format.fprintf fmt "@[<2>%s :@ @[%a@]@]" name
-                  !Oprint.out_type ret_type
+                  (Format_doc.compat !Oprint.out_type) ret_type
               else
                 Format.fprintf fmt "@[<2>%s :@ @[%a -> @[%a@]@]@]"
                   name
-                  (list !Oprint.out_type
+                  (list (Format_doc.compat !Oprint.out_type)
                      (fun fmt () -> Format.fprintf fmt " *@ "))
                   tyl
-                  !Oprint.out_type ret_type
+                  (Format_doc.compat !Oprint.out_type) ret_type
         in
         list print_variant
           ~left:(fun fmt ->
@@ -164,31 +178,31 @@ module IndexFormat = struct
           (fun fmt () -> Format.fprintf fmt "@ | ")
           fmt constrs
     | ty ->
-        !Oprint.out_type fmt ty
+        Format_doc.compat !Oprint.out_type fmt ty
 
   let out_ty fmt ty =
     let open Outcometree in
     match ty with
     | Osig_class (_,_,_,ctyp,_)
     | Osig_class_type (_,_,_,ctyp,_) ->
-        !Oprint.out_class_type fmt ctyp
+        Format_doc.compat !Oprint.out_class_type fmt ctyp
     | Osig_typext ({ oext_args = [] }, _) ->
         Format.pp_print_char fmt '-'
     | Osig_typext ({ oext_args }, _) ->
         list ~paren:true
-          !Oprint.out_type
+          (Format_doc.compat !Oprint.out_type)
           (fun fmt () ->
             Format.pp_print_char fmt ','; Format.pp_print_space fmt ())
           fmt
           oext_args
     | Osig_modtype (_,mtyp)
     | Osig_module (_,mtyp,_) ->
-        !Oprint.out_module_type fmt mtyp
+        Format_doc.compat !Oprint.out_module_type fmt mtyp
 #if OCAML_VERSION >= (4,03,0)
     | Osig_type ({ otype_type },_) ->
         tydecl fmt otype_type
     | Osig_value {oval_type} ->
-        !Oprint.out_type fmt oval_type
+        Format_doc.compat !Oprint.out_type fmt oval_type
     | Osig_ellipsis ->
         Format.fprintf fmt "..."
 #elif OCAML_VERSION >= (4,02,0)

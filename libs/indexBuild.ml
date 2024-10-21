@@ -31,6 +31,10 @@ type parents = (string list * t Lazy.t) list
 
 open IndexMisc
 
+#if OCAML_VERSION >= (5,3,0)
+  module Printtyp = Out_type
+#endif
+
 let orig_file_name = function
   | Cmt f | Cmti f | Cmi f -> f
 
@@ -246,7 +250,11 @@ let qualify_ty (parents:parents) ty =
         Otyp_object (List.map (fun (str,ty) -> str, aux ty) strtylist, blopt)
 #endif
     | Otyp_record (strbltylist) ->
+#if OCAML_VERSION >= (5,3,0)
+        Otyp_record (List.map (fun {olab_name; olab_mut; olab_type} -> {olab_name; olab_mut; olab_type = aux olab_type}) strbltylist)
+#else
         Otyp_record (List.map (fun (str,bl,ty) -> str, bl, aux ty) strbltylist)
+#endif
     | Otyp_stuff str -> Otyp_stuff str
     | Otyp_sum (strtylisttyoptlist) ->
         Otyp_sum
@@ -420,7 +428,9 @@ let doc_of_attributes attrs =
   | _, PStr [{pstr_desc = Pstr_eval ({pexp_desc},_)}] ->
 #endif
       (match pexp_desc with
-#if OCAML_VERSION >= (4,11,0)
+#if OCAML_VERSION >= (5,3,0)
+       | Pexp_constant {pconst_desc = Pconst_string (s,_,_); _} -> Some s
+#elif OCAML_VERSION >= (4,11,0)
        | Pexp_constant (Pconst_string (s,_,_)) -> Some s
 #elif OCAML_VERSION >= (4,03,0)
        | Pexp_constant (Pconst_string (s,_)) -> Some s
@@ -533,12 +543,20 @@ let trie_of_type_decl ?comments info ty_decl =
                   Outcometree.Otyp_record (
                     List.map
                       (fun l ->
+#if OCAML_VERSION >= (5,3,0)
+                         {
+                           Outcometree.olab_name = Ident.name l.Types.ld_id;
+                           olab_mut = l.ld_mutable;
+                           olab_type = Printtyp.tree_of_typexp Printtyp.Type l.ld_type;
+                         }
+#else
                          (Ident.name l.Types.ld_id,
                           l.ld_mutable = Mutable,
 #if OCAML_VERSION >= (4,14,0)
                           Printtyp.tree_of_typexp Printtyp.Type l.ld_type)
 #else
                           Printtyp.tree_of_typexp false l.ld_type)
+#endif
 #endif
                       )
                       params)
