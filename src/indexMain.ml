@@ -14,12 +14,11 @@
 
 (** This module contains the run-time for the command-line ocp-index tool *)
 
-
 open Cmdliner
 
 let common_opts = IndexOptions.common_opts ()
 
-let default_cmd = 
+let default_cmd =
   Term.(ret (const (fun _ -> `Help (`Pager, None)) $ common_opts))
 
 let default_info =
@@ -146,7 +145,7 @@ let complete_cmd =
   Cmd.v
     (Cmd.info "complete" ~doc ~man)
     Term.(const print_compl $ common_opts $ sexpr $ format $ separate $ t)
-  
+
 
 let type_cmd =
   let man = [
@@ -171,7 +170,7 @@ let type_cmd =
   Cmd.v
     (Cmd.info "type" ~doc ~man)
     Term.(const print_ty $ common_opts $ t)
-  
+
 
 let locate_cmd =
   let man = [
@@ -215,7 +214,7 @@ let locate_cmd =
   Cmd.v
     (Cmd.info "locate" ~doc ~man)
     Term.(const print_loc $ common_opts $ interface $ t)
-  
+
 
 let print_cmd =
   let man = [
@@ -252,7 +251,7 @@ let print_cmd =
   let doc = "Print information about an identifier with a custom format." in
   Cmd.v
     (Cmd.info "print" ~doc ~man)
-    Term.(const print $ common_opts $ query $ format $ separate)  
+    Term.(const print $ common_opts $ query $ format $ separate)
 
 let full_cmd =
   Cmd.group ~default:default_cmd default_info
