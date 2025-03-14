@@ -216,33 +216,35 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
                detect e.g. the owning library scope."
     in
     let filepos_converter =
-      (fun str -> match fst (Arg.(pair ~sep:':' string string)) str with
-         | `Ok ("","") -> `Ok (true, None, None, None)
-         | `Ok (file,"") ->
-             (match (fst Arg.non_dir_file) file with
-              | `Ok file -> `Ok (false, Some file, None, None)
-              | `Error e -> `Error e)
-         | `Ok (file,"-") ->
-             (match (fst Arg.string) file with
-              | `Ok file ->
-                  `Ok (true, Some file, None, None)
-              | `Error e -> `Error e)
-         | `Ok (file,pos) ->
-             (match (fst Arg.non_dir_file) file,
-                    (fst (Arg.list Arg.int)) pos with
-              | `Ok file, `Ok [line; col] ->
-                  `Ok (false, Some file, Some line, Some col)
-              | `Ok file, `Ok [line] ->
-                  `Ok (false, Some file, Some line, None)
-              | `Error e, _ | _, `Error e -> `Error e
+      Arg.conv' @@
+      ((fun str ->
+         match Arg.conv_parser (Arg.(pair ~sep:':' string string)) str with
+         | Ok ("","") -> Ok (true, None, None, None)
+         | Ok (file,"") ->
+             (match (Arg.conv_parser Arg.non_dir_file) file with
+              | Ok file -> Ok (false, Some file, None, None)
+              | Error (`Msg e) -> Error e)
+         | Ok (file,"-") ->
+             (match (Arg.conv_parser Arg.string) file with
+              | Ok file ->
+                  Ok (true, Some file, None, None)
+              | Error (`Msg e) -> Error e)
+         | Ok (file,pos) ->
+             (match (Arg.conv_parser Arg.non_dir_file) file,
+                    (Arg.conv_parser (Arg.list Arg.int)) pos with
+              | Ok file, Ok [line; col] ->
+                  Ok (false, Some file, Some line, Some col)
+              | Ok file, Ok [line] ->
+                  Ok (false, Some file, Some line, None)
+              | Error (`Msg e), _ | _, Error (`Msg e) -> Error e
               | _ ->
-                  `Error
+                  Error
                     (Printf.sprintf "Wrong file position %S, should be \
                                      <line> or <line>,<col>" pos))
-         | `Error _ ->
-             (match (fst Arg.non_dir_file) str with
-              | `Ok file -> `Ok (false, Some file, None, None)
-              | `Error e -> `Error e)),
+         | Error _ ->
+             (match (Arg.conv_parser Arg.non_dir_file) str with
+              | Ok file -> Ok (false, Some file, None, None)
+              | Error (`Msg e) -> Error e)),
       (fun fmt (use_stdin,file,line,col) ->
          let opt f fmt = function None -> () | Some x -> f fmt x in
          Format.fprintf fmt "%a%s%s%a%a"
@@ -250,7 +252,7 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
            (if file = None || line <> None then ":" else "")
            (if use_stdin && file <> None then "-" else "")
            (opt Format.pp_print_int) line
-           (opt Format.pp_print_int) col)
+           (opt Format.pp_print_int) col))
     in
     Arg.(value & opt (some filepos_converter) None
          & info ["context"] ~docv:"FILEPOS" ~doc)
