@@ -199,14 +199,22 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
       let doc = "Set the current project build dir (default: try to guess)" in
       Arg.(value & opt (some string) None & info ["build"] ~docv:"DIR" ~doc)
     in
-    let default root build =
-      match root, build with
-      | None, None -> IndexMisc.project_root ()
-      | Some r as root, None -> root, IndexMisc.find_build_dir r
-      | None, (Some b as build) -> Some (Filename.dirname b), build
-      | ds -> ds
+    let no_build : bool Term.t =
+      let doc = "Don't include the build directory of the current project \
+                 in lookups." in
+      Arg.(value & flag & info ["no-build"] ~doc);
     in
-    Term.(const default $ root $ build)
+    let default root build no_build =
+      if no_build then
+        (root, None)
+      else
+        match root, build with
+        | None, None -> IndexMisc.project_root ()
+        | Some r as root, None -> root, IndexMisc.find_build_dir r
+        | None, (Some b as build) -> Some (Filename.dirname b), build
+        | ds -> ds
+    in
+    Term.(const default $ root $ build $ no_build)
   in
   let context : (bool * string option * int option * int option) option Term.t =
     let doc = "Will analyse the context at given FILE[:LINE[,COL]] to \
