@@ -69,13 +69,8 @@ let load_style () =
     Lwt.return ()
     )
 
-#if OCAML_VERSION >= (4,08,0)
 let pp_open_tag fmt tag = Format.pp_open_stag fmt (Format.String_tag tag)
 let pp_close_tag = Format.pp_close_stag
-#else
-let pp_open_tag = Format.pp_open_tag
-let pp_close_tag = Format.pp_close_tag
-#endif
 
 (** Similar to {!LTerm_text.pp_with_style} but with no typing restriction. *)
 let pp_with_style to_style =

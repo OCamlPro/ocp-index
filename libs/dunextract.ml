@@ -61,7 +61,7 @@ let rec cut_list a acc = function
   | [] -> acc, []
 
 let module_eq name = function
-  | A n -> IndexMisc.capitalize n = name
+  | A n -> String.capitalize_ascii n = name
   | _ -> false
 
 let list_find_opt f l = try Some (List.find f l) with Not_found -> None
@@ -127,7 +127,7 @@ let rm_ext f = try Filename.chop_extension f with Invalid_argument _ -> f
 
 let get_libname file =
   let modname =
-    IndexMisc.capitalize (Filename.(basename (rm_ext file)))
+    String.capitalize_ascii (Filename.(basename (rm_ext file)))
   in
   match read_dune (Filename.dirname file) with
   | Some (_, sexp) -> get_lib_name modname sexp

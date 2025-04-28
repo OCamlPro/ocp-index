@@ -198,24 +198,12 @@ module IndexFormat = struct
     | Osig_modtype (_,mtyp)
     | Osig_module (_,mtyp,_) ->
         Format_doc.compat !Oprint.out_module_type fmt mtyp
-#if OCAML_VERSION >= (4,03,0)
     | Osig_type ({ otype_type },_) ->
         tydecl fmt otype_type
     | Osig_value {oval_type} ->
         Format_doc.compat !Oprint.out_type fmt oval_type
     | Osig_ellipsis ->
         Format.fprintf fmt "..."
-#elif OCAML_VERSION >= (4,02,0)
-    | Osig_type ({ otype_type },_) ->
-        tydecl fmt otype_type
-    | Osig_value (_,ty,_) ->
-        !Oprint.out_type fmt ty
-#else
-    | Osig_type ((_,_,ty,_,_),_) ->
-        tydecl fmt ty
-    | Osig_value (_,ty,_) ->
-        !Oprint.out_type fmt ty
-#endif
 
   let ty ?(colorise = no_color) fmt id =
     option_iter id.ty
