@@ -70,7 +70,11 @@ let mkvariant name parent params = {
       { otype_name    = "";
         otype_params  = [];
         otype_type    = (match params with [] -> Otyp_sum []
+#if OCAML_VERSION >= (5,4,0)
+                                         | l  -> Otyp_tuple (List.map (fun x -> (None, x)) l));
+#else
                                          | l  -> Otyp_tuple l);
+#endif
         otype_private = Asttypes.Public;
   #if OCAML_VERSION >= (4,03,0)
     #if OCAML_VERSION >= (4,10,0)

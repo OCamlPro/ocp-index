@@ -270,7 +270,11 @@ let qualify_ty (parents:parents) ty =
                               | None -> None)
 #endif
               strtylisttyoptlist)
+#if OCAML_VERSION >= (5,4,0)
+    | Otyp_tuple tylist -> Otyp_tuple (List.map (fun (label, x) -> (label, aux x)) tylist)
+#else
     | Otyp_tuple (tylist) -> Otyp_tuple (List.map aux tylist)
+#endif
     | Otyp_var (bl, str) -> Otyp_var (bl, str)
 #if OCAML_VERSION >= (5,1,0)
     | Otyp_variant (var, bl2, strlistopt) -> Otyp_variant (var, bl2, strlistopt)
@@ -279,7 +283,10 @@ let qualify_ty (parents:parents) ty =
         Otyp_variant (bl, var, bl2, strlistopt)
 #endif
     | Otyp_poly (str, ty) -> Otyp_poly (str, aux ty)
-#if OCAML_VERSION >= (4, 13, 0)
+#if OCAML_VERSION >= (5, 4, 0)
+    | Otyp_module {opack_path; opack_cstrs} ->
+        Otyp_module {opack_path; opack_cstrs = List.map (fun (s, ty) -> (s, aux ty)) opack_cstrs}
+#elif OCAML_VERSION >= (4, 13, 0)
     | Otyp_module (str, fl) ->
         Otyp_module (str, List.map (fun (s, ty) -> (s, aux ty)) fl)
 #else
@@ -523,7 +530,11 @@ let trie_of_type_decl ?comments info ty_decl =
                      Printtyp.tree_of_typexp false
 #endif
                        (make_type_expr
+#if OCAML_VERSION >= (5,4,0)
+                          ~desc:(Types.Ttuple (List.map (fun x -> (None, x)) l))
+#else
                           ~desc:(Types.Ttuple l)
+#endif
 #if OCAML_VERSION >= (4,14,0)
                           ~level:(Types.get_level param)
 #else
