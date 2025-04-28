@@ -18,11 +18,7 @@ open Outcometree
 (* List and doc taken from
    http://caml.inria.fr/pub/docs/manual-ocaml/manual034.html (4.00.1) *)
 
-#if OCAML_VERSION >= (4,08,0)
-  let n s = {printed_name = s}
-#else
-  let n s = s
-#endif
+let n s = {printed_name = s}
 
 let mktype name ?(params=[]) ?(def=Otyp_abstract) doc = {
   path = [];
@@ -44,16 +40,12 @@ let mktype name ?(params=[]) ?(def=Otyp_abstract) doc = {
   #endif
         otype_type    = def;
         otype_private = Asttypes.Public;
-  #if OCAML_VERSION >= (4,03,0)
     #if OCAML_VERSION >= (4,10,0)
         otype_immediate = Type_immediacy.Unknown;
     #else
         otype_immediate = false;
     #endif
-    #if OCAML_VERSION >= (4,04,0)
         otype_unboxed = false;
-    #endif
-  #endif
         otype_cstrs   = [] }, Orec_not));
 loc_sig = Lazy.from_val Location.none;
   loc_impl = Lazy.from_val Location.none;
@@ -76,16 +68,12 @@ let mkvariant name parent params = {
                                          | l  -> Otyp_tuple l);
 #endif
         otype_private = Asttypes.Public;
-  #if OCAML_VERSION >= (4,03,0)
     #if OCAML_VERSION >= (4,10,0)
         otype_immediate = Type_immediacy.Unknown;
     #else
         otype_immediate = false ;
     #endif
-    #if OCAML_VERSION >= (4,04,0)
         otype_unboxed = false;
-    #endif
-  #endif
         otype_cstrs   = [] }, Orec_not));
   loc_sig = Lazy.from_val Location.none;
   loc_impl = Lazy.from_val Location.none;

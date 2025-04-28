@@ -190,20 +190,6 @@ let project_root ?(path=Sys.getcwd()) () =
   | None -> None, None
   | Some (root, build) -> Some root, Some build
 
-let capitalize =
-#if OCAML_VERSION >= (4,03,0)
-    String.capitalize_ascii
-#else
-    String.capitalize
-#endif
-
-let lowercase =
-#if OCAML_VERSION >= (4,03,0)
-    String.lowercase_ascii
-#else
-    String.lowercase
-#endif
-
 let file_extension f =
   try let i = String.rindex f '.' in String.sub f (i+1) (String.length f - i - 1)
   with Not_found -> ""

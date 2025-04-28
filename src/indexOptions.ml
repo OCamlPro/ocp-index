@@ -297,7 +297,7 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
                 match IndexScope.from_dot_merlin (Filename.dirname f) with
                 | _::_ as opens -> opens
                 | [] -> match Dunextract.get_libname f with
-                  | Some libname -> [Open [IndexMisc.capitalize libname]]
+                  | Some libname -> [Open [String.capitalize_ascii libname]]
                   | None -> []
           in
           let info =
