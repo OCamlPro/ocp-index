@@ -911,17 +911,19 @@ let run options () =
     fun () -> main options
   )
 
-let main_term : unit Cmdliner.Term.t * Cmdliner.Term.info =
+let main_term : unit Cmdliner.Cmd.t =
   let open Cmdliner in
   let doc = "Interactively completes and prints documentation." in
   let man = [`S "DESCRIPTION"; `P "See alt+h for help."] in
-  Term.(pure run
+  let version = Ocp_browser_version.version in
+  Cmd.v (Cmd.info "ocp-browser" ~version ~doc ~man) @@
+  Term.(const run
         $ IndexOptions.common_opts ~default_filter:[`T;`V;`E;`C;`M;`S;`K] ()
-        $ pure ()),
-  Term.info "ocp-browser" ~version:(Ocp_browser_version.version) ~doc ~man
+        $ const ())
+
 
 let () =
-  match Cmdliner.Term.eval main_term
+  match Cmdliner.Cmd.eval_value main_term
   with
-  | `Error _ -> exit 1
-  | _ -> exit 0
+  | Error _ -> exit 1
+  | Ok _ -> exit 0
