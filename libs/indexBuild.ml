@@ -235,7 +235,9 @@ let qualify_ty (parents:parents) ty =
         Otyp_object (List.map (fun (str,ty) -> str, aux ty) strtylist, blopt)
 #endif
     | Otyp_record (strbltylist) ->
-#if OCAML_VERSION >= (5,3,0)
+#if OCAML_VERSION >= (5,4,0)
+        Otyp_record (List.map (fun {olab_name; olab_mut; olab_atomic; olab_type} -> {olab_name; olab_mut; olab_atomic; olab_type = aux olab_type}) strbltylist)
+#elif OCAML_VERSION >= (5,3,0)
         Otyp_record (List.map (fun {olab_name; olab_mut; olab_type} -> {olab_name; olab_mut; olab_type = aux olab_type}) strbltylist)
 #else
         Otyp_record (List.map (fun (str,bl,ty) -> str, bl, aux ty) strbltylist)
@@ -484,6 +486,9 @@ let trie_of_type_decl ?comments info ty_decl =
                          {
                            Outcometree.olab_name = Ident.name l.Types.ld_id;
                            olab_mut = l.ld_mutable;
+#if OCAML_VERSION >= (5,4,0)
+                           olab_atomic = l.ld_atomic;
+#endif
                            olab_type = Printtyp.tree_of_typexp Printtyp.Type l.ld_type;
                          }
 #else
