@@ -1,3 +1,7 @@
+### 1.3.8
+
+* Support for OCaml 5.4
+
 ### 1.3.7
 
 * Support for OCaml 5.3
