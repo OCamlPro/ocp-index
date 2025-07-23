@@ -1,5 +1,5 @@
 opam-version: "2.0"
-version: "1.3.8"
+version: "1.4.0"
 maintainer: "louis.gesbert@ocamlpro.com"
 synopsis:
   "Lightweight completion and documentation browsing for OCaml libraries"

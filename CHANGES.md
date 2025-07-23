@@ -1,6 +1,10 @@
-### 1.3.8
+### 1.4.0
 
 * Support for OCaml 5.4
+* Add --no-build flag to skip lookup in build directories
+* Compatibility with cmdliner 2.0
+* Fix for running commands on Windows
+* Handle OCAMLPATH environment variable
 
 ### 1.3.7
 
