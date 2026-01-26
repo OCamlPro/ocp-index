@@ -227,7 +227,14 @@ let qualify_ty (parents:parents) ty =
     | Otyp_constr (id, tylist) ->
         Otyp_constr (qualify id, List.map aux tylist)
     | Otyp_manifest (ty1, ty2) -> Otyp_manifest (aux ty1, aux ty2)
-#if OCAML_VERSION >= (5,1,0)
+#if OCAML_VERSION >= (5,5,0)
+    | Otyp_object {fields; row} ->
+        let row = match row with
+          | Orow_closed | Orow_open_anonymous -> row
+          | Orow_open ty -> Orow_open (aux ty)
+        in
+        Otyp_object {fields = List.map (fun (str,ty) -> str, aux ty) fields; row}
+#elif OCAML_VERSION >= (5,1,0)
     | Otyp_object {fields; open_row} ->
         Otyp_object {fields = List.map (fun (str,ty) -> str, aux ty) fields; open_row}
 #else
@@ -270,7 +277,10 @@ let qualify_ty (parents:parents) ty =
         Otyp_variant (bl, var, bl2, strlistopt)
 #endif
     | Otyp_poly (str, ty) -> Otyp_poly (str, aux ty)
-#if OCAML_VERSION >= (5, 4, 0)
+#if OCAML_VERSION >= (5, 5, 0)
+    | Otyp_module out_pkg ->
+        Otyp_module (qualify_out_pkg out_pkg)
+#elif OCAML_VERSION >= (5, 4, 0)
     | Otyp_module {opack_path; opack_cstrs} ->
         Otyp_module {opack_path; opack_cstrs = List.map (fun (s, ty) -> (s, aux ty)) opack_cstrs}
 #elif OCAML_VERSION >= (4, 13, 0)
@@ -282,6 +292,15 @@ let qualify_ty (parents:parents) ty =
 #endif
     | Otyp_open -> Otyp_open
     | Otyp_attribute (ty,attr) -> Otyp_attribute (aux ty, attr)
+#if OCAML_VERSION >= (5, 5, 0)
+    | Otyp_external s -> Otyp_external s
+    | Otyp_functor (str, id, out_pkg, ty) ->
+      Otyp_functor (str, qualify id, qualify_out_pkg out_pkg, aux ty)
+  and qualify_out_pkg {opack_path; opack_constraints} =
+    { opack_path;
+      opack_constraints = List.map (fun (s, ty) -> (s, aux ty)) opack_constraints;
+    }
+#endif
   in
   aux ty
 
@@ -293,8 +312,14 @@ let qualify_ty_in_sig_item (parents:parents) =
   | Osig_type (out_type_decl, rc) ->
       Osig_type ({ out_type_decl with
         otype_type  = qual out_type_decl.otype_type;
+#if OCAML_VERSION >= (5, 5, 0)
+        otype_constraints = List.map (fun (ty1,ty2) -> qual ty1, qual ty2)
+            out_type_decl.otype_constraints;
+#else
         otype_cstrs = List.map (fun (ty1,ty2) -> qual ty1, qual ty2)
-            out_type_decl.otype_cstrs }, rc)
+            out_type_decl.otype_cstrs;
+#endif
+                 }, rc)
 
   | Osig_value o -> Osig_value {o with oval_type = qual o.oval_type}
 
@@ -407,6 +432,9 @@ let trie_of_type_decl ?comments info ty_decl =
   | Types.Type_abstract -> [], comments
 #endif
   | Types.Type_open -> [], comments
+#if OCAML_VERSION >= (5,5,0)
+  | Types.Type_external _ -> [], comments
+#endif
   | Types.Type_record (fields,_repr) ->
       List.map
         (fun { Types.ld_id; ld_type; ld_attributes } ->
@@ -427,7 +455,12 @@ let trie_of_type_decl ?comments info ty_decl =
                 otype_immediate = false;
     #endif
                 otype_unboxed = false;
-                otype_cstrs   = []; }), Outcometree.Orec_not)
+#if OCAML_VERSION >= (5,5,0)
+                otype_constraints = [];
+#else
+                otype_cstrs = [];
+#endif
+            }), Outcometree.Orec_not)
           in
           let doc = doc_of_attributes ld_attributes in
           let id_name = Ident.name ld_id in
@@ -514,7 +547,12 @@ let trie_of_type_decl ?comments info ty_decl =
                 otype_immediate = false;
     #endif
                 otype_unboxed = false;
-                otype_cstrs   = []; }), Outcometree.Orec_not)
+#if OCAML_VERSION >= (5,5,0)
+                otype_constraints = [];
+#else
+                otype_cstrs = [];
+#endif
+            }), Outcometree.Orec_not)
           in
           let doc = doc_of_attributes cd_attributes in
           let id_name = Ident.name cd_id in
@@ -731,7 +769,12 @@ let rec trie_of_sig_item
                     otype_immediate = false;
     #endif
                     otype_unboxed = false;
-                    otype_cstrs   = []; }), Outcometree.Orec_not)
+#if OCAML_VERSION >= (5,5,0)
+                    otype_constraints = [];
+#else
+                    otype_cstrs = [];
+#endif
+                }), Outcometree.Orec_not)
               in
               IndexTrie.add t (string_to_key lbl)
                 { path = path;
