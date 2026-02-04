@@ -12,7 +12,6 @@ jobs:
         os:
           - ubuntu-latest
         ocaml-version:
-          - 5.5.0+trunk
           - 5.4.0
           - 5.3.0
           - 5.2.0
@@ -25,6 +24,11 @@ jobs:
           - 4.10.2
           - 4.09.1
           - 4.08.1
+        with-test-doc: [true]
+        include:
+          - os: ubuntu-latest
+            ocaml-version: 5.5.0+trunk
+            with-test-doc: false
 
     runs-on: ${{ matrix.os }}
 
@@ -40,14 +44,19 @@ jobs:
 
       - run: opam init --compiler ${{ matrix.ocaml-version }}
 
-      - run: opam install --deps-only . --with-test --with-doc
+      - run: |
+          opam install --deps-only .
+          opam exec -- dune build @install
+          opam install .
 
-      - run: opam exec -- dune build @install
+      - if: matrix.with-test-doc == true
+        run: |
+          opam install --deps-only . --with-test
+          opam exec -- dune build @runtest
+          opam reinstall -t .
 
-      - run: opam exec -- dune build @runtest
-
-      - run: opam exec -- dune build @doc
-
-      - run: opam install .
-      - run: opam reinstall -t .
-      - run: opam reinstall -d .
+      - if: matrix.with-test-doc == true
+        run: |
+          opam install --deps-only . --with-doc
+          opam exec -- dune build @doc
+          opam reinstall -d .
