@@ -43,6 +43,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - run: echo 0 | sudo tee /proc/sys/kernel/apparmor_restrict_unprivileged_userns
       - run: sudo apt-get install bubblewrap
 
       - name: Cache restore
