@@ -25,10 +25,14 @@ jobs:
           - 4.09.1
           - 4.08.1
         with-test-doc: [true]
+        package:
+          - ocp-index
+          - ocp-browser
         include:
           - os: ubuntu-latest
             ocaml-version: 5.5.0+trunk
             with-test-doc: false
+            package: ocp-index
 
     runs-on: ${{ matrix.os }}
 
@@ -39,24 +43,46 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - run: echo | sh <(curl -sL https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh) --dev
       - run: sudo apt-get install bubblewrap
 
-      - run: opam init --compiler ${{ matrix.ocaml-version }}
+      - name: Cache restore
+        id: opam-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            ~/.opam
+            /usr/local/bin/opam
+          key: ${{ matrix.os }}-${{ matrix.ocaml-version }}
+
+      - if: steps.opam-cache.outputs.cache-hit != 'true'
+        run: echo | sh <(curl -sL https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh) --dev
+
+      - if: steps.opam-cache.outputs.cache-hit != 'true'
+        run: opam init --compiler ${{ matrix.ocaml-version }}
+
+      - name: Cache save
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            ~/.opam
+            /usr/local/bin/opam
+          key: ${{ matrix.os }}-${{ matrix.ocaml-version }}
+
+      - run: opam pin add --no-action .
 
       - run: |
-          opam install --deps-only .
-          opam exec -- dune build @install
-          opam install .
+          opam install --deps-only ${{ matrix.package }}
+          opam exec -- dune build --only-packages=${{ matrix.package }} @install
+          opam install ${{ matrix.package }}
 
-      - if: matrix.with-test-doc == true
+      - if: matrix.with-test-doc == 'true'
         run: |
-          opam install --deps-only . --with-test
-          opam exec -- dune build @runtest
-          opam reinstall -t .
+          opam install --deps-only --with-test ${{ matrix.package }}
+          opam exec -- dune build --only-packages=${{ matrix.package }} @runtest
+          opam reinstall --with-test ${{ matrix.package }}
 
-      - if: matrix.with-test-doc == true
+      - if: matrix.with-test-doc == 'true'
         run: |
-          opam install --deps-only . --with-doc
-          opam exec -- dune build @doc
-          opam reinstall -d .
+          opam install --deps-only --with-doc ${{ matrix.package }}
+          opam exec -- dune build --only-packages=${{ matrix.package }} @doc
+          opam reinstall --with-doc ${{ matrix.package }}
