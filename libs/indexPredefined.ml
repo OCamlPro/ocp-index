@@ -46,7 +46,12 @@ let mktype name ?(params=[]) ?(def=Otyp_abstract) doc = {
         otype_immediate = false;
     #endif
         otype_unboxed = false;
-        otype_cstrs   = [] }, Orec_not));
+#if OCAML_VERSION >= (5,5,0)
+        otype_constraints = [];
+#else
+        otype_cstrs = [];
+#endif
+     }, Orec_not));
 loc_sig = Lazy.from_val Location.none;
   loc_impl = Lazy.from_val Location.none;
   doc = Lazy.from_val (Some doc);
@@ -74,7 +79,12 @@ let mkvariant name parent params = {
         otype_immediate = false ;
     #endif
         otype_unboxed = false;
-        otype_cstrs   = [] }, Orec_not));
+#if OCAML_VERSION >= (5,5,0)
+        otype_constraints = [];
+#else
+        otype_cstrs = [];
+#endif
+      }, Orec_not));
   loc_sig = Lazy.from_val Location.none;
   loc_impl = Lazy.from_val Location.none;
   doc = Lazy.from_val None;
